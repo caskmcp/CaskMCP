@@ -1,5 +1,9 @@
 # MCPMint
 
+<!-- mcp-name: io.github.tomallicino/mcpmint -->
+
+Mint a minimal, enforceable MCP tool surface from first-party, authorized traffic.
+
 > **MCPMint is a compiler for agent tools.**
 > It mints a minimal, stable, reviewable MCP tool surface from observed traffic (HAR, Playwright) or specs (OpenAPI), then enforces it with approvals, drift checks, and runtime policy.
 

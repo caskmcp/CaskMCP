@@ -24,8 +24,8 @@ using PyPI Trusted Publishing.
 3. Tag and push:
 
 ```bash
-git tag v0.1.0-alpha.3
-git push origin v0.1.0-alpha.3
+git tag v0.1.0-alpha.4
+git push origin v0.1.0-alpha.4
 ```
 
 4. GitHub Actions builds and publishes to PyPI.
