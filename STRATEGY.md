@@ -9,13 +9,13 @@
 ## 1. Positioning
 
 ### The "Hook" (Marketing)
-**"Actionforge: The Traffic-to-MCP Compiler."**  
+**"MCPMint: The Traffic-to-MCP Compiler."**  
 *Pitch:* Turn real browser traffic into safe, runnable MCP servers (Claude Desktop compatible) in seconds. No boilerplate.  
 *Audience:* Developers, Indie Hackers, AI Engineers.  
 *Channels:* Hacker News, X/Twitter, Reddit.
 
 ### The "Truth" (Architecture)
-**"Actionforge: An Action Surface Compiler."**  
+**"MCPMint: An Action Surface Compiler."**  
 *Pitch:* A compiler that transforms raw traffic into versioned, governable tool contracts with drift detection.  
 *Audience:* Platform Engineers, Security Teams, CTOs.  
 *Value:* Prevents runtime tool breakage and reduces unsafe tool calls when APIs change.
