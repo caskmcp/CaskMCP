@@ -1,0 +1,1074 @@
+"""Main CLI entry point for MCPMint."""
+
+import click
+
+from mcpmint import __version__
+from mcpmint.branding import (
+    CLI_PRIMARY_COMMAND,
+    PRODUCT_NAME,
+)
+
+
+@click.group()
+@click.version_option(version=__version__, prog_name=CLI_PRIMARY_COMMAND)
+@click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
+@click.pass_context
+def cli(ctx: click.Context, verbose: bool) -> None:
+    """MCPMint: Action surface compiler for safe, agent-ready tools.
+
+    Turn observed web traffic into contracts, tools, and policies.
+    """
+    ctx.ensure_object(dict)
+    ctx.obj["verbose"] = verbose
+    ctx.obj["brand"] = {
+        "product": PRODUCT_NAME,
+        "primary_command": CLI_PRIMARY_COMMAND,
+    }
+
+
+@cli.command()
+@click.argument("subcommand", type=click.Choice(["import", "record"]))
+@click.argument("source", required=False)
+@click.option(
+    "--allowed-hosts",
+    "-a",
+    multiple=True,
+    required=True,
+    help="Hosts to include (required, repeatable)",
+)
+@click.option("--name", "-n", help="Name for the capture session")
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default=".mcpmint/captures",
+    help="Output directory",
+)
+@click.option("--no-redact", is_flag=True, help="Disable redaction (not recommended)")
+@click.option(
+    "--headless/--no-headless",
+    default=False,
+    show_default=True,
+    help="Run Playwright browser headless in record mode",
+)
+@click.option(
+    "--script",
+    type=click.Path(exists=True),
+    help="Python script with async run(page, context) for scripted capture",
+)
+@click.option(
+    "--duration",
+    type=int,
+    default=30,
+    show_default=True,
+    help="Capture duration in seconds for non-interactive/headless mode",
+)
+@click.pass_context
+def capture(
+    ctx: click.Context,
+    subcommand: str,
+    source: str | None,
+    allowed_hosts: tuple[str, ...],
+    name: str | None,
+    output: str,
+    no_redact: bool,
+    headless: bool,
+    script: str | None,
+    duration: int,
+) -> None:
+    """Import traffic from HAR files or capture with Playwright.
+
+    For 'import': SOURCE is the path to a HAR file.
+    For 'record': SOURCE is the starting URL for browser capture.
+
+    \b
+    Examples:
+      # Import a HAR file
+      mcpmint capture import traffic.har --allowed-hosts api.example.com
+
+      # Record traffic interactively with Playwright
+      mcpmint capture record https://example.com --allowed-hosts api.example.com
+
+    Record mode supports interactive (`--no-headless`), timed headless
+    capture (`--headless --duration`), and scripted automation (`--script`).
+    """
+    from mcpmint.cli.capture import run_capture
+
+    run_capture(
+        subcommand=subcommand,
+        source=source,
+        allowed_hosts=list(allowed_hosts),
+        name=name,
+        output=output,
+        redact=not no_redact,
+        headless=headless,
+        script_path=script,
+        duration_seconds=duration,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@cli.command()
+@click.argument("start_url")
+@click.option(
+    "--allowed-hosts",
+    "-a",
+    multiple=True,
+    required=True,
+    help="Hosts to include (required, repeatable)",
+)
+@click.option("--name", "-n", help="Optional toolpack/session name")
+@click.option(
+    "--scope",
+    "-s",
+    default="agent_safe_readonly",
+    show_default=True,
+    help="Scope to apply during compile",
+)
+@click.option(
+    "--headless/--no-headless",
+    default=True,
+    show_default=True,
+    help="Run browser headless during capture",
+)
+@click.option(
+    "--script",
+    type=click.Path(exists=True),
+    help="Python script with async run(page, context) for scripted capture",
+)
+@click.option(
+    "--duration",
+    type=int,
+    default=30,
+    show_default=True,
+    help="Capture duration in seconds when no script is provided",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default=".mcpmint",
+    show_default=True,
+    help="Output root directory",
+)
+@click.option(
+    "--deterministic/--volatile-metadata",
+    default=True,
+    show_default=True,
+    help="Deterministic metadata by default; use --volatile-metadata for ephemeral IDs/timestamps",
+)
+@click.option(
+    "--print-mcp-config",
+    is_flag=True,
+    help="Print a ready-to-paste Claude Desktop MCP config snippet",
+)
+@click.pass_context
+def mint(
+    ctx: click.Context,
+    start_url: str,
+    allowed_hosts: tuple[str, ...],
+    name: str | None,
+    scope: str,
+    headless: bool,
+    script: str | None,
+    duration: int,
+    output: str,
+    deterministic: bool,
+    print_mcp_config: bool,
+) -> None:
+    """Capture traffic and mint a first-class toolpack for MCP serving.
+
+    \b
+    Example:
+      mcpmint mint https://example.com -a api.example.com --print-mcp-config
+    """
+    from mcpmint.cli.mint import run_mint
+
+    run_mint(
+        start_url=start_url,
+        allowed_hosts=list(allowed_hosts),
+        name=name,
+        scope_name=scope,
+        headless=headless,
+        script_path=script,
+        duration_seconds=duration,
+        output_root=output,
+        deterministic=deterministic,
+        print_mcp_config=print_mcp_config,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@cli.command("openapi")
+@click.argument("source", type=click.Path(exists=True))
+@click.option(
+    "--allowed-hosts",
+    "-a",
+    multiple=True,
+    help="Hosts to include (optional - defaults to spec servers)",
+)
+@click.option("--name", "-n", help="Name for the capture session")
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default=".mcpmint/captures",
+    help="Output directory",
+)
+@click.pass_context
+def openapi_import(
+    ctx: click.Context,
+    source: str,
+    allowed_hosts: tuple[str, ...],
+    name: str | None,
+    output: str,
+) -> None:
+    """Import an OpenAPI specification as a capture.
+
+    This creates a capture session from an existing OpenAPI 3.x spec,
+    allowing you to bootstrap tools from documented APIs.
+
+    \b
+    Examples:
+      mcpmint openapi api-spec.yaml
+      mcpmint openapi openapi.json --name "My API"
+      mcpmint openapi spec.yaml --allowed-hosts api.example.com
+    """
+    from mcpmint.cli.capture import run_capture_openapi
+
+    run_capture_openapi(
+        source=source,
+        allowed_hosts=list(allowed_hosts) if allowed_hosts else None,
+        name=name,
+        output=output,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@cli.command()
+@click.option("--capture", "-c", required=True, help="Capture session ID or path")
+@click.option(
+    "--scope",
+    "-s",
+    default="first_party_only",
+    help="Scope to apply (default: first_party_only)",
+)
+@click.option("--scope-file", type=click.Path(exists=True), help="Path to custom scope YAML")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["mcp-python", "manifest", "openapi", "all"]),
+    default="all",
+    help="Output format",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default=".mcpmint/artifacts",
+    help="Output directory",
+)
+@click.option(
+    "--deterministic/--volatile-metadata",
+    default=True,
+    show_default=True,
+    help="Deterministic artifacts by default; use --volatile-metadata for ephemeral IDs/timestamps",
+)
+@click.pass_context
+def compile(
+    ctx: click.Context,
+    capture: str,
+    scope: str,
+    scope_file: str | None,
+    output_format: str,
+    output: str,
+    deterministic: bool,
+) -> None:
+    """Compile captured traffic into contracts, tools, and policies.
+
+    \b
+    Examples:
+      mcpmint compile --capture cap_20240204_abc123 --scope agent_safe_readonly
+      mcpmint compile --capture ./captures/session.json --format mcp-python
+    """
+    from mcpmint.cli.compile import run_compile
+
+    run_compile(
+        capture_id=capture,
+        scope_name=scope,
+        scope_file=scope_file,
+        output_format=output_format,
+        output_dir=output,
+        verbose=ctx.obj.get("verbose", False),
+        deterministic=deterministic,
+    )
+
+
+@cli.command()
+@click.option("--from", "from_capture", help="Source capture ID")
+@click.option("--to", "to_capture", help="Target capture ID")
+@click.option("--baseline", type=click.Path(exists=True), help="Baseline file path")
+@click.option("--capture", "-c", "capture_id", help="Capture to compare against baseline")
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default=".mcpmint/reports",
+    help="Output directory",
+)
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["json", "markdown", "both"]),
+    default="both",
+    help="Report format",
+)
+@click.option(
+    "--deterministic/--volatile-metadata",
+    default=True,
+    show_default=True,
+    help="Deterministic drift output by default; use --volatile-metadata for ephemeral IDs/timestamps",
+)
+@click.pass_context
+def drift(
+    ctx: click.Context,
+    from_capture: str | None,
+    to_capture: str | None,
+    baseline: str | None,
+    capture_id: str | None,
+    output: str,
+    output_format: str,
+    deterministic: bool,
+) -> None:
+    """Detect drift between captures or against a baseline.
+
+    \b
+    Examples:
+      mcpmint drift --from cap_old --to cap_new
+      mcpmint drift --from cap_old --to cap_new --volatile-metadata
+      mcpmint drift --baseline baseline.json --capture cap_new
+    """
+    from mcpmint.cli.drift import run_drift
+
+    run_drift(
+        from_capture=from_capture,
+        to_capture=to_capture,
+        baseline=baseline,
+        capture_id=capture_id,
+        output_dir=output,
+        output_format=output_format,
+        verbose=ctx.obj.get("verbose", False),
+        deterministic=deterministic,
+    )
+
+
+@cli.command()
+@click.option("--tools", "-t", required=True, type=click.Path(exists=True), help="Tool manifest")
+@click.option(
+    "--toolsets",
+    type=click.Path(exists=True),
+    help="Path to toolsets.yaml artifact (optional)",
+)
+@click.option(
+    "--toolset",
+    help="Named toolset to enforce (optional, defaults to all tools)",
+)
+@click.option("--policy", "-p", required=True, type=click.Path(exists=True), help="Policy file")
+@click.option(
+    "--lockfile",
+    type=click.Path(exists=True),
+    help="Approval lockfile for runtime gating (required in proxy mode unless --unsafe-no-lockfile)",
+)
+@click.option("--port", default=8081, help="Port for gateway")
+@click.option("--audit-log", type=click.Path(), help="Path for audit log")
+@click.option("--dry-run", is_flag=True, help="Evaluate but don't execute")
+@click.option(
+    "--mode", "-m",
+    type=click.Choice(["evaluate", "proxy"]),
+    default="evaluate",
+    help="Mode: evaluate (policy only) or proxy (forward to upstream)",
+)
+@click.option(
+    "--base-url",
+    help="Base URL for upstream API (proxy mode)",
+)
+@click.option(
+    "--auth",
+    "auth_header",
+    help="Authorization header for upstream requests (proxy mode)",
+)
+@click.option(
+    "--confirm-store",
+    default=".mcpmint/confirmations.db",
+    show_default=True,
+    type=click.Path(),
+    help="Path to local out-of-band confirmation store",
+)
+@click.option(
+    "--allow-private-cidr",
+    "allow_private_cidrs",
+    multiple=True,
+    help="Allow private CIDR targets (repeatable; default denies private ranges)",
+)
+@click.option(
+    "--allow-redirects",
+    is_flag=True,
+    help="Allow redirects (each hop is re-validated against allowlists)",
+)
+@click.option(
+    "--unsafe-no-lockfile",
+    is_flag=True,
+    help="Allow proxy mode without lockfile approvals/integrity gating (unsafe escape hatch)",
+)
+@click.pass_context
+def enforce(
+    ctx: click.Context,
+    tools: str,
+    toolsets: str | None,
+    toolset: str | None,
+    policy: str,
+    lockfile: str | None,
+    port: int,
+    audit_log: str | None,
+    dry_run: bool,
+    mode: str,
+    base_url: str | None,
+    auth_header: str | None,
+    confirm_store: str,
+    allow_private_cidrs: tuple[str, ...],
+    allow_redirects: bool,
+    unsafe_no_lockfile: bool,
+) -> None:
+    """Run as a gateway for tool calls with policy enforcement.
+
+    In 'evaluate' mode (default), the gateway evaluates policy and returns
+    allow/deny decisions without making upstream requests.
+
+    In 'proxy' mode, the gateway evaluates policy AND forwards allowed
+    requests to the upstream API, returning real responses.
+
+    \b
+    Examples:
+      # Evaluate mode (policy decisions only)
+      mcpmint enforce --tools tools.json --policy policy.yaml
+
+      # Enforce using a curated toolset
+      mcpmint enforce --tools tools.json --toolsets toolsets.yaml --toolset readonly --policy policy.yaml
+
+      # Proxy mode (forward to upstream, lockfile required by default)
+      mcpmint enforce --tools tools.json --policy policy.yaml \\
+        --mode=proxy --base-url https://api.example.com --auth "Bearer token" \\
+        --lockfile mcpmint.lock.yaml
+
+      # Proxy mode with dry run (evaluate but don't execute)
+      mcpmint enforce --tools tools.json --policy policy.yaml \\
+        --mode=proxy --base-url https://api.example.com --dry-run \\
+        --lockfile mcpmint.lock.yaml
+    """
+    from mcpmint.cli.enforce import run_enforce
+
+    run_enforce(
+        tools_path=tools,
+        toolsets_path=toolsets,
+        toolset_name=toolset,
+        policy_path=policy,
+        port=port,
+        audit_log=audit_log,
+        dry_run=dry_run,
+        verbose=ctx.obj.get("verbose", False),
+        mode=mode,
+        base_url=base_url,
+        auth_header=auth_header,
+        lockfile_path=lockfile,
+        confirmation_store_path=confirm_store,
+        allow_private_cidrs=list(allow_private_cidrs),
+        allow_redirects=allow_redirects,
+        unsafe_no_lockfile=unsafe_no_lockfile,
+    )
+
+
+@cli.command()
+@click.option("--port", default=8080, help="Port to serve on")
+@click.option(
+    "--artifacts",
+    type=click.Path(exists=True),
+    default=".mcpmint/artifacts",
+    help="Artifacts directory",
+)
+@click.option("--host", default="localhost", help="Host to bind")
+@click.pass_context
+def serve(
+    ctx: click.Context,
+    port: int,
+    artifacts: str,
+    host: str,
+) -> None:
+    """Placeholder dashboard command (not implemented yet).
+
+    \b
+    Examples:
+      mcpmint serve --port 8080
+    """
+    from mcpmint.cli.serve import run_serve
+
+    run_serve(
+        port=port,
+        artifacts_dir=artifacts,
+        host=host,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@cli.group()
+def mcp() -> None:
+    """MCP server commands for exposing tools to AI agents.
+
+    The MCP (Model Context Protocol) server exposes your compiled tools
+    as callable actions that AI agents like Claude can use safely.
+    """
+    pass
+
+
+@mcp.command("serve")
+@click.option(
+    "--tools", "-t",
+    type=click.Path(),
+    help="Path to tools.json manifest",
+)
+@click.option(
+    "--toolpack",
+    type=click.Path(exists=True),
+    help="Path to toolpack.yaml (resolves manifest/policy/toolsets paths)",
+)
+@click.option(
+    "--toolsets",
+    type=click.Path(),
+    help="Path to toolsets.yaml (defaults to sibling of --tools if present)",
+)
+@click.option(
+    "--toolset",
+    help="Named toolset to expose (defaults to readonly when toolsets.yaml exists)",
+)
+@click.option(
+    "--policy", "-p",
+    type=click.Path(),
+    help="Path to policy.yaml (optional)",
+)
+@click.option(
+    "--lockfile", "-l",
+    type=click.Path(),
+    help="Path to mcpmint.lock.yaml (optional; enforces approved tools when provided)",
+)
+@click.option(
+    "--base-url",
+    help="Base URL for upstream API (overrides manifest hosts)",
+)
+@click.option(
+    "--auth",
+    "auth_header",
+    help="Authorization header value for upstream requests",
+)
+@click.option(
+    "--audit-log",
+    type=click.Path(),
+    help="Path for audit log file",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Evaluate policy but don't execute upstream calls",
+)
+@click.option(
+    "--confirm-store",
+    default=".mcpmint/confirmations.db",
+    show_default=True,
+    type=click.Path(),
+    help="Path to local out-of-band confirmation store",
+)
+@click.option(
+    "--allow-private-cidr",
+    "allow_private_cidrs",
+    multiple=True,
+    help="Allow private CIDR targets (repeatable; default denies private ranges)",
+)
+@click.option(
+    "--allow-redirects",
+    is_flag=True,
+    help="Allow redirects (each hop is re-validated against allowlists)",
+)
+@click.pass_context
+def mcp_serve(
+    ctx: click.Context,
+    tools: str | None,
+    toolpack: str | None,
+    toolsets: str | None,
+    toolset: str | None,
+    policy: str | None,
+    lockfile: str | None,
+    base_url: str | None,
+    auth_header: str | None,
+    audit_log: str | None,
+    dry_run: bool,
+    confirm_store: str,
+    allow_private_cidrs: tuple[str, ...],
+    allow_redirects: bool,
+) -> None:
+    """Start an MCP server exposing tools from a compiled manifest.
+
+    The server runs on stdio transport, suitable for use with Claude Desktop
+    or other MCP clients. Tools are exposed with policy enforcement,
+    confirmation requirements, and audit logging.
+
+    \b
+    Examples:
+      # Basic usage
+      mcpmint mcp serve --tools .mcpmint/artifacts/*/tools.json
+
+      # Resolve all paths from a toolpack
+      mcpmint mcp serve --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+
+      # Expose a specific curated toolset
+      mcpmint mcp serve --tools tools.json --toolsets toolsets.yaml --toolset readonly
+
+      # With policy enforcement
+      mcpmint mcp serve --tools tools.json --policy policy.yaml
+
+      # With lockfile approval enforcement
+      mcpmint mcp serve --tools tools.json --lockfile mcpmint.lock.yaml
+
+      # With upstream API configuration
+      mcpmint mcp serve --tools tools.json --base-url https://api.example.com --auth "Bearer token123"
+
+      # Dry run mode (no actual API calls)
+      mcpmint mcp serve --tools tools.json --dry-run
+
+    \b
+    Claude Desktop configuration (~/.claude/claude_desktop_config.json):
+      {
+        "mcpServers": {
+          "my-api": {
+            "command": "mcpmint",
+            "args": ["mcp", "serve", "--toolpack", "/path/to/toolpack.yaml"]
+          }
+        }
+      }
+    """
+    from mcpmint.cli.mcp import run_mcp_serve
+
+    run_mcp_serve(
+        tools_path=tools,
+        toolpack_path=toolpack,
+        toolsets_path=toolsets,
+        toolset_name=toolset,
+        policy_path=policy,
+        lockfile_path=lockfile,
+        base_url=base_url,
+        auth_header=auth_header,
+        audit_log=audit_log,
+        dry_run=dry_run,
+        confirmation_store_path=confirm_store,
+        allow_private_cidrs=list(allow_private_cidrs),
+        allow_redirects=allow_redirects,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@mcp.command("meta")
+@click.option(
+    "--artifacts", "-a",
+    type=click.Path(exists=True),
+    help="Path to artifacts directory",
+)
+@click.option(
+    "--tools", "-t",
+    type=click.Path(exists=True),
+    help="Path to tools.json (overrides --artifacts)",
+)
+@click.option(
+    "--policy", "-p",
+    type=click.Path(exists=True),
+    help="Path to policy.yaml (overrides --artifacts)",
+)
+@click.option(
+    "--lockfile", "-l",
+    type=click.Path(),
+    help="Path to lockfile (default: ./mcpmint.lock.yaml)",
+)
+@click.pass_context
+def mcp_meta(
+    ctx: click.Context,  # noqa: ARG001
+    artifacts: str | None,
+    tools: str | None,
+    policy: str | None,
+    lockfile: str | None,
+) -> None:
+    """Start a meta MCP server exposing MCPMint governance tools.
+
+    This server allows AI agents to use MCPMint capabilities directly:
+    - List and inspect available actions
+    - Check if actions would be allowed by policy
+    - View approval status of tools
+    - Get risk summaries
+
+    This enables agents to be governance-aware and make informed decisions.
+
+    \b
+    Examples:
+      # With artifacts directory
+      mcpmint mcp meta --artifacts .mcpmint/artifacts/*/
+
+      # With explicit paths
+      mcpmint mcp meta --tools tools.json --policy policy.yaml
+
+    \b
+    Available tools exposed:
+      - mcpmint_list_actions: List all actions with filtering
+      - mcpmint_check_policy: Check if action allowed by policy
+      - mcpmint_get_approval_status: Get approval status
+      - mcpmint_list_pending_approvals: List pending approvals
+      - mcpmint_get_action_details: Get detailed action info
+      - mcpmint_risk_summary: Get risk tier breakdown
+
+    \b
+    Claude Desktop configuration:
+      {
+        "mcpServers": {
+          "mcpmint": {
+            "command": "mcpmint",
+            "args": ["mcp", "meta", "--tools", "/path/to/tools.json"]
+          }
+        }
+      }
+    """
+    from mcpmint.mcp.meta_server import run_meta_server
+
+    run_meta_server(
+        artifacts_dir=artifacts,
+        tools_path=tools,
+        policy_path=policy,
+        lockfile_path=lockfile,
+    )
+
+
+@cli.group()
+def approve() -> None:
+    """Tool approval workflow for human-in-the-loop governance.
+
+    The approval system tracks tool versions and requires explicit approval
+    for new or changed tools before they can be used.
+    """
+    pass
+
+
+@approve.command("sync")
+@click.option(
+    "--tools", "-t",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to tools.json manifest",
+)
+@click.option(
+    "--policy",
+    type=click.Path(exists=True),
+    help="Path to policy.yaml artifact (defaults to sibling of --tools if present)",
+)
+@click.option(
+    "--toolsets",
+    type=click.Path(exists=True),
+    help="Path to toolsets.yaml artifact (optional)",
+)
+@click.option(
+    "--lockfile", "-l",
+    type=click.Path(),
+    help="Path to lockfile (default: ./mcpmint.lock.yaml)",
+)
+@click.option(
+    "--capture-id",
+    help="Capture ID to associate with this sync",
+)
+@click.option(
+    "--scope",
+    help="Scope name to associate with this sync",
+)
+@click.option(
+    "--deterministic/--volatile-metadata",
+    default=True,
+    show_default=True,
+    help="Deterministic lockfile metadata by default; use --volatile-metadata for ephemeral timestamps",
+)
+@click.pass_context
+def approve_sync(
+    ctx: click.Context,
+    tools: str,
+    policy: str | None,
+    toolsets: str | None,
+    lockfile: str | None,
+    capture_id: str | None,
+    scope: str | None,
+    deterministic: bool,
+) -> None:
+    """Sync lockfile with a tools manifest.
+
+    Compares the manifest against the lockfile and tracks changes:
+    - New tools are added as pending approval
+    - Modified tools require re-approval
+    - Removed tools are tracked but not deleted
+
+    \b
+    Examples:
+      mcpmint approve sync --tools tools.json
+      mcpmint approve sync --tools tools.json --lockfile custom.lock.yaml
+    """
+    from mcpmint.cli.approve import run_approve_sync
+
+    run_approve_sync(
+        tools_path=tools,
+        policy_path=policy,
+        toolsets_path=toolsets,
+        lockfile_path=lockfile,
+        capture_id=capture_id,
+        scope=scope,
+        verbose=ctx.obj.get("verbose", False),
+        deterministic=deterministic,
+    )
+
+
+@approve.command("list")
+@click.option(
+    "--lockfile", "-l",
+    type=click.Path(),
+    help="Path to lockfile (default: ./mcpmint.lock.yaml)",
+)
+@click.option(
+    "--status", "-s",
+    type=click.Choice(["pending", "approved", "rejected"]),
+    help="Filter by approval status",
+)
+@click.pass_context
+def approve_list(
+    ctx: click.Context,
+    lockfile: str | None,
+    status: str | None,
+) -> None:
+    """List tool approvals from the lockfile.
+
+    \b
+    Examples:
+      mcpmint approve list
+      mcpmint approve list --status pending
+      mcpmint approve list --status approved -v
+    """
+    from mcpmint.cli.approve import run_approve_list
+
+    run_approve_list(
+        lockfile_path=lockfile,
+        status_filter=status,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@approve.command("tool")
+@click.argument("tool_ids", nargs=-1)
+@click.option(
+    "--lockfile", "-l",
+    type=click.Path(),
+    help="Path to lockfile (default: ./mcpmint.lock.yaml)",
+)
+@click.option(
+    "--all", "all_pending",
+    is_flag=True,
+    help="Approve all pending tools",
+)
+@click.option(
+    "--toolset",
+    help="Approve tools within a specific toolset",
+)
+@click.option(
+    "--by",
+    "approved_by",
+    help="Who is approving (default: $USER)",
+)
+@click.pass_context
+def approve_tool(
+    ctx: click.Context,
+    tool_ids: tuple[str, ...],
+    lockfile: str | None,
+    all_pending: bool,
+    toolset: str | None,
+    approved_by: str | None,
+) -> None:
+    """Approve one or more tools.
+
+    \b
+    Examples:
+      mcpmint approve tool get_users create_user
+      mcpmint approve tool --all
+      mcpmint approve tool get_users --by security@example.com
+    """
+    from mcpmint.cli.approve import run_approve_tool
+
+    run_approve_tool(
+        tool_ids=tool_ids,
+        lockfile_path=lockfile,
+        all_pending=all_pending,
+        toolset=toolset,
+        approved_by=approved_by,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@approve.command("reject")
+@click.argument("tool_ids", nargs=-1, required=True)
+@click.option(
+    "--lockfile", "-l",
+    type=click.Path(),
+    help="Path to lockfile (default: ./mcpmint.lock.yaml)",
+)
+@click.option(
+    "--reason", "-r",
+    help="Reason for rejection",
+)
+@click.pass_context
+def approve_reject(
+    ctx: click.Context,
+    tool_ids: tuple[str, ...],
+    lockfile: str | None,
+    reason: str | None,
+) -> None:
+    """Reject one or more tools.
+
+    Rejected tools will cause CI checks to fail.
+
+    \b
+    Examples:
+      mcpmint approve reject delete_all_users --reason "Too dangerous"
+      mcpmint approve reject tool1 tool2
+    """
+    from mcpmint.cli.approve import run_approve_reject
+
+    run_approve_reject(
+        tool_ids=tool_ids,
+        lockfile_path=lockfile,
+        reason=reason,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@approve.command("check")
+@click.option(
+    "--lockfile", "-l",
+    type=click.Path(),
+    help="Path to lockfile (default: ./mcpmint.lock.yaml)",
+)
+@click.option(
+    "--toolset",
+    help="Check approval status for a specific toolset only",
+)
+@click.pass_context
+def approve_check(
+    ctx: click.Context,
+    lockfile: str | None,
+    toolset: str | None,
+) -> None:
+    """Check if all tools are approved (for CI).
+
+    Exit codes:
+      0 - All tools approved
+      1 - Pending or rejected tools exist
+      2 - No lockfile found
+
+    \b
+    Examples:
+      mcpmint approve check
+      mcpmint approve check --lockfile custom.lock.yaml
+    """
+    from mcpmint.cli.approve import run_approve_check
+
+    run_approve_check(
+        lockfile_path=lockfile,
+        toolset=toolset,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@cli.group()
+def confirm() -> None:
+    """Out-of-band confirmation workflow for state-changing actions."""
+    pass
+
+
+@confirm.command("grant")
+@click.argument("token_id", required=True)
+@click.option(
+    "--store",
+    "store_path",
+    default=".mcpmint/confirmations.db",
+    show_default=True,
+    type=click.Path(),
+    help="Path to confirmation store",
+)
+@click.pass_context
+def confirm_grant(ctx: click.Context, token_id: str, store_path: str) -> None:
+    """Grant a pending confirmation token."""
+    from mcpmint.cli.confirm import run_confirm_grant
+
+    run_confirm_grant(
+        token_id=token_id,
+        db_path=store_path,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@confirm.command("deny")
+@click.argument("token_id", required=True)
+@click.option(
+    "--store",
+    "store_path",
+    default=".mcpmint/confirmations.db",
+    show_default=True,
+    type=click.Path(),
+    help="Path to confirmation store",
+)
+@click.option("--reason", help="Optional denial reason")
+@click.pass_context
+def confirm_deny(
+    ctx: click.Context,
+    token_id: str,
+    store_path: str,
+    reason: str | None,
+) -> None:
+    """Deny a pending confirmation token."""
+    from mcpmint.cli.confirm import run_confirm_deny
+
+    run_confirm_deny(
+        token_id=token_id,
+        db_path=store_path,
+        reason=reason,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@confirm.command("list")
+@click.option(
+    "--store",
+    "store_path",
+    default=".mcpmint/confirmations.db",
+    show_default=True,
+    type=click.Path(),
+    help="Path to confirmation store",
+)
+@click.pass_context
+def confirm_list(ctx: click.Context, store_path: str) -> None:
+    """List pending confirmation tokens."""
+    from mcpmint.cli.confirm import run_confirm_list
+
+    run_confirm_list(
+        db_path=store_path,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+if __name__ == "__main__":
+    cli()

@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# MCPMint Governance Demo
+#
+# This script demonstrates the complete workflow:
+# 1. Import HAR traffic capture
+# 2. Compile deterministic artifacts
+# 3. Review and approve tools
+# 4. Enforce + expose via MCP
+#
+# Prerequisites:
+#   - pip install mcpmint
+#   - A HAR file from browser DevTools (or use examples/sample.har)
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║        MCPMint: Governance + Enforcement Demo             ║${NC}"
+echo -e "${BLUE}║   Compile, approve, enforce, and expose agent tools          ║${NC}"
+echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+# Check if mcpmint is installed
+if ! command -v mcpmint &> /dev/null; then
+    echo -e "${RED}Error: mcpmint is not installed${NC}"
+    echo "Run: pip install -e ."
+    exit 1
+fi
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEMO_DIR="${SCRIPT_DIR}/.demo_output"
+
+# Clean up any previous demo
+rm -rf "$DEMO_DIR"
+mkdir -p "$DEMO_DIR"
+cd "$DEMO_DIR"
+
+echo -e "${YELLOW}Step 1: Import HAR traffic capture${NC}"
+echo "────────────────────────────────────────────────"
+echo "In a real workflow, you'd export a HAR file from Chrome DevTools."
+echo "We'll use the sample HAR file for this demo."
+echo ""
+
+mcpmint capture import "${SCRIPT_DIR}/sample.har" \
+  --allowed-hosts api.example.com \
+  --name "Demo Session" \
+  --output .mcpmint/captures
+
+CAPTURE_ID=$(ls .mcpmint/captures/ | head -1)
+echo ""
+echo -e "${GREEN}✓ Captured traffic from api.example.com${NC}"
+echo "  Capture ID: ${CAPTURE_ID}"
+echo ""
+
+echo -e "${YELLOW}Step 2: Compile deterministic artifacts${NC}"
+echo "────────────────────────────────────────────────"
+echo "Compiling with 'first_party_only' scope - includes all first-party endpoints."
+echo "(Use 'agent_safe_readonly' for production to restrict to safe GET endpoints)"
+echo ""
+
+mcpmint compile \
+  --capture "${CAPTURE_ID}" \
+  --scope first_party_only \
+  --format all \
+  --output .mcpmint/artifacts
+
+ARTIFACT_DIR=$(ls .mcpmint/artifacts/ | head -1)
+echo ""
+echo -e "${GREEN}✓ Compiled artifacts:${NC}"
+ls -la ".mcpmint/artifacts/${ARTIFACT_DIR}/"
+echo ""
+
+echo "Generated tools:"
+cat ".mcpmint/artifacts/${ARTIFACT_DIR}/tools.json" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for action in data.get('actions', []):
+    risk = action.get('risk_tier', 'low')
+    color = {'low': '\033[32m', 'medium': '\033[33m', 'high': '\033[31m'}.get(risk, '')
+    print(f\"  • {action['name']} [{color}{risk}\033[0m] {action['method']} {action['path']}\")
+"
+echo ""
+
+echo -e "${YELLOW}Step 3: Review and approve tools${NC}"
+echo "────────────────────────────────────────────────"
+echo "Tools require explicit approval before use."
+echo ""
+
+# Sync lockfile
+mcpmint approve sync \
+  --tools ".mcpmint/artifacts/${ARTIFACT_DIR}/tools.json" \
+  --policy ".mcpmint/artifacts/${ARTIFACT_DIR}/policy.yaml" \
+  --toolsets ".mcpmint/artifacts/${ARTIFACT_DIR}/toolsets.yaml" \
+  --lockfile mcpmint.lock.yaml || true
+
+echo ""
+echo "Lockfile created. Let's see what needs approval:"
+mcpmint approve list --lockfile mcpmint.lock.yaml
+echo ""
+
+echo "Approving all tools for the demo..."
+mcpmint approve tool --all --lockfile mcpmint.lock.yaml --by "demo@mcpmint.dev"
+echo ""
+
+echo "CI check (would run in your pipeline):"
+mcpmint approve check --lockfile mcpmint.lock.yaml
+echo ""
+
+echo -e "${YELLOW}Step 4: Runtime enforcement + MCP${NC}"
+echo "────────────────────────────────────────────────"
+echo ""
+echo -e "${BLUE}# Proxy mode with lockfile enables approval + integrity gating:${NC}"
+echo "mcpmint enforce \\"
+echo "  --tools .mcpmint/artifacts/${ARTIFACT_DIR}/tools.json \\"
+echo "  --policy .mcpmint/artifacts/${ARTIFACT_DIR}/policy.yaml \\"
+echo "  --lockfile mcpmint.lock.yaml \\"
+echo "  --mode=proxy --base-url https://api.example.com --auth \"Bearer YOUR_API_TOKEN\""
+echo ""
+echo -e "${BLUE}# If a write is challenged, grant out-of-band:${NC}"
+echo "mcpmint confirm grant <confirmation-token-id>"
+echo ""
+echo "To expose these tools to Claude or other AI agents:"
+echo ""
+echo -e "${BLUE}# Start the MCP server (dry-run mode - no actual API calls)${NC}"
+echo "mcpmint mcp serve \\"
+echo "  --tools .mcpmint/artifacts/${ARTIFACT_DIR}/tools.json \\"
+echo "  --policy .mcpmint/artifacts/${ARTIFACT_DIR}/policy.yaml \\"
+echo "  --dry-run"
+echo ""
+echo -e "${BLUE}# Or with real upstream API:${NC}"
+echo "mcpmint mcp serve \\"
+echo "  --tools .mcpmint/artifacts/${ARTIFACT_DIR}/tools.json \\"
+echo "  --base-url https://api.example.com \\"
+echo "  --auth \"Bearer YOUR_API_TOKEN\""
+echo ""
+echo -e "${BLUE}# Claude Desktop config (~/.claude/claude_desktop_config.json):${NC}"
+cat << 'EOF'
+{
+  "mcpServers": {
+    "my-api": {
+      "command": "mcpmint",
+      "args": [
+        "mcp", "serve",
+        "--tools", "/path/to/tools.json",
+        "--policy", "/path/to/policy.yaml"
+      ]
+    }
+  }
+}
+EOF
+echo ""
+
+echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║                    Demo Complete!                            ║${NC}"
+echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo "What happened:"
+echo "  1. Imported API traffic from HAR file"
+echo "  2. Compiled into versioned, safe tools"
+echo "  3. Created approval lockfile for governance"
+echo "  4. Ready to serve via MCP to AI agents"
+echo ""
+echo "Key files created:"
+echo "  .mcpmint/captures/     - Raw traffic captures"
+echo "  .mcpmint/artifacts/    - Compiled tools, policies, contracts"
+echo "  mcpmint.lock.yaml      - Tool approvals and versions"
+echo ""
+echo "Next steps:"
+echo "  • Add mcpmint.lock.yaml to git for version control"
+echo "  • Run 'mcpmint approve check' in CI to gate deployments"
+echo "  • Use drift detection when APIs change"
+echo ""
+echo -e "Demo output saved to: ${BLUE}${DEMO_DIR}${NC}"

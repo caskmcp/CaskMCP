@@ -1,0 +1,140 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcpmint"
+version = "0.1.0"
+description = "Action surface compiler: turn observed web traffic into safe, versioned, agent-ready tools"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "Tom Allicino" }
+]
+keywords = [
+    "api",
+    "mcp",
+    "tools",
+    "agents",
+    "compiler",
+    "traffic",
+    "har",
+    "openapi",
+    "drift",
+    "policy",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Internet :: WWW/HTTP",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "click>=8.1.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "httpx>=0.25.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "types-PyYAML>=6.0.0",
+]
+mcp = [
+    "mcp>=1.0.0",
+]
+playwright = [
+    "playwright>=1.40.0",
+]
+all = [
+    "mcpmint[dev,mcp,playwright]",
+]
+
+[project.scripts]
+mcpmint = "mcpmint.cli.main:cli"
+
+[project.urls]
+Homepage = "https://github.com/tomallicino/MCPMint"
+Repository = "https://github.com/tomallicino/MCPMint.git"
+Documentation = "https://github.com/tomallicino/MCPMint#readme"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mcpmint"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults
+    "C901",   # too complex
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mcpmint"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["mcpmint"]
+branch = true
+
+[tool.hatch.build]
+exclude = [
+    "/.mcpmint",
+    "/tmp_magic_demo",
+    "/**/__pycache__",
+    "/**/*.pyc",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
