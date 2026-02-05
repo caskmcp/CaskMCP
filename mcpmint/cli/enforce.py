@@ -172,6 +172,7 @@ class EnforcementGateway:
         tools_path: str,
         toolsets_path: str | None,
     ) -> dict[str, Any] | None:
+        resolved: Path | None
         if toolsets_path:
             resolved = Path(toolsets_path)
         else:

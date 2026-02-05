@@ -13,7 +13,7 @@ from mcpmint.models.decision import (
     DecisionType,
     ReasonCode,
 )
-from mcpmint.models.policy import Policy, PolicyRule, RuleType, StateChangingOverride
+from mcpmint.models.policy import Policy, RuleType, StateChangingOverride
 from mcpmint.utils.canonical import canonical_request_digest
 
 

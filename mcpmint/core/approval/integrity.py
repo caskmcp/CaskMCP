@@ -12,8 +12,8 @@ from mcpmint.utils.canonical import (
     canonical_digest,
     canonicalize,
     canonicalize_policy,
-    canonicalize_toolsets,
     canonicalize_tools_manifest,
+    canonicalize_toolsets,
 )
 
 
@@ -24,10 +24,7 @@ def _load_artifact(path: str | Path) -> dict[str, Any]:
 
     suffix = artifact_path.suffix.lower()
     with open(artifact_path) as f:
-        if suffix == ".json":
-            loaded = json.load(f)
-        else:
-            loaded = yaml.safe_load(f)
+        loaded = json.load(f) if suffix == ".json" else yaml.safe_load(f)
     if loaded is None:
         return {}
     if not isinstance(loaded, dict):

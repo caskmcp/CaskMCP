@@ -114,7 +114,7 @@ class PlaywrightCapture:
             CaptureSession containing captured exchanges
         """
         try:
-            from playwright.async_api import async_playwright  # type: ignore[import-not-found]
+            from playwright.async_api import async_playwright
         except ImportError as e:
             raise ImportError(
                 "Playwright is required for capture record mode. "

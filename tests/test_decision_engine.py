@@ -7,7 +7,13 @@ from pathlib import Path
 from mcpmint.core.approval import LockfileManager
 from mcpmint.core.enforce import ConfirmationStore, DecisionEngine, PolicyEngine
 from mcpmint.models.decision import DecisionContext, DecisionRequest
-from mcpmint.models.policy import MatchCondition, Policy, PolicyRule, RuleType, StateChangingOverride
+from mcpmint.models.policy import (
+    MatchCondition,
+    Policy,
+    PolicyRule,
+    RuleType,
+    StateChangingOverride,
+)
 
 
 def _allow_all_policy() -> Policy:
@@ -42,7 +48,6 @@ def _context(
     *,
     action: dict[str, object],
     policy: Policy,
-    confirmation_store: ConfirmationStore,
     lockfile_manager: LockfileManager | None = None,
     artifacts_digest: str = "digest_current",
     lockfile_digest: str | None = None,
@@ -65,7 +70,7 @@ def test_write_requires_confirmation_and_grant_is_single_use(tmp_path: Path) -> 
     store = ConfirmationStore(tmp_path / "confirmations.db")
     engine = DecisionEngine(store)
     action = _manifest_action("POST")
-    context = _context(action=action, policy=_allow_all_policy(), confirmation_store=store)
+    context = _context(action=action, policy=_allow_all_policy())
 
     first = engine.evaluate(
         DecisionRequest(
@@ -130,7 +135,6 @@ def test_integrity_mismatch_denies_before_policy(tmp_path: Path) -> None:
     context = _context(
         action=action,
         policy=policy,
-        confirmation_store=store,
         lockfile_manager=lockfile_manager,
         artifacts_digest="observed_digest",
     )
@@ -158,7 +162,7 @@ def test_state_changing_override_can_disable_step_up(tmp_path: Path) -> None:
     policy.state_changing_overrides = [
         StateChangingOverride(tool_id="sig_create_user", state_changing=False)
     ]
-    context = _context(action=action, policy=policy, confirmation_store=store)
+    context = _context(action=action, policy=policy)
 
     result = engine.evaluate(
         DecisionRequest(

@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 
 def canonicalize(value: Any) -> Any:
@@ -48,7 +48,7 @@ def canonicalize_tools_manifest(payload: dict[str, Any]) -> dict[str, Any]:
     """Canonicalize tools manifest for stable digesting."""
     normalized = dict(payload)
     normalized["actions"] = _canonicalize_actions(list(payload.get("actions", [])))
-    return canonicalize(normalized)
+    return cast(dict[str, Any], canonicalize(normalized))
 
 
 def canonicalize_toolsets(payload: dict[str, Any]) -> dict[str, Any]:
@@ -62,7 +62,7 @@ def canonicalize_toolsets(payload: dict[str, Any]) -> dict[str, Any]:
         }
         for name, data in sorted(toolsets.items(), key=lambda item: item[0])
     }
-    return canonicalize(normalized)
+    return cast(dict[str, Any], canonicalize(normalized))
 
 
 def canonicalize_policy(payload: dict[str, Any]) -> dict[str, Any]:
@@ -93,7 +93,7 @@ def canonicalize_policy(payload: dict[str, Any]) -> dict[str, Any]:
             ),
         )
     ]
-    return canonicalize(normalized)
+    return cast(dict[str, Any], canonicalize(normalized))
 
 
 def canonical_request_digest(

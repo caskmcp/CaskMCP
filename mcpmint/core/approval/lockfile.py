@@ -133,7 +133,7 @@ class LockfileManager:
                         allow_legacy=True,
                     )
                     # Convert tools dict to ToolApproval objects
-                    tools = {}
+                    tools: dict[str, ToolApproval] = {}
                     for tool_id, tool_data in data.get("tools", {}).items():
                         tool = ToolApproval(**tool_data)
                         key = self._approval_key(
@@ -420,9 +420,9 @@ class LockfileManager:
                 changes["unchanged"].append(action_name)
 
         for key in sorted(original_existing_keys - matched_existing_keys):
-            tool = existing_tools.get(key)
-            if tool:
-                changes["removed"].append(tool.name)
+            removed_tool = existing_tools.get(key)
+            if removed_tool:
+                changes["removed"].append(removed_tool.name)
 
         self.lockfile.tools = {
             tool_id: self.lockfile.tools[tool_id]

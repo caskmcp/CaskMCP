@@ -120,7 +120,7 @@ mcpmint mcp serve \
 - `examples/demo.sh` - governance workflow demo
 - `scripts/magic_moment_ci.sh` - unattended CI-style flow
 - `docs/user-guide.md` - practical usage walkthrough
-- `docs/releases/v0.1.0-alpha.1.md` - alpha release notes
+- `docs/releases/v0.1.0-alpha.2.md` - latest alpha release notes
 
 ## Development
 

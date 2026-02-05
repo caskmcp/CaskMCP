@@ -3,6 +3,7 @@
 When the `mcp` package is unavailable (for example in offline test environments),
 provide a minimal shim that supports MCPMint unit tests.
 """
+# mypy: ignore-errors
 
 from __future__ import annotations
 

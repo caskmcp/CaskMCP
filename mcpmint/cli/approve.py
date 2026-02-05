@@ -6,6 +6,7 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import click
 import yaml
@@ -47,7 +48,7 @@ def sync_lockfile(
         manifest = json.load(f)
     resolve_schema_version(manifest, artifact="tools manifest", allow_legacy=True)
 
-    toolsets: dict | None = None
+    toolsets: dict[str, Any] | None = None
     resolved_toolsets: Path | None = None
     if toolsets_path:
         resolved_toolsets = Path(toolsets_path)

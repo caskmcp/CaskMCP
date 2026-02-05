@@ -212,7 +212,7 @@ class MCPMintMCPServer:
         return tool.status == ApprovalStatus.APPROVED
 
     def _register_handlers(self) -> None:
-        @self.server.list_tools()  # type: ignore[no-untyped-call, untyped-decorator]
+        @self.server.list_tools()  # type: ignore[misc]
         async def handle_list_tools() -> list[types.Tool]:
             tools = []
             for action in self.actions.values():
@@ -226,7 +226,7 @@ class MCPMintMCPServer:
                 tools.append(tool)
             return tools
 
-        @self.server.call_tool()  # type: ignore[untyped-decorator]
+        @self.server.call_tool()  # type: ignore[misc]
         async def handle_call_tool(
             name: str,
             arguments: dict[str, Any] | None,
