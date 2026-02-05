@@ -1,5 +1,5 @@
 ```markdown
-# Actionforge Strategy & Roadmap
+# MCPMint Strategy & Roadmap
 
 **Status:** Strategic North Star (Living Document)  
 **Goal:** Build the standard infrastructure for safe, versioned agent-to-API communication.
@@ -28,7 +28,7 @@
 **Objective:** Solve the MCP “cold start” problem: users should be able to capture traffic and immediately run a safe tool server.
 
 1. **Capture Engine**
-   * Support HAR import: `actionforge capture import <traffic.har> --name <capture_name>`
+   * Support HAR import: `mcpmint capture import <traffic.har> --name <capture_name>`
    * **Naming Heuristics:** Use `verb_noun` intent detection with collision handling:
      * `GET /users/{id}` → `get_user`
      * `GET /users` → `list_users`
@@ -49,7 +49,7 @@
      * Target C: OpenAI tool definitions — future
 
 3. **Data Privacy & Redaction (Crucial)**
-   * **Zero-Copy HAR:** Actionforge reads the HAR and extracts normalized definitions. It does **not** copy the raw HAR into the artifact store by default.
+   * **Zero-Copy HAR:** MCPMint reads the HAR and extracts normalized definitions. It does **not** copy the raw HAR into the artifact store by default.
    * **Redaction before persistence:**
      * Headers: `Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `Proxy-Authorization`, common key/token headers
      * Query params: keys matching patterns like `token`, `key`, `auth`, `signature`, `session`
@@ -64,7 +64,7 @@
    * No hardcoded secrets. Ever.
 
 5. **Compiler Target: MCP Adapter (Launch Deliverable)**
-   * Command: `actionforge compile --capture <name_or_id> --format mcp-python`
+   * Command: `mcpmint compile --capture <name_or_id> --format mcp-python`
    * Output: standalone `server.py` using the MCP SDK + `httpx`.
    * **Safety baked in** at runtime:
      * allowlist enforcement (hosts and optional path patterns)
@@ -154,7 +154,7 @@
 **Objective:** Convert adoption into paid controls and automation.
 
 1. **The "Drift Gate" (CI/CD Product)**
-   * GitHub Action: `actionforge/check-drift`
+   * GitHub Action: `mcpmint/check-drift`
    * Runs in PRs:
      * fails if a stable `tool_id` has:
        * breaking change without version bump, or
@@ -182,13 +182,13 @@
 1. The problem: docs drift, writing schemas is boring, full API access for agents is dangerous.
 2. The solution: capture traffic → compile a safe subset → run a tool server.
 3. The demo: capture → compile → agent call → blocked write.
-4. The senior detail: Actionforge detects likely tool moves and proposes mappings so identity stays stable after approval.
+4. The senior detail: MCPMint detects likely tool moves and proposes mappings so identity stays stable after approval.
 
 ---
 
-## 4. Key Differentiators (Why Actionforge)
+## 4. Key Differentiators (Why MCPMint)
 
-| Feature | Generic Generators | Actionforge |
+| Feature | Generic Generators | MCPMint |
 | :--- | :--- | :--- |
 | Input | Swagger/OpenAPI (often stale) | **Real traffic** (truth) |
 | Safety | “Good luck” | **Safe-by-default** + enforcement |
