@@ -1,4 +1,4 @@
-# Actionforge Release Plan (Option B: Ship the Real Wedge)
+# MCPMint Release Plan (Option B: Ship the Real Wedge)
 
 Based on external review feedback. Goal: ship a working end-to-end path that delivers the magic moment.
 
@@ -14,7 +14,7 @@ Based on external review feedback. Goal: ship a working end-to-end path that del
 ## The Gap
 
 The docs promise "capture → compile → run a safe MCP server" but:
-1. `actionforge serve` is not implemented
+1. `mcpmint serve` is not implemented
 2. `compile` outputs manifests, not a runnable MCP server
 3. Enforcer evaluates but doesn't forward/execute requests
 4. No approval lockfile for persistent version/approval tracking
@@ -23,7 +23,7 @@ The docs promise "capture → compile → run a safe MCP server" but:
 
 ### P0: Magic Moment (Must Have)
 
-- [x] **1. MCP Server Output** - `actionforge mcp serve`
+- [x] **1. MCP Server Output** - `mcpmint mcp serve`
   - ~~Generate a runnable MCP server from compiled artifacts~~
   - ~~Option A: Generate Python code using mcp-python SDK~~
   - ~~Option B: Generate config for openapi-mcp-generator~~
@@ -31,7 +31,7 @@ The docs promise "capture → compile → run a safe MCP server" but:
   - Features: policy enforcement, dry-run mode, auth support, audit logging
   - 9 tests, full type checking
 
-- [x] **2. Proxy/Execute Mode** - `actionforge enforce --mode=proxy`
+- [x] **2. Proxy/Execute Mode** - `mcpmint enforce --mode=proxy`
   - Evaluate mode: policy decisions only (default)
   - Proxy mode: evaluate → execute upstream → audit → return
   - Makes governance *real*, not advisory
@@ -57,15 +57,15 @@ The docs promise "capture → compile → run a safe MCP server" but:
       approved_at: null  # Pending approval
       risk_tier: "high"
   ```
-  - `actionforge approve <tool_id>` to approve pending tools
+  - `mcpmint approve <tool_id>` to approve pending tools
   - Drift proposes changes, requires explicit accept
   - CI fails on unapproved tools
 
 - [x] **4. 60-Second Demo Script**
   - Export HAR from browser
-  - `actionforge capture import demo.har --allowed-hosts api.example.com`
-  - `actionforge compile --scope first_party_only --output mcp`
-  - `actionforge serve --port 3000`
+  - `mcpmint capture import demo.har --allowed-hosts api.example.com`
+  - `mcpmint compile --scope first_party_only --output mcp`
+  - `mcpmint serve --port 3000`
   - Claude/agent calls a GET → works
   - Claude/agent calls a POST → blocked/requires confirmation
   - Drift detection when API changes
@@ -77,21 +77,21 @@ The docs promise "capture → compile → run a safe MCP server" but:
   - What's planned (roadmap)
   - One real demo that runs end-to-end
 
-- [x] **6. Record Mode** - `actionforge capture record`
+- [x] **6. Record Mode** - `mcpmint capture record`
   - Use Playwright to capture traffic interactively
   - Launches browser, records API traffic, filters by host
   - Press Ctrl+C to stop recording
 
 - [x] **7. MCP Tool for Agents**
-  - Expose Actionforge itself as an MCP tool
+  - Expose MCPMint itself as an MCP tool
   - Agents can: list actions, evaluate policy, check drift
-  - Meta: use Actionforge to govern Actionforge-generated tools
+  - Meta: use MCPMint to govern MCPMint-generated tools
 
 ### P2: Nice to Have
 
 - [ ] **8. Chrome Extension** (already in plan)
-- [ ] **9. Dashboard UI** - `actionforge serve` with web UI
-- [x] **10. OpenAPI import** - `actionforge openapi`
+- [ ] **9. Dashboard UI** - `mcpmint serve` with web UI
+- [x] **10. OpenAPI import** - `mcpmint openapi`
   - Import OpenAPI 3.0/3.1 specs as capture sessions
   - Bootstrap tools from existing API documentation
 

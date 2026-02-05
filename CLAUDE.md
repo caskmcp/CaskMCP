@@ -96,7 +96,7 @@ Rules:
 - Lint/typecheck commands: ruff check, mypy
 - Primary architecture docs/diagrams live in: SPEC.md
 
-## 9) Actionforge Design Principles
+## 9) MCPMint Design Principles
 - **Safe by default**: All capture/enforcement requires explicit allowlists
 - **First-party only**: Third-party requests excluded unless explicitly included
 - **Redaction on**: Remove sensitive data (cookies, tokens, PII) by default

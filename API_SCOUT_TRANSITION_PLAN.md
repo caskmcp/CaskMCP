@@ -1,6 +1,6 @@
-## Project Summary: **Actionforge**
+## Project Summary: **MCPMint**
 
-**Actionforge** is an open-core “action surface compiler” that turns observed web/API behavior into **safe, versioned, agent-ready tools (MCP servers)** with **drift detection** and **enforcement guardrails**.
+**MCPMint** is an open-core “action surface compiler” that turns observed web/API behavior into **safe, versioned, agent-ready tools (MCP servers)** with **drift detection** and **enforcement guardrails**.
 
 It is a refactor and reframe of the current API Scout repo. We are not building a recon framework. We are building a **behavior → contract → tools → policy** pipeline.
 
@@ -10,9 +10,9 @@ The first thing you should do is get a comprehensive understanding of the API Sc
 
 ---
 
-# 1) What Actionforge is
+# 1) What MCPMint is
 
-Actionforge converts **real traffic** (captured via Playwright/HAR/proxy) into four durable artifacts:
+MCPMint converts **real traffic** (captured via Playwright/HAR/proxy) into four durable artifacts:
 
 1. **Contract**
 
@@ -34,7 +34,7 @@ Actionforge converts **real traffic** (captured via Playwright/HAR/proxy) into f
 * Structured diff between runs (or between observed behavior and an existing spec).
 * Drift is classified by risk and can trigger alerts or blocks.
 
-Actionforge’s killer feature is your current “focus mode,” elevated into a first-class abstraction called **Scopes**.
+MCPMint's killer feature is our current “focus mode,” elevated into a first-class abstraction called **Scopes**.
 
 ---
 
@@ -46,19 +46,19 @@ Modern systems have three reality gaps:
 
 Specs and docs drift from what production actually does. Teams stop trusting contracts.
 
-**Actionforge solves this** by generating contracts from behavior, continuously.
+**MCPMint solves this** by generating contracts from behavior, continuously.
 
 ## Gap B: “Tool surfaces are unsafe”
 
 Agents and automation need tools with strict schemas and guardrails. Most real systems do not have them.
 
-**Actionforge solves this** by compiling a safe, minimal, allowlisted tool surface.
+**MCPMint solves this** by compiling a safe, minimal, allowlisted tool surface.
 
 ## Gap C: “Change is silent”
 
 Breaking changes and risky new behavior show up as subtle runtime drift.
 
-**Actionforge solves this** by detecting and classifying drift, then enforcing “block on unknown” policies when needed.
+**MCPMint solves this** by detecting and classifying drift, then enforcing “block on unknown” policies when needed.
 
 ---
 
@@ -84,9 +84,9 @@ Breaking changes and risky new behavior show up as subtle runtime drift.
 
 ---
 
-# 4) What makes it “Actionforge” (the differentiator)
+# 4) What makes it MCPMint (the differentiator)
 
-Actionforge is not “API discovery.” It is a **compiler**.
+MCPMint is not “API discovery.” It is a **compiler**.
 
 ### Input
 
@@ -201,7 +201,7 @@ Output includes:
 
 ## Pillar 4: Enforce (Agent Firewall mode)
 
-Actionforge can operate as a gate in front of tools:
+MCPMint can operate as a gate in front of tools:
 
 * evaluate every proposed call against policy
 * if outside allowlist: block
@@ -262,30 +262,30 @@ Scopes are how people will adopt it:
 
 ## CLI commands (proposed)
 
-### `actionforge capture`
+### `mcpmint capture`
 
 * Runs Playwright capture (or imports)
 * Output: `captures/<capture_id>/raw.har` + normalized events
 
-### `actionforge compile`
+### `mcpmint compile`
 
 * `--capture <id>`
 * `--scope <scope_name>`
 * Outputs: contract, tool manifest, policy, baseline snapshot
 
-### `actionforge drift`
+### `mcpmint drift`
 
 * `--from <capture_id_or_baseline>`
 * `--to <capture_id>`
 * Outputs: drift.json + drift.md summary
 * Exit codes: non-zero on breaking/risk drift for CI gating
 
-### `actionforge serve`
+### `mcpmint serve`
 
 * Local dashboard for browsing surfaces and drift
 * Optional, can remain a later phase
 
-### `actionforge enforce`
+### `mcpmint enforce`
 
 * Run as a local gateway for tool calls
 * Reads: tool manifest + policy
@@ -388,7 +388,7 @@ These defaults are what keep the project credible and broadly adoptable:
 * Focus mode concept
 * Any MCP integration scaffolding (reframed to tool surfaces and guardrails)
 
-## Change (to align with Actionforge)
+## Change (to align with MCPMint)
 
 * Replace “recon” framing with compiler framing
 * Replace feature names that imply offensive use
@@ -456,7 +456,7 @@ If you want revenue quickly:
 
 1. Offer a paid “Drift + Agent Safety Assessment”
 
-* You install Actionforge, generate artifacts, deliver a drift/risk report.
+* You install MCPMint, generate artifacts, deliver a drift/risk report.
 
 2. Convert to subscription
 
@@ -471,7 +471,7 @@ Open-core keeps adoption friction low.
 
 # 14) Definition of done for v1
 
-Actionforge v1 is “done” when:
+MCPMint v1 is “done” when:
 
 * You can take a HAR or Playwright capture and reliably produce:
 

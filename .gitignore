@@ -44,11 +44,10 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Actionforge specific
+# MCPMint specific
 captures/
 *.har
 *.session.json
-.actionforge/
 .mcpmint/
 outputs/
 output/
@@ -61,3 +60,14 @@ examples/.demo_output/
 *.key
 *.pem
 credentials.json
+
+# MD Files
+API_SCOUT_TRANSITION_PLAN.md
+STRATEGY.md
+SPEC.md
+CLAUDE.md
+AGENTS.md
+findings.md
+progress.md
+task_plan.md
+RELEASE_PLAN.md

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AF_BIN=${ACTIONFORGE_BIN:-actionforge}
+AF_BIN=${MCPMINT_BIN:-mcpmint}
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/actionforge-magic-XXXXXX")"
-AF_PYTHON=${ACTIONFORGE_PYTHON:-}
+WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/mcpmint-magic-XXXXXX")"
+AF_PYTHON=${MCPMINT_PYTHON:-}
 
 if [[ -z "$AF_PYTHON" ]]; then
   AF_BIN_RESOLVED="$(command -v "$AF_BIN" 2>/dev/null || true)"
@@ -129,7 +129,7 @@ gateway_execute() {
 import json
 import sys
 
-from actionforge.cli.enforce import EnforcementGateway
+from mcpmint.cli.enforce import EnforcementGateway
 
 tools, toolsets, policy, lockfile, action_name, params_raw, token = sys.argv[1:]
 params = json.loads(params_raw)
@@ -141,7 +141,7 @@ gateway = EnforcementGateway(
     lockfile_path=lockfile,
     mode="proxy",
     dry_run=True,
-    confirmation_store_path=".actionforge/confirmations.db",
+    confirmation_store_path=".mcpmint/confirmations.db",
 )
 result = gateway.execute_action(action_name, params, token or None)
 print(json.dumps(result))
@@ -154,13 +154,13 @@ cd "$WORKDIR"
 
 log "1) Compile from capture"
 "$AF_BIN" capture import sample.har --allowed-hosts api.example.com --name "Magic Base"
-CAPTURE_BASE="$(latest_dir .actionforge/captures)"
+CAPTURE_BASE="$(latest_dir .mcpmint/captures)"
 "$AF_BIN" compile --capture "$CAPTURE_BASE" --scope first_party_only --format all
-ARTIFACT_BASE="$(latest_dir .actionforge/artifacts)"
-TOOLS_BASE=".actionforge/artifacts/${ARTIFACT_BASE}/tools.json"
-POLICY_BASE=".actionforge/artifacts/${ARTIFACT_BASE}/policy.yaml"
-TOOLSETS_BASE=".actionforge/artifacts/${ARTIFACT_BASE}/toolsets.yaml"
-BASELINE_BASE=".actionforge/artifacts/${ARTIFACT_BASE}/baseline.json"
+ARTIFACT_BASE="$(latest_dir .mcpmint/artifacts)"
+TOOLS_BASE=".mcpmint/artifacts/${ARTIFACT_BASE}/tools.json"
+POLICY_BASE=".mcpmint/artifacts/${ARTIFACT_BASE}/policy.yaml"
+TOOLSETS_BASE=".mcpmint/artifacts/${ARTIFACT_BASE}/toolsets.yaml"
+BASELINE_BASE=".mcpmint/artifacts/${ARTIFACT_BASE}/baseline.json"
 
 TOOLS_OUTPUT="$(extract_tools "$TOOLS_BASE")"
 READ_TOOL="$(printf '%s\n' "$TOOLS_OUTPUT" | sed -n '1p')"
@@ -172,26 +172,26 @@ assert_readonly_excludes_write "$TOOLSETS_BASE" "$WRITE_TOOL"
 
 log "3) Show blocked state-changing call (pending approval)"
 set +e
-"$AF_BIN" approve sync --tools "$TOOLS_BASE" --policy "$POLICY_BASE" --toolsets "$TOOLSETS_BASE" --lockfile actionforge.lock.yaml >/tmp/af_sync1.log 2>&1
+"$AF_BIN" approve sync --tools "$TOOLS_BASE" --policy "$POLICY_BASE" --toolsets "$TOOLSETS_BASE" --lockfile mcpmint.lock.yaml >/tmp/af_sync1.log 2>&1
 SYNC1_EXIT=$?
 set -e
 if [[ $SYNC1_EXIT -eq 0 ]]; then
   fail "expected approve sync to fail with pending tools"
 fi
 
-BLOCKED_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "actionforge.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}')"
+BLOCKED_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "mcpmint.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}')"
 assert_reason "$BLOCKED_PAYLOAD" "denied_not_approved"
 
 log "4) Approve via lockfile"
-"$AF_BIN" approve tool --all --lockfile actionforge.lock.yaml --by "ci@actionforge"
-"$AF_BIN" approve check --lockfile actionforge.lock.yaml
+"$AF_BIN" approve tool --all --lockfile mcpmint.lock.yaml --by "ci@mcpmint"
+"$AF_BIN" approve check --lockfile mcpmint.lock.yaml
 
 log "5) Show allowed call after approval + out-of-band grant"
-CONFIRM_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "actionforge.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}')"
+CONFIRM_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "mcpmint.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}')"
 CONFIRM_TOKEN="$(extract_confirmation_token "$CONFIRM_PAYLOAD")"
-"$AF_BIN" confirm grant "$CONFIRM_TOKEN" --store .actionforge/confirmations.db
+"$AF_BIN" confirm grant "$CONFIRM_TOKEN" --store .mcpmint/confirmations.db
 
-ALLOWED_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "actionforge.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}' "$CONFIRM_TOKEN")"
+ALLOWED_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "mcpmint.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}' "$CONFIRM_TOKEN")"
 assert_allow "$ALLOWED_PAYLOAD"
 
 log "6) Introduce drift and show CI failure until re-approval"
@@ -210,12 +210,12 @@ Path("sample_drift.har").write_text(json.dumps(har, indent=2))
 PY
 
 "$AF_BIN" capture import sample_drift.har --allowed-hosts api.example.com --name "Magic Drift"
-CAPTURE_DRIFT="$(latest_dir .actionforge/captures)"
+CAPTURE_DRIFT="$(latest_dir .mcpmint/captures)"
 "$AF_BIN" compile --capture "$CAPTURE_DRIFT" --scope first_party_only --format all
-ARTIFACT_DRIFT="$(latest_dir .actionforge/artifacts)"
-TOOLS_DRIFT=".actionforge/artifacts/${ARTIFACT_DRIFT}/tools.json"
-POLICY_DRIFT=".actionforge/artifacts/${ARTIFACT_DRIFT}/policy.yaml"
-TOOLSETS_DRIFT=".actionforge/artifacts/${ARTIFACT_DRIFT}/toolsets.yaml"
+ARTIFACT_DRIFT="$(latest_dir .mcpmint/artifacts)"
+TOOLS_DRIFT=".mcpmint/artifacts/${ARTIFACT_DRIFT}/tools.json"
+POLICY_DRIFT=".mcpmint/artifacts/${ARTIFACT_DRIFT}/policy.yaml"
+TOOLSETS_DRIFT=".mcpmint/artifacts/${ARTIFACT_DRIFT}/toolsets.yaml"
 
 # Force a signature/path change in the drift artifact to simulate a changed endpoint contract.
 "$AF_PYTHON" - "$TOOLS_DRIFT" <<'PY'
@@ -245,7 +245,7 @@ if [[ $DRIFT_EXIT -eq 0 ]]; then
 fi
 
 set +e
-"$AF_BIN" approve sync --tools "$TOOLS_DRIFT" --policy "$POLICY_DRIFT" --toolsets "$TOOLSETS_DRIFT" --lockfile actionforge.lock.yaml >/tmp/af_sync2.log 2>&1
+"$AF_BIN" approve sync --tools "$TOOLS_DRIFT" --policy "$POLICY_DRIFT" --toolsets "$TOOLSETS_DRIFT" --lockfile mcpmint.lock.yaml >/tmp/af_sync2.log 2>&1
 SYNC2_EXIT=$?
 set -e
 if [[ $SYNC2_EXIT -eq 0 ]]; then
@@ -253,14 +253,14 @@ if [[ $SYNC2_EXIT -eq 0 ]]; then
 fi
 
 set +e
-"$AF_BIN" approve check --lockfile actionforge.lock.yaml >/tmp/af_check_fail.log 2>&1
+"$AF_BIN" approve check --lockfile mcpmint.lock.yaml >/tmp/af_check_fail.log 2>&1
 CHECK_EXIT=$?
 set -e
 if [[ $CHECK_EXIT -eq 0 ]]; then
   fail "expected approve check to fail until re-approval"
 fi
 
-"$AF_BIN" approve tool --all --lockfile actionforge.lock.yaml --by "ci@actionforge"
-"$AF_BIN" approve check --lockfile actionforge.lock.yaml
+"$AF_BIN" approve tool --all --lockfile mcpmint.lock.yaml --by "ci@mcpmint"
+"$AF_BIN" approve check --lockfile mcpmint.lock.yaml
 
 log "Magic moment harness passed"

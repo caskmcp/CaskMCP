@@ -150,8 +150,8 @@ class TestContractCompiler:
         assert path_param["required"] is True
         assert path_param["description"] == "User ID"
 
-    def test_compile_actionforge_metadata(self):
-        """Test that Actionforge metadata is included."""
+    def test_compile_mcpmint_metadata(self):
+        """Test that MCPMint metadata is included."""
         endpoints = [
             make_endpoint(risk_tier="high", is_state_changing=True),
         ]
@@ -160,17 +160,17 @@ class TestContractCompiler:
         spec = compiler.compile(endpoints, capture_id="cap_123")
 
         # Info metadata
-        assert "x-actionforge" in spec["info"]
-        assert spec["info"]["x-actionforge"]["capture_id"] == "cap_123"
-        assert "generated_at" in spec["info"]["x-actionforge"]
-        assert spec["info"]["x-actionforge"]["schema_version"] == "1.0"
-        assert spec["x-actionforge"]["schema_version"] == "1.0"
+        assert "x-mcpmint" in spec["info"]
+        assert spec["info"]["x-mcpmint"]["capture_id"] == "cap_123"
+        assert "generated_at" in spec["info"]["x-mcpmint"]
+        assert spec["info"]["x-mcpmint"]["schema_version"] == "1.0"
+        assert spec["x-mcpmint"]["schema_version"] == "1.0"
 
         # Operation metadata
         operation = spec["paths"]["/api/users/{id}"]["get"]
-        assert "x-actionforge" in operation
-        assert operation["x-actionforge"]["risk_tier"] == "high"
-        assert operation["x-actionforge"]["state_changing"] is True
+        assert "x-mcpmint" in operation
+        assert operation["x-mcpmint"]["risk_tier"] == "high"
+        assert operation["x-mcpmint"]["state_changing"] is True
 
     def test_compile_with_scope(self):
         """Test compiling with scope metadata."""
@@ -180,7 +180,7 @@ class TestContractCompiler:
         compiler = ContractCompiler()
         spec = compiler.compile(endpoints, scope=scope)
 
-        assert spec["info"]["x-actionforge"]["scope"] == "first_party_only"
+        assert spec["info"]["x-mcpmint"]["scope"] == "first_party_only"
 
     def test_to_yaml(self):
         """Test YAML serialization."""

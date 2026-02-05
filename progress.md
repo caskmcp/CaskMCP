@@ -4,7 +4,7 @@
 
 ### Full Package Rename + Cleanup
 
-- [x] Renamed primary Python package from `actionforge/` to `mcpmint/`.
+- [x] Renamed primary Python package to `mcpmint/`.
 - [x] Promoted new defaults:
   - state dir: `.mcpmint/`
   - lockfile: `mcpmint.lock.yaml`
@@ -104,7 +104,7 @@
 #### Foundation Setup
 - [x] Created mcpmint repo at /Users/thomasallicino/Documents/mcpmint
 - [x] Initialized git repository (main branch)
-- [x] Created CLAUDE.md with Actionforge-specific design principles
+- [x] Created CLAUDE.md with MCPMint-specific design principles
 - [x] Created .gitignore
 - [x] Created planning files (task_plan.md, findings.md, progress.md)
 
@@ -337,7 +337,7 @@
 - [x] Full type checking passes (mypy)
 
 #### MCP Server (Phase 12 - Option B Priority)
-- [x] Implemented ActionforgeMCPServer class
+- [x] Implemented MCPMintMCPServer class
   - Loads tools.json manifest
   - Exposes tools as MCP protocol tools
   - Integrates with Enforcer for policy evaluation
@@ -375,7 +375,7 @@
 - [x] README rewrite with working demo instructions
 
 #### Meta MCP Server (Phase 15 - P1-7)
-- [x] Implemented ActionforgeMetaMCPServer
+- [x] Implemented MCPMintMetaMCPServer
   - Exposes governance tools to AI agents
   - Tools: list_actions, check_policy, get_approval_status, etc.
 - [x] CLI command `mcpmint mcp meta`

@@ -1,6 +1,6 @@
-# Actionforge Examples
+# MCPMint Examples
 
-This directory contains example files to help you get started with Actionforge.
+This directory contains example files to help you get started with MCPMint.
 
 ## 60-Second Interactive Demo
 
@@ -28,20 +28,20 @@ Run through the complete workflow step-by-step:
 
 ```bash
 # 1. Import the sample HAR file
-actionforge capture import examples/sample.har \
+mcpmint capture import examples/sample.har \
   --allowed-hosts api.example.com \
   --name "Demo Session"
 
 # 2. Compile into artifacts
-actionforge compile \
+mcpmint compile \
   --capture <capture-id-from-step-1> \
   --scope first_party_only \
   --format all
 
 # 3. View the generated artifacts
-ls .actionforge/artifacts/
-cat .actionforge/artifacts/*/contract.yaml
-cat .actionforge/artifacts/*/tools.json
+ls .mcpmint/artifacts/
+cat .mcpmint/artifacts/*/contract.yaml
+cat .mcpmint/artifacts/*/tools.json
 ```
 
 ## Files
@@ -127,22 +127,22 @@ Review and approve tools before use:
 
 ```bash
 # Sync lockfile with generated tools
-actionforge approve sync --tools .actionforge/artifacts/*/tools.json
+mcpmint approve sync --tools .mcpmint/artifacts/*/tools.json
 
 # List pending approvals
-actionforge approve list --status pending
+mcpmint approve list --status pending
 
 # Approve specific tools
-actionforge approve tool get_users get_products
+mcpmint approve tool get_users get_products
 
 # Or approve all pending tools
-actionforge approve tool --all --by "security@team.com"
+mcpmint approve tool --all --by "security@team.com"
 
 # Reject dangerous tools
-actionforge approve reject delete_all_users --reason "Too dangerous"
+mcpmint approve reject delete_all_users --reason "Too dangerous"
 
 # CI check (for pipelines)
-actionforge approve check
+mcpmint approve check
 ```
 
 ## Testing Drift Detection
@@ -152,7 +152,7 @@ actionforge approve check
 3. Run drift detection:
 
 ```bash
-actionforge drift --from <old-capture> --to <new-capture>
+mcpmint drift --from <old-capture> --to <new-capture>
 ```
 
 You should see drift detected for the removed endpoint.
@@ -163,18 +163,18 @@ Expose your compiled tools to AI agents like Claude:
 
 ```bash
 # Basic usage (dry run - no actual API calls)
-actionforge mcp serve \
-  --tools .actionforge/artifacts/*/tools.json \
+mcpmint mcp serve \
+  --tools .mcpmint/artifacts/*/tools.json \
   --dry-run
 
 # With policy enforcement
-actionforge mcp serve \
-  --tools .actionforge/artifacts/*/tools.json \
-  --policy .actionforge/artifacts/*/policy.yaml
+mcpmint mcp serve \
+  --tools .mcpmint/artifacts/*/tools.json \
+  --policy .mcpmint/artifacts/*/policy.yaml
 
 # With upstream API configuration
-actionforge mcp serve \
-  --tools .actionforge/artifacts/*/tools.json \
+mcpmint mcp serve \
+  --tools .mcpmint/artifacts/*/tools.json \
   --base-url https://api.example.com \
   --auth "Bearer your-api-token"
 ```
@@ -187,7 +187,7 @@ Add to `~/.claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "my-api": {
-      "command": "actionforge",
+      "command": "mcpmint",
       "args": [
         "mcp", "serve",
         "--tools", "/path/to/tools.json",
@@ -198,7 +198,7 @@ Add to `~/.claude/claude_desktop_config.json`:
 }
 ```
 
-Then Claude can discover and use your API tools safely, with:
+Then Claude can discover and use our API tools safely, with:
 - Policy enforcement (allow/deny/confirm)
 - Rate limiting
 - Audit logging

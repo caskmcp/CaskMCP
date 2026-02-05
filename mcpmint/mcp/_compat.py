@@ -1,7 +1,7 @@
 """Compatibility helpers for optional `mcp` dependency.
 
 When the `mcp` package is unavailable (for example in offline test environments),
-provide a minimal shim that supports Actionforge's unit tests.
+provide a minimal shim that supports MCPMint unit tests.
 """
 
 from __future__ import annotations

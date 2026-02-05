@@ -74,7 +74,7 @@ class ContractCompiler:
             },
             "servers": servers,
             "paths": paths,
-            "x-actionforge": {
+            "x-mcpmint": {
                 "schema_version": CURRENT_SCHEMA_VERSION,
             },
         }
@@ -82,17 +82,17 @@ class ContractCompiler:
         if self.description:
             spec["info"]["description"] = self.description
 
-        # Add Actionforge metadata
+        # Add MCPMint metadata
         timestamp = generated_at or datetime.now(UTC)
 
-        spec["info"]["x-actionforge"] = {
+        spec["info"]["x-mcpmint"] = {
             "generated_at": timestamp.isoformat(),
             "schema_version": CURRENT_SCHEMA_VERSION,
         }
         if capture_id:
-            spec["info"]["x-actionforge"]["capture_id"] = capture_id
+            spec["info"]["x-mcpmint"]["capture_id"] = capture_id
         if scope:
-            spec["info"]["x-actionforge"]["scope"] = scope.name
+            spec["info"]["x-mcpmint"]["scope"] = scope.name
 
         if components:
             spec["components"] = components
@@ -123,8 +123,8 @@ class ContractCompiler:
             "summary": self._generate_summary(endpoint),
         }
 
-        # Add Actionforge metadata
-        operation["x-actionforge"] = {
+        # Add MCPMint metadata
+        operation["x-mcpmint"] = {
             "stable_id": endpoint.stable_id,
             "signature_id": endpoint.signature_id,
             "risk_tier": endpoint.risk_tier,
@@ -132,11 +132,11 @@ class ContractCompiler:
         }
 
         if endpoint.is_state_changing:
-            operation["x-actionforge"]["state_changing"] = True
+            operation["x-mcpmint"]["state_changing"] = True
         if endpoint.is_auth_related:
-            operation["x-actionforge"]["auth_related"] = True
+            operation["x-mcpmint"]["auth_related"] = True
         if endpoint.has_pii:
-            operation["x-actionforge"]["has_pii"] = True
+            operation["x-mcpmint"]["has_pii"] = True
 
         # Parameters
         parameters = self._build_parameters(endpoint)

@@ -1,4 +1,4 @@
-"""Tests for the Actionforge MCP server."""
+"""Tests for the MCPMint MCP server."""
 
 from __future__ import annotations
 

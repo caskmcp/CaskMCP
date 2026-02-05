@@ -27,26 +27,26 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Actionforge
-        run: pip install actionforge
+      - name: Install MCPMint
+        run: pip install mcpmint
 
       - name: Import HAR file
         run: |
-          actionforge capture import ./fixtures/api-traffic.har \
+          mcpmint capture import ./fixtures/api-traffic.har \
             --allowed-hosts api.example.com \
             --name "CI Capture $(date +%Y%m%d)"
 
       - name: Get capture ID
         id: capture
         run: |
-          CAPTURE_ID=$(ls -t .actionforge/captures/*.json 2>/dev/null | head -1 | xargs -I{} basename {} .json)
+          CAPTURE_ID=$(ls -1t .mcpmint/captures/ 2>/dev/null | head -1)
           echo "id=$CAPTURE_ID" >> $GITHUB_OUTPUT
 
       - name: Check for drift
         id: drift
         continue-on-error: true
         run: |
-          actionforge drift \
+          mcpmint drift \
             --baseline ./baseline.json \
             --capture ${{ steps.capture.outputs.id }} \
             --format both
@@ -56,7 +56,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: drift-report
-          path: .actionforge/reports/
+          path: .mcpmint/reports/
 
       - name: Comment on PR
         if: github.event_name == 'pull_request' && steps.drift.outcome == 'failure'
@@ -64,7 +64,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const reportPath = '.actionforge/reports/drift.md';
+            const reportPath = '.mcpmint/reports/drift.md';
 
             if (fs.existsSync(reportPath)) {
               const report = fs.readFileSync(reportPath, 'utf8');

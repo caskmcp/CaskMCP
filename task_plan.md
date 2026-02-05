@@ -1,7 +1,7 @@
 # MCPMint Task Plan
 
 ## Goal
-Build MCPMint (formerly Actionforge): an open-core "action surface compiler" that turns observed web/API behavior into safe, versioned, agent-ready tools with drift detection and enforcement guardrails.
+Build MCPMint: an open-core "action surface compiler" that turns observed web/API behavior into safe, versioned, agent-ready tools with drift detection and enforcement guardrails.
 
 ## Current Phase
 Phase 14: Full Package Rename + Compatibility
@@ -92,7 +92,7 @@ Phase 14: Full Package Rename + Compatibility
 
 ### Phase 9: Chrome Extension `pending`
 - [ ] Fork from API Scout extension
-- [ ] Rebrand to Actionforge
+- [ ] Rebrand to MCPMint
 - [ ] Session capture for tool auth
 - [ ] Scope-aware capture
 
@@ -128,10 +128,10 @@ Phase 14: Full Package Rename + Compatibility
 - [x] Add/adjust tests and run full regression suite
 
 ### Phase 14: Full Package Rename + Cleanup `complete`
-- [x] Move primary package from `actionforge/` to `mcpmint/`
+- [x] Move primary package to `mcpmint/`
 - [x] Switch defaults to `.mcpmint/` and `mcpmint.lock.yaml`
 - [x] Rename MCP server identities/user-agent to `mcpmint`
-- [x] Remove compatibility alias package/entrypoint (`actionforge`)
+- [x] Remove compatibility alias package/entrypoint
 - [x] Remove legacy fallback paths to keep first public release clean
 - [x] Update packaging (`pyproject.toml`) to ship `mcpmint` only
 - [x] Add build excludes for local runtime state/temp directories
