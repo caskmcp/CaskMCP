@@ -44,6 +44,7 @@ MCP Registry publishing is managed by the official publisher tooling.
 Pre-reqs:
 - README includes an `mcp-name` marker (already present):
   - `io.github.tomallicino/mcpmint`
+- Root `server.json` is present and kept in sync with released package version.
 - Repository is public.
 
 Run:

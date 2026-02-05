@@ -66,6 +66,24 @@ mcpmint mcp serve --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
 bash scripts/magic_moment_ci.sh
 ```
 
+Client config snippet (Claude Desktop):
+
+```json
+{
+  "mcpServers": {
+    "my-toolpack": {
+      "command": "mcpmint",
+      "args": [
+        "mcp",
+        "serve",
+        "--toolpack",
+        "/absolute/path/to/.mcpmint/toolpacks/<toolpack-id>/toolpack.yaml"
+      ]
+    }
+  }
+}
+```
+
 ## Concepts
 
 - **Capture**: Observed request/response traffic from HAR, Playwright, or OpenAPI import.
@@ -141,7 +159,7 @@ MCPMint is designed for first-party or explicitly authorized captures only. It k
 - `mcpmint mcp serve` - expose tools as an MCP server
 - `mcpmint mcp meta` - expose governance introspection tools as MCP
 
-`mcpmint serve` dashboard is currently a placeholder.
+`mcpmint serve` is a convenience alias for `mcpmint mcp serve`.
 
 ## Demos And Docs
 

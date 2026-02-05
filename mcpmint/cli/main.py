@@ -490,33 +490,114 @@ def enforce(
 
 
 @cli.command()
-@click.option("--port", default=8080, help="Port to serve on")
 @click.option(
-    "--artifacts",
-    type=click.Path(exists=True),
-    default=".mcpmint/artifacts",
-    help="Artifacts directory",
+    "--tools", "-t",
+    type=click.Path(),
+    help="Path to tools.json manifest",
 )
-@click.option("--host", default="localhost", help="Host to bind")
+@click.option(
+    "--toolpack",
+    type=click.Path(exists=True),
+    help="Path to toolpack.yaml (resolves manifest/policy/toolsets paths)",
+)
+@click.option(
+    "--toolsets",
+    type=click.Path(),
+    help="Path to toolsets.yaml (defaults to sibling of --tools if present)",
+)
+@click.option(
+    "--toolset",
+    help="Named toolset to expose (defaults to readonly when toolsets.yaml exists)",
+)
+@click.option(
+    "--policy", "-p",
+    type=click.Path(),
+    help="Path to policy.yaml (optional)",
+)
+@click.option(
+    "--lockfile", "-l",
+    type=click.Path(),
+    help="Path to mcpmint.lock.yaml (optional; enforces approved tools when provided)",
+)
+@click.option(
+    "--base-url",
+    help="Base URL for upstream API (overrides manifest hosts)",
+)
+@click.option(
+    "--auth",
+    "auth_header",
+    help="Authorization header value for upstream requests",
+)
+@click.option(
+    "--audit-log",
+    type=click.Path(),
+    help="Path for audit log file",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Evaluate policy but don't execute upstream calls",
+)
+@click.option(
+    "--confirm-store",
+    default=".mcpmint/confirmations.db",
+    show_default=True,
+    type=click.Path(),
+    help="Path to local out-of-band confirmation store",
+)
+@click.option(
+    "--allow-private-cidr",
+    "allow_private_cidrs",
+    multiple=True,
+    help="Allow private CIDR targets (repeatable; default denies private ranges)",
+)
+@click.option(
+    "--allow-redirects",
+    is_flag=True,
+    help="Allow redirects (each hop is re-validated against allowlists)",
+)
 @click.pass_context
 def serve(
     ctx: click.Context,
-    port: int,
-    artifacts: str,
-    host: str,
+    tools: str | None,
+    toolpack: str | None,
+    toolsets: str | None,
+    toolset: str | None,
+    policy: str | None,
+    lockfile: str | None,
+    base_url: str | None,
+    auth_header: str | None,
+    audit_log: str | None,
+    dry_run: bool,
+    confirm_store: str,
+    allow_private_cidrs: tuple[str, ...],
+    allow_redirects: bool,
 ) -> None:
-    """Placeholder dashboard command (not implemented yet).
+    """Alias for `mcpmint mcp serve`.
 
-    \b
-    Examples:
-      mcpmint serve --port 8080
+    This command exists for convenience and forwards to MCP server runtime.
     """
-    from mcpmint.cli.serve import run_serve
+    click.echo(
+        "Notice: `mcpmint serve` is an alias for `mcpmint mcp serve`.",
+        err=True,
+    )
 
-    run_serve(
-        port=port,
-        artifacts_dir=artifacts,
-        host=host,
+    from mcpmint.cli.mcp import run_mcp_serve
+
+    run_mcp_serve(
+        tools_path=tools,
+        toolpack_path=toolpack,
+        toolsets_path=toolsets,
+        toolset_name=toolset,
+        policy_path=policy,
+        lockfile_path=lockfile,
+        base_url=base_url,
+        auth_header=auth_header,
+        audit_log=audit_log,
+        dry_run=dry_run,
+        confirmation_store_path=confirm_store,
+        allow_private_cidrs=list(allow_private_cidrs),
+        allow_redirects=allow_redirects,
         verbose=ctx.obj.get("verbose", False),
     )
 

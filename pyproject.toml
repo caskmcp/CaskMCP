@@ -124,8 +124,17 @@ branch = true
 
 [tool.hatch.build]
 exclude = [
+    "/.venv",
+    "/.pytest_cache",
+    "/.mypy_cache",
+    "/.ruff_cache",
     "/.mcpmint",
+    "/dist",
+    "/build",
+    "/output",
+    "/outputs",
     "/tmp_magic_demo",
+    "/examples/.demo_output",
     "/**/__pycache__",
     "/**/*.pyc",
 ]

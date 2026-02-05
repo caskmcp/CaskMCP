@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 > Alpha notice: breaking changes are expected before stable `1.0.0`.
 
+## [Unreleased]
+
+### Changed
+- `mcpmint serve` now aliases directly to `mcpmint mcp serve`.
+- Added MCP client config snippet to README.
+- Added strict hatch build excludes for local caches/artifacts.
+
+### Added
+- Root `server.json` scaffold for MCP Registry publishing.
+
+### Removed
+- Removed obsolete `mcpmint/cli/serve.py` dashboard stub implementation.
+
 ## [0.1.0-alpha.4] - 2026-02-05
 
 ### Changed
