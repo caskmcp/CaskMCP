@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcpmint"
-version = "0.1.0"
+version = "0.1.0a3"
 description = "Action surface compiler: turn observed web traffic into safe, versioned, agent-ready tools"
 readme = "README.md"
 license = "MIT"
