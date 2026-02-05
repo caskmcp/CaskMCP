@@ -1,35 +1,69 @@
 # MCPMint
 
-Mint safe MCP toolpacks from observed web/API traffic.
+Mint a minimal, enforceable MCP tool surface from real traffic.
 
-MCPMint turns captures (Playwright, HAR, OpenAPI) into a governed MCP tool surface with:
-- Deterministic artifacts you can diff in Git
-- Curated toolsets (`readonly`, `operator`, etc.)
-- Approval lockfiles for human-in-the-loop rollout
-- Runtime enforcement + confirmation gating + drift checks
+> **MCPMint is a compiler for agent tools.**
+> It mints a minimal, stable, reviewable MCP tool surface from observed traffic (HAR, Playwright) or specs (OpenAPI), then enforces it with approvals, drift checks, and runtime policy.
 
-## Magic Loop (2 commands)
+Why this matters:
+- Agents degrade with tool sprawl.
+- OpenAPI is often missing, stale, or incomplete versus live behavior.
+- Governance only works when the exposed tool surface is small, stable, and explicit.
+
+## What It Is / Isn’t
+
+**What it is**
+- Mint tools from traffic into curated toolsets (`readonly`, `operator`, etc.).
+- Produce deterministic artifacts you can diff, review, and gate in CI.
+- Enforce runtime policy and approvals against a lockfile.
+
+**What it is not**
+- Not a generic MCP gateway or observability plane (for that, see [agentgateway](https://github.com/agentgateway/agentgateway)).
+- Not just a lockfile firewall for existing MCP servers (see [MCPTrust](https://mcptrust.dev/)).
+- Not another OpenAPI-to-MCP generator as an end state.
+
+| Tool | Primary job | Where MCPMint fits |
+| --- | --- | --- |
+| [FastMCP](https://gofastmcp.com/) | Build MCP servers quickly | MCPMint mints and curates the tool surface you choose to serve |
+| [MCPTrust](https://mcptrust.dev/) | Lockfile firewall for MCP servers | MCPMint generates curated toolpacks and approvals upstream of enforcement |
+| [agentgateway](https://github.com/agentgateway/agentgateway) | Enterprise gateway/proxy plane | MCPMint outputs a smaller, safer surface to route through gateway infrastructure |
+
+## 5-Minute Proof (Blocking + Drift Gate)
+
+Fastest end-to-end proof:
 
 ```bash
-# 1) Capture + compile + toolpack + pending lockfile
+# Installs/uses local CLI and runs the full governance harness.
+# The harness demonstrates:
+# 1) state-changing action blocked until approval
+# 2) confirmation required for writes
+# 3) drift causing CI-style failure until re-approval
+bash scripts/magic_moment_ci.sh
+```
+
+Mint-first flow:
+
+```bash
+# 1) Mint a toolpack from real traffic (headless by default)
 mcpmint mint https://app.example.com \
   -a api.example.com \
   --scope agent_safe_readonly \
   --print-mcp-config
 
-# 2) Expose the curated surface to MCP clients
+# 2) Serve the curated surface immediately
 mcpmint mcp serve --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+
+# 3) CI gate: fail if surface drifts
+mcpmint drift --baseline .mcpmint/toolpacks/<toolpack-id>/artifact/baseline.json --capture <new-capture-id>
 ```
 
-That is the core wedge: agents get a safe, reviewable tool surface quickly, not raw endpoint sprawl.
+## Concepts
 
-## Why MCPMint
-
-Most API→MCP workflows stop at generation. MCPMint adds change control and runtime safety:
-- Stable tool identity across captures (`tool_id`, `signature_id`, versioning)
-- Policy enforcement (default-deny, confirmations, budgets)
-- Approval workflow (`pending/approved/rejected`) in `mcpmint.lock.yaml`
-- Drift detection that can block CI on risky changes
+- **Capture**: Observed request/response traffic from HAR, Playwright, or OpenAPI import.
+- **Artifact**: Deterministic compile output (`tools.json`, `toolsets.yaml`, `policy.yaml`, `baseline.json`, contracts).
+- **Toolset**: Named subset of tools (for example `readonly`) used to limit what agents can call.
+- **Toolpack**: Portable bundle that points to artifacts + lockfile metadata for immediate MCP serving.
+- **Lockfile**: Human-approved tool surface (`pending`, `approved`, `rejected`) for runtime and CI gating.
 
 ## Install
 
@@ -46,7 +80,7 @@ pip install "mcpmint[mcp,playwright]"
 - `mcp` extra: built-in MCP server runtime
 - `playwright` extra: browser traffic capture for `mint` / `capture record`
 
-## What `mint` produces
+## What `mint` Produces
 
 Default output root: `.mcpmint/`
 
@@ -64,45 +98,19 @@ Default output root: `.mcpmint/`
 
 `toolpack.yaml` is the handoff object for MCP serving (`--toolpack`).
 
-## End-to-end governance flow
+## Security Model
 
-```bash
-# Import an existing HAR capture
-mcpmint capture import examples/sample.har -a api.example.com
+MCPMint is designed for first-party or explicitly authorized captures only. It keeps redaction on by default, applies deny-by-default policy behavior, gates state-changing operations with confirmations/approvals, and includes SSRF-oriented runtime protections (private network deny-by-default and redirect controls in proxy mode). These defaults align with [MCP security best practices](https://modelcontextprotocol.io/specification/draft/basic/security_best_practices) around consent, least privilege, and explicit authorization.
 
-# Compile artifacts (deterministic by default)
-mcpmint compile --capture <capture-id> --scope first_party_only
+## Integrates With The Ecosystem
 
-# Sync lockfile and create pending approvals
-mcpmint approve sync \
-  --tools .mcpmint/artifacts/<artifact-id>/tools.json \
-  --policy .mcpmint/artifacts/<artifact-id>/policy.yaml \
-  --toolsets .mcpmint/artifacts/<artifact-id>/toolsets.yaml \
-  --lockfile mcpmint.lock.yaml
+- Publish servers in the [MCP Registry](https://github.com/modelcontextprotocol/registry).
+- Distribute/host through [Smithery](https://smithery.ai/).
+- Connect to platforms that support remote MCP servers, including [OpenAI MCP connectors](https://platform.openai.com/docs/guides/tools-connectors-mcp).
 
-# Approve readonly surface
-mcpmint approve tool --all --toolset readonly --lockfile mcpmint.lock.yaml
+## CLI Map
 
-# Serve approved surface over MCP
-mcpmint mcp serve \
-  --tools .mcpmint/artifacts/<artifact-id>/tools.json \
-  --toolsets .mcpmint/artifacts/<artifact-id>/toolsets.yaml \
-  --toolset readonly \
-  --policy .mcpmint/artifacts/<artifact-id>/policy.yaml \
-  --lockfile mcpmint.lock.yaml
-```
-
-## Security defaults
-
-- Redaction is on by default during capture
-- Private network targets are blocked by default in runtime proxying
-- Redirects are blocked by default
-- State-changing actions require explicit confirmation when policy demands it
-- Proxy mode requires lockfile unless you pass the explicit unsafe escape hatch
-
-## CLI map
-
-- `mcpmint mint` - one-shot magic loop (`capture -> compile -> toolpack`)
+- `mcpmint mint` - one-shot mint loop (`capture -> compile -> toolpack`)
 - `mcpmint capture` - import HAR or record browser traffic
 - `mcpmint openapi` - import OpenAPI spec as a capture
 - `mcpmint compile` - generate artifacts/toolsets/policy/baseline
@@ -114,13 +122,13 @@ mcpmint mcp serve \
 
 `mcpmint serve` dashboard is currently a placeholder.
 
-## Demos and docs
+## Demos And Docs
 
 - `examples/mint_demo.sh` - quick mint demo
 - `examples/demo.sh` - governance workflow demo
 - `scripts/magic_moment_ci.sh` - unattended CI-style flow
 - `docs/user-guide.md` - practical usage walkthrough
-- `docs/releases/v0.1.0-alpha.2.md` - latest alpha release notes
+- `docs/releases/v0.1.0-alpha.2.md` - alpha release notes
 
 ## Development
 
