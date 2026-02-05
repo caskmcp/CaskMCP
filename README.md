@@ -145,7 +145,7 @@ MCPMint is designed for first-party or explicitly authorized captures only. It k
 - `examples/demo.sh` - governance workflow demo
 - `scripts/magic_moment_ci.sh` - unattended CI-style flow
 - `docs/user-guide.md` - practical usage walkthrough
-- `docs/releases/v0.1.0-alpha.3.md` - alpha release notes
+- `docs/releases/v0.1.0-alpha.4.md` - alpha release notes
 - `docs/publishing.md` - PyPI + MCP Registry publishing guide
 
 ## Development

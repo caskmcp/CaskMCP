@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 > Alpha notice: breaking changes are expected before stable `1.0.0`.
 
+## [0.1.0-alpha.4] - 2026-02-05
+
+### Changed
+- Strengthened README positioning around first-party, authorized minting workflows.
+- Added explicit use-cases, non-goals, and 5-minute proof expectations.
+- Added release hygiene files at root:
+  - `LICENSE`
+  - `SECURITY.md`
+  - `CHANGELOG.md`
+- Added publishing documentation and automation:
+  - `docs/publishing.md`
+  - `.github/workflows/publish-pypi.yaml`
+
 ## [0.1.0-alpha.3] - 2026-02-05
 
 ### Fixed
