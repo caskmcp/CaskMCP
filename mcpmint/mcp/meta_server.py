@@ -111,7 +111,7 @@ class MCPMintMetaMCPServer:
     def _register_handlers(self) -> None:
         """Register MCP protocol handlers."""
 
-        @self.server.list_tools()  # type: ignore[misc]
+        @self.server.list_tools()  # type: ignore
         async def handle_list_tools() -> list[types.Tool]:
             """Return MCPMint meta tools."""
             return [
@@ -199,7 +199,7 @@ class MCPMintMetaMCPServer:
                 ),
             ]
 
-        @self.server.call_tool()  # type: ignore[misc]
+        @self.server.call_tool()  # type: ignore
         async def handle_call_tool(
             name: str, arguments: dict[str, Any] | None
         ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
