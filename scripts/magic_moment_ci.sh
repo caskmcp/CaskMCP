@@ -149,7 +149,71 @@ PY
 }
 
 log "Preparing isolated workspace"
-cp "${ROOT_DIR}/examples/sample.har" "${WORKDIR}/sample.har"
+if [[ -f "${ROOT_DIR}/examples/sample.har" ]]; then
+  cp "${ROOT_DIR}/examples/sample.har" "${WORKDIR}/sample.har"
+else
+  "$AF_PYTHON" - "${WORKDIR}/sample.har" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+target = Path(sys.argv[1])
+har = {
+    "log": {
+        "version": "1.2",
+        "creator": {"name": "MCPMint CI Fixture", "version": "1.0.0"},
+        "entries": [
+            {
+                "startedDateTime": "2026-01-01T00:00:00.000Z",
+                "time": 42,
+                "request": {
+                    "method": "GET",
+                    "url": "https://api.example.com/api/users?page=1",
+                    "httpVersion": "HTTP/1.1",
+                    "headers": [{"name": "Host", "value": "api.example.com"}],
+                    "queryString": [{"name": "page", "value": "1"}],
+                },
+                "response": {
+                    "status": 200,
+                    "statusText": "OK",
+                    "httpVersion": "HTTP/1.1",
+                    "headers": [{"name": "Content-Type", "value": "application/json"}],
+                    "content": {
+                        "mimeType": "application/json",
+                        "text": "{\"data\": [{\"id\": \"usr_1\", \"name\": \"Jane\"}]}",
+                    },
+                },
+            },
+            {
+                "startedDateTime": "2026-01-01T00:00:01.000Z",
+                "time": 65,
+                "request": {
+                    "method": "POST",
+                    "url": "https://api.example.com/api/users",
+                    "httpVersion": "HTTP/1.1",
+                    "headers": [{"name": "Content-Type", "value": "application/json"}],
+                    "postData": {
+                        "mimeType": "application/json",
+                        "text": "{\"name\": \"Jane\"}",
+                    },
+                },
+                "response": {
+                    "status": 201,
+                    "statusText": "Created",
+                    "httpVersion": "HTTP/1.1",
+                    "headers": [{"name": "Content-Type", "value": "application/json"}],
+                    "content": {
+                        "mimeType": "application/json",
+                        "text": "{\"id\": \"usr_2\", \"name\": \"Jane\"}",
+                    },
+                },
+            },
+        ],
+    }
+}
+target.write_text(json.dumps(har, indent=2))
+PY
+fi
 cd "$WORKDIR"
 
 log "1) Compile from capture"
