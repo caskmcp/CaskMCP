@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from caskmcp.models.endpoint import Endpoint
+from caskmcp.models.flow import FlowGraph
 from caskmcp.models.scope import Scope
 from caskmcp.utils.naming import generate_tool_name, resolve_collision
 from caskmcp.utils.schema_version import CURRENT_SCHEMA_VERSION
@@ -55,6 +56,7 @@ class ToolManifestGenerator:
         scope: Scope | None = None,
         capture_id: str | None = None,
         generated_at: datetime | None = None,
+        flow_graph: FlowGraph | None = None,
     ) -> dict[str, Any]:
         """Generate a tool manifest from endpoints.
 
@@ -77,12 +79,18 @@ class ToolManifestGenerator:
         # Generate actions with unique names
         actions = []
         used_names: set[str] = set()
+        sig_to_name: dict[str, str] = {}
 
         for endpoint in sorted_endpoints:
             action = self._action_from_endpoint(endpoint, used_names)
             if scope:
                 action["scopes"] = [scope.name]
             actions.append(action)
+            sig_to_name[endpoint.signature_id] = action["name"]
+
+        # Enrich with flow metadata (depends_on / enables)
+        if flow_graph:
+            self._apply_flow_metadata(actions, flow_graph, sig_to_name)
 
         manifest: dict[str, Any] = {
             "version": "1.0.0",
@@ -293,6 +301,41 @@ class ToolManifestGenerator:
             base = f"Use this to {guidance}. {base}"
 
         return base
+
+    def _apply_flow_metadata(
+        self,
+        actions: list[dict[str, Any]],
+        flow_graph: FlowGraph,
+        sig_to_name: dict[str, str],
+    ) -> None:
+        """Add depends_on / enables fields and dependency hints to actions."""
+        name_to_action: dict[str, dict[str, Any]] = {a["name"]: a for a in actions}
+
+        for edge in flow_graph.edges:
+            source_name = sig_to_name.get(edge.source_id)
+            target_name = sig_to_name.get(edge.target_id)
+            if not source_name or not target_name:
+                continue
+            if source_name not in name_to_action or target_name not in name_to_action:
+                continue
+
+            # Source enables target
+            source_action = name_to_action[source_name]
+            source_action.setdefault("enables", [])
+            if target_name not in source_action["enables"]:
+                source_action["enables"].append(target_name)
+
+            # Target depends on source
+            target_action = name_to_action[target_name]
+            target_action.setdefault("depends_on", [])
+            if source_name not in target_action["depends_on"]:
+                target_action["depends_on"].append(source_name)
+
+            # Add dependency hint to target description
+            desc = target_action.get("description", "")
+            hint = f" (Call {source_name} first to obtain {edge.linking_field})"
+            if hint not in desc:
+                target_action["description"] = desc + hint
 
     # Domain tag -> guidance phrase
     _TAG_GUIDANCE_MAP: dict[str, str] = {

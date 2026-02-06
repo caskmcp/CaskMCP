@@ -10,6 +10,7 @@ from typing import Any
 
 from caskmcp.models.drift import DriftItem, DriftReport, DriftSeverity, DriftType
 from caskmcp.models.endpoint import Endpoint
+from caskmcp.models.flow import FlowGraph
 from caskmcp.utils.schema_version import CURRENT_SCHEMA_VERSION, resolve_generated_at
 
 
@@ -27,6 +28,7 @@ class DriftEngine:
         from_capture_id: str | None = None,
         to_capture_id: str | None = None,
         deterministic: bool = False,
+        flow_graph: FlowGraph | None = None,
     ) -> DriftReport:
         """Compare two sets of endpoints for drift.
 
@@ -60,6 +62,13 @@ class DriftEngine:
                 old_endpoint = from_map[key]
                 modification_drifts = self._detect_modifications(old_endpoint, endpoint)
                 drifts.extend(modification_drifts)
+
+        # Flow-aware drift: flag broken flows
+        if flow_graph:
+            flow_drifts = self._detect_flow_drift(
+                from_endpoints, to_endpoints, flow_graph
+            )
+            drifts.extend(flow_drifts)
 
         return self._create_report(
             drifts,
@@ -588,6 +597,74 @@ class DriftEngine:
                             description=f"New field '{prop}' added to response",
                             before=None,
                             after={"field": prop},
+                        )
+                    )
+
+        return drifts
+
+    def _detect_flow_drift(
+        self,
+        from_endpoints: list[Endpoint],
+        to_endpoints: list[Endpoint],
+        flow_graph: FlowGraph,
+    ) -> list[DriftItem]:
+        """Detect broken flows when endpoints in a flow are removed/changed."""
+        drifts: list[DriftItem] = []
+
+        from_sigs = {ep.signature_id for ep in from_endpoints}
+        to_sigs = {ep.signature_id for ep in to_endpoints}
+        removed_sigs = from_sigs - to_sigs
+
+        if not removed_sigs:
+            return drifts
+
+        # For each removed endpoint, check if it participates in any flow
+        for removed_sig in removed_sigs:
+            # Check as source (other endpoints depend on its output)
+            downstream = flow_graph.edges_from(removed_sig)
+            for edge in downstream:
+                if edge.target_id in to_sigs:
+                    # Target still exists but its dependency was removed
+                    drifts.append(
+                        self._make_drift_item(
+                            drift_type=DriftType.BREAKING,
+                            severity=DriftSeverity.WARNING,
+                            endpoint_id=edge.target_id,
+                            path=None,
+                            method=None,
+                            title="Flow broken: dependency removed",
+                            description=(
+                                f"Endpoint {removed_sig} was removed, "
+                                f"breaking a flow to {edge.target_id} "
+                                f"(linked by '{edge.linking_field}')"
+                            ),
+                            before={"flow_source": removed_sig},
+                            after=None,
+                            recommendation="Restore the removed endpoint or update the dependent endpoint",
+                        )
+                    )
+
+            # Check as target (other endpoints enable it)
+            upstream = flow_graph.edges_to(removed_sig)
+            for edge in upstream:
+                if edge.source_id in to_sigs:
+                    # Source still exists but its downstream was removed
+                    drifts.append(
+                        self._make_drift_item(
+                            drift_type=DriftType.BREAKING,
+                            severity=DriftSeverity.WARNING,
+                            endpoint_id=edge.source_id,
+                            path=None,
+                            method=None,
+                            title="Flow broken: downstream removed",
+                            description=(
+                                f"Endpoint {removed_sig} was removed, "
+                                f"breaking a flow from {edge.source_id} "
+                                f"(linked by '{edge.linking_field}')"
+                            ),
+                            before={"flow_target": removed_sig},
+                            after=None,
+                            recommendation="Review whether the flow is still needed",
                         )
                     )
 
