@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from caskmcp.core.normalize.path_normalizer import PathNormalizer, VarianceNormalizer
+from caskmcp.core.normalize.tagger import AutoTagger
 from caskmcp.models.capture import CaptureSession, HttpExchange
 from caskmcp.models.endpoint import AuthType, Endpoint, Parameter, ParameterLocation
 
@@ -76,6 +77,7 @@ class EndpointAggregator:
         self.first_party_hosts = first_party_hosts or []
         self.path_normalizer = PathNormalizer()
         self.variance_normalizer = VarianceNormalizer(self.path_normalizer)
+        self.tagger = AutoTagger()
 
     def aggregate(self, session: CaptureSession) -> list[Endpoint]:
         """Aggregate a capture session into endpoints.
@@ -220,7 +222,7 @@ class EndpointAggregator:
             has_pii=has_pii,
         )
 
-        return Endpoint(
+        endpoint = Endpoint(
             method=method,
             path=path,
             host=host,
@@ -246,6 +248,11 @@ class EndpointAggregator:
             observation_count=len(exchanges),
             exchange_ids=[e.id for e in exchanges],
         )
+
+        # Enrich with auto-tagger (adds domain/semantic tags from path, fields, HTTP semantics)
+        endpoint.tags = self.tagger.classify(endpoint)
+
+        return endpoint
 
     def _extract_tags(
         self,

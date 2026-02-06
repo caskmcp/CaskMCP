@@ -65,8 +65,10 @@ def parse_scope_dict(data: dict[str, Any]) -> Scope:
     except ValueError:
         scope_type = ScopeType.CUSTOM
 
-    # Parse rules
-    rules = []
+    # Parse tag shorthand into rules
+    rules = _expand_tag_shorthand(data.get("tags"))
+
+    # Parse explicit rules
     for rule_data in data.get("rules", []):
         rules.append(_parse_rule(rule_data))
 
@@ -80,6 +82,58 @@ def parse_scope_dict(data: dict[str, Any]) -> Scope:
         confirmation_required=data.get("confirmation_required", False),
         rate_limit_per_minute=data.get("rate_limit_per_minute"),
     )
+
+
+def _expand_tag_shorthand(tags_data: dict[str, Any] | None) -> list[ScopeRule]:
+    """Expand tag shorthand syntax into ScopeRule objects.
+
+    Supports:
+        tags:
+          include: [commerce, products]
+          exclude: [auth, admin]
+
+    Each tag becomes a separate ScopeRule with a single CONTAINS filter on
+    the "tags" field. Include tags become include=True rules, exclude tags
+    become include=False rules.
+    """
+    if not tags_data or not isinstance(tags_data, dict):
+        return []
+
+    rules: list[ScopeRule] = []
+
+    for tag in tags_data.get("include", []):
+        rules.append(
+            ScopeRule(
+                name=f"include_tag_{tag}",
+                description=f"Include endpoints tagged '{tag}'",
+                include=True,
+                filters=[
+                    ScopeFilter(
+                        field="tags",
+                        operator=FilterOperator.CONTAINS,
+                        value=tag,
+                    ),
+                ],
+            )
+        )
+
+    for tag in tags_data.get("exclude", []):
+        rules.append(
+            ScopeRule(
+                name=f"exclude_tag_{tag}",
+                description=f"Exclude endpoints tagged '{tag}'",
+                include=False,
+                filters=[
+                    ScopeFilter(
+                        field="tags",
+                        operator=FilterOperator.CONTAINS,
+                        value=tag,
+                    ),
+                ],
+            )
+        )
+
+    return rules
 
 
 def _parse_rule(data: dict[str, Any]) -> ScopeRule:

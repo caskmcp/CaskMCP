@@ -287,7 +287,30 @@ class ToolManifestGenerator:
         if endpoint.is_auth_related:
             base += " [Auth]"
 
+        # Prepend "Use this to..." guidance based on domain tags
+        guidance = self._tag_guidance(endpoint.tags)
+        if guidance:
+            base = f"Use this to {guidance}. {base}"
+
         return base
+
+    # Domain tag -> guidance phrase
+    _TAG_GUIDANCE_MAP: dict[str, str] = {
+        "commerce": "browse or manage commerce data",
+        "users": "access or manage user information",
+        "auth": "handle authentication",
+        "admin": "perform admin operations",
+        "search": "search or query data",
+        "content": "access or manage content",
+        "notifications": "manage notifications or alerts",
+    }
+
+    def _tag_guidance(self, tags: list[str]) -> str:
+        """Return a 'Use this to ...' guidance phrase based on domain tags."""
+        for tag in tags:
+            if tag in self._TAG_GUIDANCE_MAP:
+                return self._TAG_GUIDANCE_MAP[tag]
+        return ""
 
     @staticmethod
     def _singularize(word: str) -> str:
