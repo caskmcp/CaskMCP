@@ -58,11 +58,15 @@ class ScopeFilter(BaseModel):
             return bool(field_value != self.value)
 
         elif self.operator == FilterOperator.CONTAINS:
+            if isinstance(field_value, list) and isinstance(self.value, str):
+                return self.value in field_value
             if isinstance(field_value, str) and isinstance(self.value, str):
                 return self.value in field_value
             return False
 
         elif self.operator == FilterOperator.NOT_CONTAINS:
+            if isinstance(field_value, list) and isinstance(self.value, str):
+                return self.value not in field_value
             if isinstance(field_value, str) and isinstance(self.value, str):
                 return self.value not in field_value
             return True

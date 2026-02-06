@@ -246,7 +246,10 @@ class ContractCompiler:
         return generate_tool_name(endpoint.method, endpoint.path)
 
     def _generate_summary(self, endpoint: Endpoint) -> str:
-        """Generate a summary for an endpoint."""
+        """Generate a summary for an endpoint.
+
+        Includes verb, resource name, and top response fields.
+        """
         method = endpoint.method.upper()
         path = endpoint.path
 
@@ -270,10 +273,29 @@ class ContractCompiler:
         verb = verb_map.get(method, method.title())
 
         # Check for collection vs single resource
-        if method == "GET" and not path.endswith("}"):
+        if method == "GET" and not path.rstrip("/").endswith("}"):
             verb = "List"
 
-        return f"{verb} {resource}"
+        base = f"{verb} {resource}"
+
+        # Append top response fields
+        fields_hint = self._response_fields_hint(endpoint)
+        if fields_hint:
+            base += f". Returns: {fields_hint}"
+
+        return base
+
+    @staticmethod
+    def _response_fields_hint(endpoint: Endpoint, max_fields: int = 5) -> str:
+        """Extract top response field names from schema."""
+        schema = endpoint.response_body_schema
+        if not schema or not isinstance(schema, dict):
+            return ""
+        props = schema.get("properties", {})
+        if not props:
+            return ""
+        fields = list(props.keys())[:max_fields]
+        return ", ".join(fields)
 
     def _extract_tags(self, endpoint: Endpoint) -> list[str]:
         """Extract tags from endpoint path."""

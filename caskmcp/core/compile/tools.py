@@ -226,13 +226,10 @@ class ToolManifestGenerator:
         return schema
 
     def _generate_description(self, endpoint: Endpoint) -> str:
-        """Generate a description for an action.
+        """Generate an agent-friendly description for an action.
 
-        Args:
-            endpoint: Endpoint to describe
-
-        Returns:
-            Human-readable description
+        Includes: verb + resource, path parameters, top response fields,
+        risk warnings. Fixes pluralization issues.
         """
         method = endpoint.method.upper()
         path = endpoint.path
@@ -241,16 +238,47 @@ class ToolManifestGenerator:
         segments = [s for s in path.split("/") if s and not s.startswith("{")]
         resource = segments[-1].replace("_", " ").replace("-", " ") if segments else "resource"
 
-        # Build description based on method
-        descriptions = {
-            "GET": f"Retrieve {resource}",
-            "POST": f"Create a new {resource}",
-            "PUT": f"Update {resource}",
-            "PATCH": f"Partially update {resource}",
-            "DELETE": f"Delete {resource}",
-        }
+        # Detect collection vs single resource
+        is_collection = not path.rstrip("/").endswith("}")
 
-        base = descriptions.get(method, f"{method} {resource}")
+        # Singularize for non-collection endpoints
+        singular = self._singularize(resource)
+
+        # Path parameter names
+        path_params = [s[1:-1] for s in path.split("/") if s.startswith("{") and s.endswith("}")]
+
+        # Build description
+        if method == "GET":
+            if is_collection:
+                base = f"List all {resource}"
+            elif path_params:
+                base = f"Retrieve a {singular} by {{{path_params[-1]}}}"
+            else:
+                base = f"Retrieve {singular}"
+        elif method == "POST":
+            base = f"Create a new {singular}"
+        elif method == "PUT":
+            if path_params:
+                base = f"Update a {singular} by {{{path_params[-1]}}}"
+            else:
+                base = f"Update {singular}"
+        elif method == "PATCH":
+            if path_params:
+                base = f"Partially update a {singular} by {{{path_params[-1]}}}"
+            else:
+                base = f"Partially update {singular}"
+        elif method == "DELETE":
+            if path_params:
+                base = f"Delete a {singular} by {{{path_params[-1]}}}"
+            else:
+                base = f"Delete {singular}"
+        else:
+            base = f"{method} {resource}"
+
+        # Append top response fields
+        fields_hint = self._response_fields_hint(endpoint)
+        if fields_hint:
+            base += f". Returns: {fields_hint}"
 
         # Add risk warning if needed
         if endpoint.risk_tier in ("high", "critical"):
@@ -260,6 +288,30 @@ class ToolManifestGenerator:
             base += " [Auth]"
 
         return base
+
+    @staticmethod
+    def _singularize(word: str) -> str:
+        """Naive singularization for resource names."""
+        w = word.strip()
+        if w.endswith("ies"):
+            return w[:-3] + "y"
+        if w.endswith("ses") or w.endswith("xes") or w.endswith("zes"):
+            return w[:-2]
+        if w.endswith("s") and not w.endswith("ss"):
+            return w[:-1]
+        return w
+
+    @staticmethod
+    def _response_fields_hint(endpoint: Endpoint, max_fields: int = 5) -> str:
+        """Extract top response field names from schema."""
+        schema = endpoint.response_body_schema
+        if not schema or not isinstance(schema, dict):
+            return ""
+        props = schema.get("properties", {})
+        if not props:
+            return ""
+        fields = list(props.keys())[:max_fields]
+        return ", ".join(fields)
 
     def _extract_tags(self, endpoint: Endpoint) -> list[str]:
         """Extract tags from endpoint."""
