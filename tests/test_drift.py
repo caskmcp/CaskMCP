@@ -2,10 +2,10 @@
 
 import json
 
-from mcpmint.core.drift import DriftEngine
-from mcpmint.models.drift import DriftItem, DriftReport, DriftSeverity, DriftType
-from mcpmint.models.endpoint import AuthType, Endpoint, Parameter, ParameterLocation
-from mcpmint.utils.schema_version import DETERMINISTIC_TIMESTAMP
+from caskmcp.core.drift import DriftEngine
+from caskmcp.models.drift import DriftItem, DriftReport, DriftSeverity, DriftType
+from caskmcp.models.endpoint import AuthType, Endpoint, Parameter, ParameterLocation
+from caskmcp.utils.schema_version import DETERMINISTIC_TIMESTAMP
 
 
 def make_endpoint(

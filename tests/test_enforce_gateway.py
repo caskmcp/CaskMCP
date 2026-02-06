@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from mcpmint.cli.enforce import EnforcementGateway
-from mcpmint.core.approval import LockfileManager
+from caskmcp.cli.enforce import EnforcementGateway
+from caskmcp.core.approval import LockfileManager
 
 
 def _align_lockfile_integrity(gateway: EnforcementGateway) -> None:
@@ -154,7 +154,7 @@ def temp_files_bad_manifest_schema(tools_manifest, policy_yaml):
 def approved_lockfile(tools_manifest):
     """Create a lockfile where all tools are approved."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        lockfile_path = Path(tmpdir) / "mcpmint.lock.yaml"
+        lockfile_path = Path(tmpdir) / "caskmcp.lock.yaml"
         manager = LockfileManager(lockfile_path)
         manager.load()
         manager.sync_from_manifest(tools_manifest)
@@ -167,7 +167,7 @@ def approved_lockfile(tools_manifest):
 def lockfile_with_pending_write(tools_manifest):
     """Create a lockfile with write actions left pending."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        lockfile_path = Path(tmpdir) / "mcpmint.lock.yaml"
+        lockfile_path = Path(tmpdir) / "caskmcp.lock.yaml"
         manager = LockfileManager(lockfile_path)
         manager.load()
         manager.sync_from_manifest(tools_manifest)

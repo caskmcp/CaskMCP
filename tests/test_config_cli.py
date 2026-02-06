@@ -1,4 +1,4 @@
-"""Tests for mcpmint config command."""
+"""Tests for caskmcp config command."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from mcpmint.cli.main import cli
+from caskmcp.cli.main import cli
 from tests.helpers import write_demo_toolpack
 
 
@@ -24,6 +24,6 @@ def test_config_outputs_snippet_to_stdout(tmp_path: Path) -> None:
     assert result.stderr == ""
     payload = json.loads(result.stdout)
     server = payload["mcpServers"]["tp_demo"]
-    assert server["command"] == "mcpmint"
+    assert server["command"] == "caskmcp"
     assert server["args"][0] == "run"
     assert "--toolpack" in server["args"]

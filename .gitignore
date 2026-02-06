@@ -44,11 +44,11 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# MCPMint specific
+# CaskMCP specific
 captures/
 *.har
 *.session.json
-.mcpmint/
+.caskmcp/
 outputs/
 output/
 tmp_magic_demo/

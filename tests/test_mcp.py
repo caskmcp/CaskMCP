@@ -1,4 +1,4 @@
-"""Tests for the MCPMint MCP server."""
+"""Tests for the CaskMCP MCP server."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from mcpmint.core.approval import LockfileManager
-from mcpmint.mcp.server import MCPMintMCPServer
+from caskmcp.core.approval import LockfileManager
+from caskmcp.mcp.server import CaskMCPMCPServer
 
 
 @pytest.fixture
@@ -123,7 +123,7 @@ def lockfile_file(
     """Create lockfile with partial scoped approvals."""
     import yaml
 
-    lockfile_path = tmp_path / "mcpmint.lock.yaml"
+    lockfile_path = tmp_path / "caskmcp.lock.yaml"
     manager = LockfileManager(lockfile_path)
     manager.load()
     with open(toolsets_file) as f:
@@ -173,12 +173,12 @@ def policy_file(sample_policy: dict, tmp_path: Path) -> Path:
     return policy_path
 
 
-class TestMCPMintMCPServer:
-    """Tests for MCPMintMCPServer."""
+class TestCaskMCPMCPServer:
+    """Tests for CaskMCPMCPServer."""
 
     def test_init_loads_manifest(self, tools_file: Path) -> None:
         """Test server loads tools manifest."""
-        server = MCPMintMCPServer(tools_path=tools_file)
+        server = CaskMCPMCPServer(tools_path=tools_file)
 
         assert len(server.actions) == 3
         assert "get_users" in server.actions
@@ -187,7 +187,7 @@ class TestMCPMintMCPServer:
 
     def test_init_without_policy(self, tools_file: Path) -> None:
         """Test server initializes without policy."""
-        server = MCPMintMCPServer(tools_path=tools_file)
+        server = CaskMCPMCPServer(tools_path=tools_file)
 
         assert server.enforcer is None
 
@@ -197,7 +197,7 @@ class TestMCPMintMCPServer:
         toolsets_file: Path,
     ) -> None:
         """Server should expose only actions in selected toolset."""
-        server = MCPMintMCPServer(
+        server = CaskMCPMCPServer(
             tools_path=tools_file,
             toolsets_path=toolsets_file,
             toolset_name="readonly",
@@ -215,7 +215,7 @@ class TestMCPMintMCPServer:
     ) -> None:
         """Unknown toolset should fail server initialization."""
         with pytest.raises(ValueError, match="Unknown toolset"):
-            MCPMintMCPServer(
+            CaskMCPMCPServer(
                 tools_path=tools_file,
                 toolsets_path=toolsets_file,
                 toolset_name="does_not_exist",
@@ -228,7 +228,7 @@ class TestMCPMintMCPServer:
         lockfile_file: Path,
     ) -> None:
         """When lockfile is provided, only approved tools are exposed."""
-        server = MCPMintMCPServer(
+        server = CaskMCPMCPServer(
             tools_path=tools_file,
             toolsets_path=toolsets_file,
             toolset_name="readonly",
@@ -243,7 +243,7 @@ class TestMCPMintMCPServer:
         toolsets_file: Path,
     ) -> None:
         """Without lockfile, all tools in toolset are exposed (no approval gate)."""
-        server = MCPMintMCPServer(
+        server = CaskMCPMCPServer(
             tools_path=tools_file,
             toolsets_path=toolsets_file,
             toolset_name="operator",
@@ -253,7 +253,7 @@ class TestMCPMintMCPServer:
 
     def test_init_with_policy(self, tools_file: Path, policy_file: Path) -> None:
         """Test server initializes with policy."""
-        server = MCPMintMCPServer(
+        server = CaskMCPMCPServer(
             tools_path=tools_file,
             policy_path=policy_file,
         )
@@ -263,7 +263,7 @@ class TestMCPMintMCPServer:
 
     def test_build_description_low_risk(self, tools_file: Path) -> None:
         """Test description building for low-risk tool."""
-        server = MCPMintMCPServer(tools_path=tools_file)
+        server = CaskMCPMCPServer(tools_path=tools_file)
         action = server.actions["get_users"]
 
         desc = server._build_description(action)
@@ -273,7 +273,7 @@ class TestMCPMintMCPServer:
 
     def test_build_description_high_risk(self, tools_file: Path) -> None:
         """Test description building for high-risk tool."""
-        server = MCPMintMCPServer(tools_path=tools_file)
+        server = CaskMCPMCPServer(tools_path=tools_file)
         action = server.actions["create_user"]
 
         desc = server._build_description(action)
@@ -289,7 +289,7 @@ class TestMCPServerHandlers:
     @pytest.mark.asyncio
     async def test_list_tools(self, tools_file: Path) -> None:
         """Test listing available tools."""
-        server = MCPMintMCPServer(tools_path=tools_file)
+        server = CaskMCPMCPServer(tools_path=tools_file)
 
         # Get the list_tools handler from registered handlers
         # We need to access the internal handler
@@ -316,7 +316,7 @@ class TestMCPServerDryRun:
 
     def test_dry_run_flag(self, tools_file: Path) -> None:
         """Test dry run flag is set."""
-        server = MCPMintMCPServer(
+        server = CaskMCPMCPServer(
             tools_path=tools_file,
             dry_run=True,
         )
@@ -325,7 +325,7 @@ class TestMCPServerDryRun:
 
     def test_base_url_override(self, tools_file: Path) -> None:
         """Test base URL override."""
-        server = MCPMintMCPServer(
+        server = CaskMCPMCPServer(
             tools_path=tools_file,
             base_url="https://custom.api.com",
         )
@@ -334,7 +334,7 @@ class TestMCPServerDryRun:
 
     def test_auth_header(self, tools_file: Path) -> None:
         """Test auth header configuration."""
-        server = MCPMintMCPServer(
+        server = CaskMCPMCPServer(
             tools_path=tools_file,
             auth_header="Bearer test_token",
         )

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mcpmint.core.approval import LockfileManager
-from mcpmint.core.enforce import ConfirmationStore, DecisionEngine, PolicyEngine
-from mcpmint.models.decision import DecisionContext, DecisionRequest
-from mcpmint.models.policy import (
+from caskmcp.core.approval import LockfileManager
+from caskmcp.core.enforce import ConfirmationStore, DecisionEngine, PolicyEngine
+from caskmcp.models.decision import DecisionContext, DecisionRequest
+from caskmcp.models.policy import (
     MatchCondition,
     Policy,
     PolicyRule,
@@ -128,7 +128,7 @@ def test_integrity_mismatch_denies_before_policy(tmp_path: Path) -> None:
     action = _manifest_action("GET")
     policy = _allow_all_policy()
 
-    lockfile_manager = LockfileManager(tmp_path / "mcpmint.lock.yaml")
+    lockfile_manager = LockfileManager(tmp_path / "caskmcp.lock.yaml")
     lockfile = lockfile_manager.load()
     lockfile.artifacts_digest = "expected_digest"
 

@@ -4,16 +4,16 @@ import json
 
 import yaml
 
-from mcpmint.core.compile import (
+from caskmcp.core.compile import (
     BaselineGenerator,
     ContractCompiler,
     PolicyGenerator,
     ToolManifestGenerator,
     ToolsetGenerator,
 )
-from mcpmint.core.scope import get_builtin_scope
-from mcpmint.models.endpoint import Endpoint, Parameter, ParameterLocation
-from mcpmint.models.scope import ScopeType
+from caskmcp.core.scope import get_builtin_scope
+from caskmcp.models.endpoint import Endpoint, Parameter, ParameterLocation
+from caskmcp.models.scope import ScopeType
 
 
 def make_endpoint(
@@ -150,8 +150,8 @@ class TestContractCompiler:
         assert path_param["required"] is True
         assert path_param["description"] == "User ID"
 
-    def test_compile_mcpmint_metadata(self):
-        """Test that MCPMint metadata is included."""
+    def test_compile_caskmcp_metadata(self):
+        """Test that CaskMCP metadata is included."""
         endpoints = [
             make_endpoint(risk_tier="high", is_state_changing=True),
         ]
@@ -160,17 +160,17 @@ class TestContractCompiler:
         spec = compiler.compile(endpoints, capture_id="cap_123")
 
         # Info metadata
-        assert "x-mcpmint" in spec["info"]
-        assert spec["info"]["x-mcpmint"]["capture_id"] == "cap_123"
-        assert "generated_at" in spec["info"]["x-mcpmint"]
-        assert spec["info"]["x-mcpmint"]["schema_version"] == "1.0"
-        assert spec["x-mcpmint"]["schema_version"] == "1.0"
+        assert "x-caskmcp" in spec["info"]
+        assert spec["info"]["x-caskmcp"]["capture_id"] == "cap_123"
+        assert "generated_at" in spec["info"]["x-caskmcp"]
+        assert spec["info"]["x-caskmcp"]["schema_version"] == "1.0"
+        assert spec["x-caskmcp"]["schema_version"] == "1.0"
 
         # Operation metadata
         operation = spec["paths"]["/api/users/{id}"]["get"]
-        assert "x-mcpmint" in operation
-        assert operation["x-mcpmint"]["risk_tier"] == "high"
-        assert operation["x-mcpmint"]["state_changing"] is True
+        assert "x-caskmcp" in operation
+        assert operation["x-caskmcp"]["risk_tier"] == "high"
+        assert operation["x-caskmcp"]["state_changing"] is True
 
     def test_compile_with_scope(self):
         """Test compiling with scope metadata."""
@@ -180,7 +180,7 @@ class TestContractCompiler:
         compiler = ContractCompiler()
         spec = compiler.compile(endpoints, scope=scope)
 
-        assert spec["info"]["x-mcpmint"]["scope"] == "first_party_only"
+        assert spec["info"]["x-caskmcp"]["scope"] == "first_party_only"
 
     def test_to_yaml(self):
         """Test YAML serialization."""

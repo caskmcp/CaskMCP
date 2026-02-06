@@ -13,7 +13,7 @@ or sensitive traces publicly.
 
 ## Scope
 
-MCPMint is intended for first-party or explicitly authorized capture/enforcement
+CaskMCP is intended for first-party or explicitly authorized capture/enforcement
 workflows. Security reports are prioritized for:
 - Capture redaction behavior
 - Policy enforcement bypasses

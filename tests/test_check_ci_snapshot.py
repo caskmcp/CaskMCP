@@ -6,14 +6,14 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from mcpmint.cli.main import cli
-from mcpmint.core.approval import LockfileManager
+from caskmcp.cli.main import cli
+from caskmcp.core.approval import LockfileManager
 from tests.helpers import write_demo_toolpack
 
 
 def test_check_ci_requires_snapshot(tmp_path: Path) -> None:
     toolpack_file = write_demo_toolpack(tmp_path)
-    lockfile_path = toolpack_file.parent / "lockfile" / "mcpmint.lock.pending.yaml"
+    lockfile_path = toolpack_file.parent / "lockfile" / "caskmcp.lock.pending.yaml"
 
     manager = LockfileManager(lockfile_path)
     manager.load()

@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from mcpmint.cli.enforce import run_enforce
-from mcpmint.cli.main import cli
+from caskmcp.cli.enforce import run_enforce
+from caskmcp.cli.main import cli
 
 
 def _write_tools_and_policy(tmp_path: Path) -> tuple[Path, Path]:
@@ -50,7 +50,7 @@ class TestEnforceCLIWiring:
         tools_path, policy_path = _write_tools_and_policy(tmp_path)
         runner = CliRunner()
 
-        with patch("mcpmint.cli.enforce.run_enforce") as mock_run:
+        with patch("caskmcp.cli.enforce.run_enforce") as mock_run:
             result = runner.invoke(
                 cli,
                 [
@@ -103,7 +103,7 @@ class TestRunEnforce:
             def shutdown(self) -> None:
                 return None
 
-        with patch("mcpmint.cli.enforce.HTTPServer", FakeHTTPServer):
+        with patch("caskmcp.cli.enforce.HTTPServer", FakeHTTPServer):
             run_enforce(
                 tools_path=str(tools_path),
                 toolsets_path=None,

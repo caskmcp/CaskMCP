@@ -3,9 +3,9 @@
 import tempfile
 from pathlib import Path
 
-from mcpmint.core.scope import ScopeEngine, get_builtin_scope, parse_scope_file
-from mcpmint.models.endpoint import Endpoint
-from mcpmint.models.scope import FilterOperator, Scope, ScopeFilter, ScopeRule, ScopeType
+from caskmcp.core.scope import ScopeEngine, get_builtin_scope, parse_scope_file
+from caskmcp.models.endpoint import Endpoint
+from caskmcp.models.scope import FilterOperator, Scope, ScopeFilter, ScopeRule, ScopeType
 
 
 def make_endpoint(

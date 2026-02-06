@@ -3,9 +3,9 @@
 import json
 import time
 
-from mcpmint.core.audit import AuditLogger, EventType, FileAuditBackend, MemoryAuditBackend
-from mcpmint.core.enforce import ConfirmationRequest, Enforcer
-from mcpmint.models.policy import MatchCondition, Policy, PolicyRule, RuleType
+from caskmcp.core.audit import AuditLogger, EventType, FileAuditBackend, MemoryAuditBackend
+from caskmcp.core.enforce import ConfirmationRequest, Enforcer
+from caskmcp.models.policy import MatchCondition, Policy, PolicyRule, RuleType
 
 
 def make_policy(rules: list[PolicyRule] | None = None) -> Policy:

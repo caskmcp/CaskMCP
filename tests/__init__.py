@@ -1,1 +1,1 @@
-"""Tests for MCPMint."""
+"""Tests for CaskMCP."""

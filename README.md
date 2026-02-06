@@ -1,10 +1,10 @@
-# MCPMint
+# CaskMCP
 
-<!-- mcp-name: io.github.tomallicino/mcpmint -->
+<!-- mcp-name: io.github.tomallicino/caskmcp -->
 
 Mint a minimal, enforceable MCP tool surface from first-party, authorized traffic.
 
-> **MCPMint is a compiler for agent tools.**
+> **CaskMCP is a compiler for agent tools.**
 > It mints a minimal, stable, reviewable MCP tool surface from observed traffic (HAR, Playwright) or specs (OpenAPI), then enforces it with approvals, drift checks, and runtime policy.
 
 Why this matters:
@@ -27,14 +27,26 @@ Why this matters:
 
 | Category | Primary job | Relationship |
 | --- | --- | --- |
-| MCPMint | Tool surface compiler | Produces a minimal, governable tool surface from captures/specs |
+| CaskMCP | Tool surface compiler | Produces a minimal, governable tool surface from captures/specs |
 | [FastMCP](https://gofastmcp.com/) | Server framework | Serves tools you choose to expose |
-| [MCPTrust](https://mcptrust.dev/) | Enforcement firewall | Enforces server usage; MCPMint can run upstream to mint/curate toolpacks |
+| [MintMCP](https://www.mintmcp.com/) | Enterprise gateway | Runtime auth, RBAC, audit logging; no capture or compilation |
+| [MCPTrust](https://mcptrust.dev/) | Enforcement firewall | Enforces server usage; CaskMCP can run upstream to mint/curate toolpacks |
 | [agentgateway](https://github.com/agentgateway/agentgateway) | Enterprise proxy plane | Handles network/proxy concerns around already-exposed surfaces |
+
+CaskMCP is the only tool that does the full loop: **observed traffic -> normalized contracts -> scoped tool surface -> approved lockfile -> MCP server -> drift gates**. Gateways and firewalls enforce at runtime; CaskMCP compiles what they enforce.
 
 ## 5-Minute Proof (Blocking + Drift Gate)
 
 Fastest end-to-end proof:
+
+```bash
+caskmcp demo
+```
+
+This generates a deterministic, offline demo toolpack from a bundled fixture and prints
+exact next commands (`run`, `approve`, `drift`).
+
+CI governance harness (full blocked-write + approval + drift story):
 
 ```bash
 # Installs/uses local CLI and runs the full governance harness.
@@ -54,13 +66,13 @@ Mint-first flow:
 
 ```bash
 # 1) Mint a toolpack from real traffic (headless by default)
-mcpmint mint https://app.example.com \
+caskmcp mint https://app.example.com \
   -a api.example.com \
   --scope agent_safe_readonly \
   --print-mcp-config
 
 # 2) Serve the curated surface immediately
-mcpmint run --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+caskmcp run --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
 
 # 3) CI gate: fail if surface drifts
 bash scripts/magic_moment_ci.sh
@@ -69,7 +81,7 @@ bash scripts/magic_moment_ci.sh
 Playbook + verification:
 
 ```bash
-mcpmint mint https://app.example.com \
+caskmcp mint https://app.example.com \
   -a api.example.com \
   --playbook flows/search.yaml \
   --verify-ui \
@@ -79,18 +91,18 @@ mcpmint mint https://app.example.com \
 Client config snippet (Claude Desktop):
 
 ```bash
-mcpmint config --toolpack /absolute/path/to/.mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+caskmcp config --toolpack /absolute/path/to/.caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
 ```
 
 ```json
 {
   "mcpServers": {
     "my-toolpack": {
-      "command": "mcpmint",
+      "command": "caskmcp",
       "args": [
         "run",
         "--toolpack",
-        "/absolute/path/to/.mcpmint/toolpacks/<toolpack-id>/toolpack.yaml"
+        "/absolute/path/to/.caskmcp/toolpacks/<toolpack-id>/toolpack.yaml"
       ]
     }
   }
@@ -114,27 +126,28 @@ mcpmint config --toolpack /absolute/path/to/.mcpmint/toolpacks/<toolpack-id>/too
 ## Install
 
 ```bash
-pip install mcpmint
+pip install caskmcp
 ```
 
 Optional extras:
 
 ```bash
-pip install "mcpmint[playwright]"   # mint/capture
-pip install "mcpmint[mcp]"          # serve
-pip install "mcpmint[playwright,mcp]"  # full quickstart
-pip install "mcpmint[cryptography]" # optional encrypted evidence reports
+pip install "caskmcp[playwright]"   # mint/capture
+pip install "caskmcp[mcp]"          # serve
+pip install "caskmcp[playwright,mcp]"  # full quickstart
+pip install "caskmcp[dev]"          # contributors/CI (tests + lint + typecheck)
 ```
 
 - `mcp` extra: built-in MCP server runtime
 - `playwright` extra: browser traffic capture for `mint` / `capture record`
 - If you installed `playwright` but not the browser binaries, run:
   `python -m playwright install chromium`
-- Encrypted verification reports require `MCPMINT_EVIDENCE_KEY` and the `cryptography` extra.
+- Runtime commands that require MCP fail fast with:
+  `Error: mcp not installed. Install with: pip install "caskmcp[mcp]"`
 
 ## What `mint` Produces
 
-Default output root: `.mcpmint/`
+Default output root: `.caskmcp/`
 
 - `captures/<capture-id>.json`
 - `artifacts/<artifact-id>/`
@@ -146,17 +159,17 @@ Default output root: `.mcpmint/`
 - `toolpacks/<toolpack-id>/`
   - `toolpack.yaml`
   - `artifact/` (copied artifacts)
-  - `lockfile/mcpmint.lock.pending.yaml`
+  - `lockfile/caskmcp.lock.pending.yaml`
   - `evidence_summary.json` (when `--verify-ui`)
   - `evidence_summary.sha256` (when `--verify-ui`)
-  - `Dockerfile`, `entrypoint.sh`, `mcpmint.run`, `requirements.lock` (when `--runtime=container`)
-  - `.mcpmint/approvals/...` (after approvals, for plan/check_ci baselines)
+  - `Dockerfile`, `entrypoint.sh`, `caskmcp.run`, `requirements.lock` (when `--runtime=container`)
+  - `.caskmcp/approvals/...` (after approvals, for plan/check_ci baselines)
 
 `toolpack.yaml` is the handoff object for MCP serving (`--toolpack`).
 
 ## Permissions and Modes
 
-MCPMint is designed for first-party or explicitly authorized captures only. It keeps redaction on by default, applies deny-by-default policy behavior, gates state-changing operations with confirmations/approvals, and includes SSRF-oriented runtime protections (private network deny-by-default and redirect controls in proxy mode). These defaults align with [MCP security best practices](https://modelcontextprotocol.io/specification/draft/basic/security_best_practices) around consent, least privilege, and explicit authorization.
+CaskMCP is designed for first-party or explicitly authorized captures only. It keeps redaction on by default, applies deny-by-default policy behavior, gates state-changing operations with confirmations/approvals, and includes SSRF-oriented runtime protections (private network deny-by-default and redirect controls in proxy mode). These defaults align with [MCP security best practices](https://modelcontextprotocol.io/specification/draft/basic/security_best_practices) around consent, least privilege, and explicit authorization.
 
 ## Non-goals
 
@@ -172,23 +185,24 @@ MCPMint is designed for first-party or explicitly authorized captures only. It k
 
 ## CLI Map
 
-- `mcpmint mint` - one-shot mint loop (`capture -> compile -> toolpack`)
-- `mcpmint config` - emit MCP client config snippet for a toolpack
-- `mcpmint doctor` - validate toolpack readiness and dependencies
-- `mcpmint run` - run a toolpack locally or in a container
-- `mcpmint plan` - deterministic capability diff report
-- `mcpmint bundle` - deterministic zip bundle for sharing
-- `mcpmint capture` - import HAR or record browser traffic
-- `mcpmint openapi` - import OpenAPI spec as a capture
-- `mcpmint compile` - generate artifacts/toolsets/policy/baseline
-- `mcpmint approve` - sync/list/approve/reject/check lockfile status
-- `mcpmint drift` - compare captures or check against baseline
-- `mcpmint enforce` - runtime policy gateway (evaluate/proxy)
-- `mcpmint mcp serve` - expose tools as an MCP server
-- `mcpmint mcp meta` - expose governance introspection tools as MCP
-- `mcpmint verify` - verify UI evidence against captured API responses
+- `caskmcp mint` - one-shot mint loop (`capture -> compile -> toolpack`)
+- `caskmcp demo` - offline fixture-backed generate-only demo path
+- `caskmcp config` - emit MCP client config snippet for a toolpack
+- `caskmcp doctor` - validate toolpack readiness and dependencies
+- `caskmcp run` - run a toolpack locally or in a container
+- `caskmcp plan` - deterministic capability diff report
+- `caskmcp bundle` - deterministic zip bundle for sharing
+- `caskmcp capture` - import HAR or record browser traffic
+- `caskmcp openapi` - import OpenAPI spec as a capture
+- `caskmcp compile` - generate artifacts/toolsets/policy/baseline
+- `caskmcp approve` - sync/list/approve/reject/check lockfile status
+- `caskmcp drift` - compare captures or check against baseline
+- `caskmcp enforce` - runtime policy gateway (evaluate/proxy)
+- `caskmcp mcp serve` - expose tools as an MCP server
+- `caskmcp mcp meta` - expose governance introspection tools as MCP
+- `caskmcp verify` - verify UI evidence against captured API responses
 
-`mcpmint serve` is a convenience alias for `mcpmint mcp serve`.
+`caskmcp serve` is a convenience alias for `caskmcp mcp serve`.
 
 ## Demos And Docs
 

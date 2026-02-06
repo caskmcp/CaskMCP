@@ -6,16 +6,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `caskmcp demo` command for deterministic offline first-run generation
+  (fixture capture -> compile -> toolpack, generate-only).
+- Packaged demo HAR fixture under `caskmcp/assets/demo/sample.har`.
+- CLI tests for exact dependency error strings, compile format surface, demo behavior,
+  and packaging fixture coverage.
+
 ### Changed
-- `mcpmint serve` now aliases directly to `mcpmint mcp serve`.
+- **Project renamed from MCPMint to CaskMCP** to avoid brand confusion with MintMCP gateway.
+  Package is now `caskmcp`, CLI is `caskmcp`, config directory is `.caskmcp/`.
+- Updated competitive comparison table with MintMCP and ecosystem positioning.
+- `dev` extra now includes `mcp`, `playwright`, and `build` for CI/contributor parity.
+- Runtime dependency checks now fail fast with exact actionable lines for missing MCP.
+- Playwright capture/mint error handling now distinguishes package missing vs browser binaries missing.
+- `caskmcp doctor` now only enforces MCP dependency when `--runtime local` is explicitly requested.
+- `caskmcp serve` now aliases directly to `caskmcp mcp serve`.
 - Added MCP client config snippet to README.
 - Added strict hatch build excludes for local caches/artifacts.
 
-### Added
-- Root `server.json` scaffold for MCP Registry publishing.
-
 ### Removed
-- Removed obsolete `mcpmint/cli/serve.py` dashboard stub implementation.
+- Removed placeholder `mcp-python` compile output format from the public CLI.
+- Removed obsolete `caskmcp/cli/serve.py` dashboard stub implementation.
+
+### Fixed
+- README install matrix now matches `pyproject.toml` extras (removed stale `cryptography` extra reference).
 
 ## [0.1.0-alpha.4] - 2026-02-05
 
@@ -49,10 +64,10 @@ All notable changes to this project will be documented in this file.
 ## [0.1.0-alpha.1] - 2026-02-05
 
 ### Added
-- `mcpmint mint` command for capture -> compile -> toolpack orchestration.
+- `caskmcp mint` command for capture -> compile -> toolpack orchestration.
 - First-class toolpacks with pending lockfile bootstrap.
-- `mcpmint mcp serve --toolpack` path resolution support.
+- `caskmcp mcp serve --toolpack` path resolution support.
 - Headless/scripted Playwright capture support.
 
 ### Changed
-- Full project rename baseline to `mcpmint` and `.mcpmint` defaults.
+- Full project rename baseline to `caskmcp` and `.caskmcp` defaults.

@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from mcpmint.core.approval import ApprovalStatus, LockfileManager, ToolApproval
-from mcpmint.core.approval.snapshot import materialize_snapshot
+from caskmcp.core.approval import ApprovalStatus, LockfileManager, ToolApproval
+from caskmcp.core.approval.snapshot import materialize_snapshot
 from tests.helpers import write_demo_toolpack
 
 
@@ -51,7 +51,7 @@ class TestLockfileManager:
     @pytest.fixture
     def tmp_lockfile(self, tmp_path: Path) -> Path:
         """Create a temp lockfile path."""
-        return tmp_path / "mcpmint.lock.yaml"
+        return tmp_path / "caskmcp.lock.yaml"
 
     @pytest.fixture
     def sample_manifest(self) -> dict:
@@ -103,7 +103,7 @@ class TestLockfileManager:
     def test_init_default_path(self) -> None:
         """Test default lockfile path."""
         manager = LockfileManager()
-        assert manager.lockfile_path.name == "mcpmint.lock.yaml"
+        assert manager.lockfile_path.name == "caskmcp.lock.yaml"
 
     def test_init_custom_path(self, tmp_lockfile: Path) -> None:
         """Test custom lockfile path."""
@@ -389,7 +389,7 @@ class TestLockfileManager:
     def test_check_ci_all_approved(self, tmp_path: Path) -> None:
         """Test CI check with all tools approved and snapshot present."""
         toolpack_file = write_demo_toolpack(tmp_path)
-        lockfile_path = toolpack_file.parent / "lockfile" / "mcpmint.lock.pending.yaml"
+        lockfile_path = toolpack_file.parent / "lockfile" / "caskmcp.lock.pending.yaml"
         manager = LockfileManager(lockfile_path)
         manager.load()
         manager.approve_all()
@@ -417,7 +417,7 @@ class TestLockfileManager:
     def test_check_ci_toolset_scoped(self, tmp_path: Path) -> None:
         """Toolset CI checks should only evaluate selected toolset approvals."""
         toolpack_file = write_demo_toolpack(tmp_path)
-        lockfile_path = toolpack_file.parent / "lockfile" / "mcpmint.lock.pending.yaml"
+        lockfile_path = toolpack_file.parent / "lockfile" / "caskmcp.lock.pending.yaml"
         manager = LockfileManager(lockfile_path)
         manager.load()
 
@@ -484,7 +484,7 @@ class TestApprovalCLI:
     def setup_env(self, tmp_path: Path) -> tuple[Path, Path]:
         """Set up test environment with tools manifest and lockfile."""
         tools_path = tmp_path / "tools.json"
-        lockfile_path = tmp_path / "mcpmint.lock.yaml"
+        lockfile_path = tmp_path / "caskmcp.lock.yaml"
 
         manifest = {
             "actions": [
@@ -516,7 +516,7 @@ class TestApprovalCLI:
         """Test that sync creates lockfile with pending tools."""
         from click.testing import CliRunner
 
-        from mcpmint.cli.main import cli
+        from caskmcp.cli.main import cli
 
         tools_path, lockfile_path = setup_env
         runner = CliRunner()
@@ -536,7 +536,7 @@ class TestApprovalCLI:
         """Test that list shows tools from lockfile."""
         from click.testing import CliRunner
 
-        from mcpmint.cli.main import cli
+        from caskmcp.cli.main import cli
 
         tools_path, lockfile_path = setup_env
         runner = CliRunner()
@@ -561,7 +561,7 @@ class TestApprovalCLI:
         """Test that approve changes tool status."""
         from click.testing import CliRunner
 
-        from mcpmint.cli.main import cli
+        from caskmcp.cli.main import cli
 
         tools_path, lockfile_path = setup_env
         runner = CliRunner()
@@ -592,7 +592,7 @@ class TestApprovalCLI:
         """Test approving all pending tools."""
         from click.testing import CliRunner
 
-        from mcpmint.cli.main import cli
+        from caskmcp.cli.main import cli
 
         tools_path, lockfile_path = setup_env
         runner = CliRunner()
@@ -616,7 +616,7 @@ class TestApprovalCLI:
         """Test rejecting a tool."""
         from click.testing import CliRunner
 
-        from mcpmint.cli.main import cli
+        from caskmcp.cli.main import cli
 
         tools_path, lockfile_path = setup_env
         runner = CliRunner()
@@ -640,7 +640,7 @@ class TestApprovalCLI:
         """Test that check fails when tools are pending."""
         from click.testing import CliRunner
 
-        from mcpmint.cli.main import cli
+        from caskmcp.cli.main import cli
 
         tools_path, lockfile_path = setup_env
         runner = CliRunner()
@@ -664,10 +664,10 @@ class TestApprovalCLI:
         """Test that check passes when all tools approved with snapshot present."""
         from click.testing import CliRunner
 
-        from mcpmint.cli.main import cli
+        from caskmcp.cli.main import cli
 
         toolpack_file = write_demo_toolpack(tmp_path)
-        lockfile_path = toolpack_file.parent / "lockfile" / "mcpmint.lock.pending.yaml"
+        lockfile_path = toolpack_file.parent / "lockfile" / "caskmcp.lock.pending.yaml"
         runner = CliRunner()
 
         runner.invoke(
@@ -687,10 +687,10 @@ class TestApprovalCLI:
         """CLI supports toolset-scoped approval/check workflow."""
         from click.testing import CliRunner
 
-        from mcpmint.cli.main import cli
+        from caskmcp.cli.main import cli
 
         toolpack_file = write_demo_toolpack(tmp_path)
-        lockfile_path = toolpack_file.parent / "lockfile" / "mcpmint.lock.pending.yaml"
+        lockfile_path = toolpack_file.parent / "lockfile" / "caskmcp.lock.pending.yaml"
         runner = CliRunner()
 
         pending_check = runner.invoke(

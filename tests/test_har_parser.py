@@ -4,8 +4,8 @@ import json
 import tempfile
 from pathlib import Path
 
-from mcpmint.core.capture.har_parser import HARParser
-from mcpmint.models.capture import CaptureSource
+from caskmcp.core.capture.har_parser import HARParser
+from caskmcp.models.capture import CaptureSource
 
 
 def create_har_file(entries: list[dict]) -> Path:
@@ -172,7 +172,7 @@ class TestPathNormalizer:
 
     def test_normalize_uuid(self):
         """Test UUID normalization."""
-        from mcpmint.core.normalize.path_normalizer import PathNormalizer
+        from caskmcp.core.normalize.path_normalizer import PathNormalizer
 
         normalizer = PathNormalizer()
 
@@ -183,7 +183,7 @@ class TestPathNormalizer:
 
     def test_normalize_numeric_id(self):
         """Test numeric ID normalization."""
-        from mcpmint.core.normalize.path_normalizer import PathNormalizer
+        from caskmcp.core.normalize.path_normalizer import PathNormalizer
 
         normalizer = PathNormalizer()
 
@@ -194,7 +194,7 @@ class TestPathNormalizer:
 
     def test_preserve_version_segments(self):
         """Test that version segments are preserved."""
-        from mcpmint.core.normalize.path_normalizer import PathNormalizer
+        from caskmcp.core.normalize.path_normalizer import PathNormalizer
 
         normalizer = PathNormalizer()
 
@@ -205,7 +205,7 @@ class TestPathNormalizer:
 
     def test_extract_parameters(self):
         """Test parameter extraction from path."""
-        from mcpmint.core.normalize.path_normalizer import PathNormalizer
+        from caskmcp.core.normalize.path_normalizer import PathNormalizer
 
         normalizer = PathNormalizer()
 
@@ -222,42 +222,42 @@ class TestToolNaming:
 
     def test_get_single_resource(self):
         """Test naming for GET single resource."""
-        from mcpmint.utils.naming import generate_tool_name
+        from caskmcp.utils.naming import generate_tool_name
 
         name = generate_tool_name("GET", "/users/{id}")
         assert name == "get_user"
 
     def test_list_resources(self):
         """Test naming for GET collection."""
-        from mcpmint.utils.naming import generate_tool_name
+        from caskmcp.utils.naming import generate_tool_name
 
         name = generate_tool_name("GET", "/users")
         assert name == "get_users"
 
     def test_create_resource(self):
         """Test naming for POST."""
-        from mcpmint.utils.naming import generate_tool_name
+        from caskmcp.utils.naming import generate_tool_name
 
         name = generate_tool_name("POST", "/users")
         assert name == "create_user"
 
     def test_delete_resource(self):
         """Test naming for DELETE."""
-        from mcpmint.utils.naming import generate_tool_name
+        from caskmcp.utils.naming import generate_tool_name
 
         name = generate_tool_name("DELETE", "/users/{id}")
         assert name == "delete_user"
 
     def test_nested_resource(self):
         """Test naming for nested resources."""
-        from mcpmint.utils.naming import generate_tool_name
+        from caskmcp.utils.naming import generate_tool_name
 
         name = generate_tool_name("GET", "/products/{id}/reviews")
         assert name == "get_product_reviews"
 
     def test_search_override(self):
         """Test verb override for search."""
-        from mcpmint.utils.naming import generate_tool_name
+        from caskmcp.utils.naming import generate_tool_name
 
         # Search is a read-only POST, so keeps plural
         name = generate_tool_name("POST", "/search/products")
@@ -265,14 +265,14 @@ class TestToolNaming:
 
     def test_graphql_override(self):
         """Test verb override for GraphQL."""
-        from mcpmint.utils.naming import generate_tool_name
+        from caskmcp.utils.naming import generate_tool_name
 
         name = generate_tool_name("POST", "/graphql")
         assert name == "query"
 
     def test_strips_api_prefix(self):
         """Test that api prefix is stripped."""
-        from mcpmint.utils.naming import generate_tool_name
+        from caskmcp.utils.naming import generate_tool_name
 
         name = generate_tool_name("GET", "/api/v1/users/{id}")
         assert name == "get_user"

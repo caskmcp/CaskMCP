@@ -1,4 +1,4 @@
-"""Tests for MCPMint Meta MCP server."""
+"""Tests for CaskMCP Meta MCP server."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from mcpmint.core.approval import LockfileManager
-from mcpmint.mcp.meta_server import MCPMintMetaMCPServer
+from caskmcp.core.approval import LockfileManager
+from caskmcp.mcp.meta_server import CaskMCPMetaMCPServer
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ def sample_manifest(tmp_path: Path) -> Path:
 @pytest.fixture
 def sample_lockfile(tmp_path: Path, sample_manifest: Path) -> Path:
     """Create a sample lockfile with some approvals."""
-    lockfile_path = tmp_path / "mcpmint.lock.yaml"
+    lockfile_path = tmp_path / "caskmcp.lock.yaml"
 
     # Load manifest and sync
     with open(sample_manifest) as f:
@@ -77,32 +77,32 @@ def sample_lockfile(tmp_path: Path, sample_manifest: Path) -> Path:
     return lockfile_path
 
 
-class TestMCPMintMetaMCPServer:
-    """Tests for MCPMintMetaMCPServer."""
+class TestCaskMCPMetaMCPServer:
+    """Tests for CaskMCPMetaMCPServer."""
 
     def test_init_with_tools_path(self, sample_manifest: Path) -> None:
         """Test initialization with tools path."""
-        server = MCPMintMetaMCPServer(tools_path=sample_manifest)
+        server = CaskMCPMetaMCPServer(tools_path=sample_manifest)
         assert server.manifest is not None
         assert len(server.manifest["actions"]) == 3
 
     def test_init_without_manifest(self) -> None:
         """Test initialization without manifest."""
-        server = MCPMintMetaMCPServer()
+        server = CaskMCPMetaMCPServer()
         assert server.manifest is None
 
     def test_server_initialized(self, sample_manifest: Path) -> None:
         """Test that server is properly initialized with handlers."""
-        server = MCPMintMetaMCPServer(tools_path=sample_manifest)
+        server = CaskMCPMetaMCPServer(tools_path=sample_manifest)
 
         # Verify server is created
         assert server.server is not None
-        assert server.server.name == "mcpmint-meta"
+        assert server.server.name == "caskmcp-meta"
 
     @pytest.mark.asyncio
     async def test_list_actions(self, sample_manifest: Path) -> None:
         """Test listing actions from manifest."""
-        server = MCPMintMetaMCPServer(tools_path=sample_manifest)
+        server = CaskMCPMetaMCPServer(tools_path=sample_manifest)
         result = await server._list_actions({})
 
         data = json.loads(result[0].text)
@@ -118,7 +118,7 @@ class TestMCPMintMetaMCPServer:
     @pytest.mark.asyncio
     async def test_list_actions_filter_by_risk(self, sample_manifest: Path) -> None:
         """Test filtering actions by risk tier."""
-        server = MCPMintMetaMCPServer(tools_path=sample_manifest)
+        server = CaskMCPMetaMCPServer(tools_path=sample_manifest)
         result = await server._list_actions({"filter_risk": "high"})
 
         data = json.loads(result[0].text)
@@ -128,7 +128,7 @@ class TestMCPMintMetaMCPServer:
     @pytest.mark.asyncio
     async def test_list_actions_filter_by_method(self, sample_manifest: Path) -> None:
         """Test filtering actions by HTTP method."""
-        server = MCPMintMetaMCPServer(tools_path=sample_manifest)
+        server = CaskMCPMetaMCPServer(tools_path=sample_manifest)
         result = await server._list_actions({"filter_method": "GET"})
 
         data = json.loads(result[0].text)
@@ -138,7 +138,7 @@ class TestMCPMintMetaMCPServer:
     @pytest.mark.asyncio
     async def test_get_action_details(self, sample_manifest: Path) -> None:
         """Test getting action details."""
-        server = MCPMintMetaMCPServer(tools_path=sample_manifest)
+        server = CaskMCPMetaMCPServer(tools_path=sample_manifest)
         result = await server._get_action_details({"action_name": "get_users"})
 
         data = json.loads(result[0].text)
@@ -150,7 +150,7 @@ class TestMCPMintMetaMCPServer:
     @pytest.mark.asyncio
     async def test_get_action_details_not_found(self, sample_manifest: Path) -> None:
         """Test getting details for nonexistent action."""
-        server = MCPMintMetaMCPServer(tools_path=sample_manifest)
+        server = CaskMCPMetaMCPServer(tools_path=sample_manifest)
         result = await server._get_action_details({"action_name": "nonexistent"})
 
         data = json.loads(result[0].text)
@@ -159,7 +159,7 @@ class TestMCPMintMetaMCPServer:
     @pytest.mark.asyncio
     async def test_risk_summary(self, sample_manifest: Path) -> None:
         """Test risk summary."""
-        server = MCPMintMetaMCPServer(tools_path=sample_manifest)
+        server = CaskMCPMetaMCPServer(tools_path=sample_manifest)
         result = await server._risk_summary()
 
         data = json.loads(result[0].text)
@@ -173,7 +173,7 @@ class TestMCPMintMetaMCPServer:
         self, sample_manifest: Path, sample_lockfile: Path
     ) -> None:
         """Test getting approval status with lockfile."""
-        server = MCPMintMetaMCPServer(
+        server = CaskMCPMetaMCPServer(
             tools_path=sample_manifest,
             lockfile_path=sample_lockfile,
         )
@@ -189,7 +189,7 @@ class TestMCPMintMetaMCPServer:
         self, sample_manifest: Path, sample_lockfile: Path
     ) -> None:
         """Test getting approval status for pending action."""
-        server = MCPMintMetaMCPServer(
+        server = CaskMCPMetaMCPServer(
             tools_path=sample_manifest,
             lockfile_path=sample_lockfile,
         )
@@ -204,7 +204,7 @@ class TestMCPMintMetaMCPServer:
         self, sample_manifest: Path, sample_lockfile: Path
     ) -> None:
         """Test listing pending approvals."""
-        server = MCPMintMetaMCPServer(
+        server = CaskMCPMetaMCPServer(
             tools_path=sample_manifest,
             lockfile_path=sample_lockfile,
         )
@@ -221,7 +221,7 @@ class TestMCPMintMetaMCPServer:
     @pytest.mark.asyncio
     async def test_check_policy_no_policy(self, sample_manifest: Path) -> None:
         """Test policy check without policy loaded."""
-        server = MCPMintMetaMCPServer(tools_path=sample_manifest)
+        server = CaskMCPMetaMCPServer(tools_path=sample_manifest)
         result = await server._check_policy({"action_name": "get_users"})
 
         data = json.loads(result[0].text)

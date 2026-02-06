@@ -1,4 +1,4 @@
-"""Tests for mcpmint plan command."""
+"""Tests for caskmcp plan command."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from mcpmint.cli.main import cli
-from mcpmint.core.approval import LockfileManager
+from caskmcp.cli.main import cli
+from caskmcp.core.approval import LockfileManager
 from tests.helpers import write_demo_toolpack
 
 
 def test_plan_writes_deterministic_outputs(tmp_path: Path) -> None:
     toolpack_file = write_demo_toolpack(tmp_path)
-    lockfile_path = toolpack_file.parent / "lockfile" / "mcpmint.lock.pending.yaml"
+    lockfile_path = toolpack_file.parent / "lockfile" / "caskmcp.lock.pending.yaml"
 
     manager = LockfileManager(lockfile_path)
     manager.load()

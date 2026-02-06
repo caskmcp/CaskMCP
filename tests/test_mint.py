@@ -9,12 +9,12 @@ from unittest.mock import patch
 import yaml
 from click.testing import CliRunner
 
-from mcpmint.cli.approve import ApprovalSyncResult
-from mcpmint.cli.compile import CompileResult
-from mcpmint.cli.main import cli
-from mcpmint.cli.mint import build_mcp_config_snippet, run_mint
-from mcpmint.models.capture import CaptureSession, CaptureSource, HttpExchange, HTTPMethod
-from mcpmint.models.scope import Scope
+from caskmcp.cli.approve import ApprovalSyncResult
+from caskmcp.cli.compile import CompileResult
+from caskmcp.cli.main import cli
+from caskmcp.cli.mint import build_mcp_config_snippet, run_mint
+from caskmcp.models.capture import CaptureSession, CaptureSource, HttpExchange, HTTPMethod
+from caskmcp.models.scope import Scope
 
 
 def _write_artifact_fixture(tmp_path: Path) -> Path:
@@ -86,13 +86,13 @@ class TestMint:
                 return session
 
         with patch(
-            "mcpmint.core.capture.playwright_capture.PlaywrightCapture",
+            "caskmcp.core.capture.playwright_capture.PlaywrightCapture",
             FakePlaywrightCapture,
         ), patch(
-            "mcpmint.cli.mint.compile_capture_session",
+            "caskmcp.cli.mint.compile_capture_session",
             return_value=compile_result,
         ), patch(
-            "mcpmint.cli.mint.sync_lockfile",
+            "caskmcp.cli.mint.sync_lockfile",
             return_value=ApprovalSyncResult(
                 lockfile_path=tmp_path / "dummy.lock.yaml",
                 artifacts_digest="abc123",
@@ -117,8 +117,8 @@ class TestMint:
 
         out = capsys.readouterr().out
         assert "Mint complete:" in out
-        assert "mcpmint run --toolpack" in out
-        assert "mcpmint approve tool --all --toolset readonly" in out
+        assert "caskmcp run --toolpack" in out
+        assert "caskmcp approve tool --all --toolset readonly" in out
 
         toolpack_files = list((tmp_path / "toolpacks").glob("*/toolpack.yaml"))
         assert len(toolpack_files) == 1
@@ -127,7 +127,7 @@ class TestMint:
         assert payload["schema_version"] == "1.0"
         assert payload["capture_id"] == "cap_demo"
         assert payload["paths"]["tools"] == "artifact/tools.json"
-        assert payload["paths"]["lockfiles"]["pending"] == "lockfile/mcpmint.lock.pending.yaml"
+        assert payload["paths"]["lockfiles"]["pending"] == "lockfile/caskmcp.lock.pending.yaml"
 
         assert capture_calls["headless"] is True
         assert capture_calls["capture_kwargs"]["duration_seconds"] == 30
@@ -143,13 +143,13 @@ class TestMint:
             toolpack_path=tmp_path / "toolpack.yaml",
             server_name="demo",
         )
-        assert '"command": "mcpmint"' in snippet
+        assert '"command": "caskmcp"' in snippet
         assert '"run"' in snippet
         assert '"--toolpack"' in snippet
 
     def test_mint_cli_wires_arguments(self) -> None:
         runner = CliRunner()
-        with patch("mcpmint.cli.mint.run_mint") as mock_run:
+        with patch("caskmcp.cli.mint.run_mint") as mock_run:
             result = runner.invoke(
                 cli,
                 [
@@ -173,3 +173,91 @@ class TestMint:
         assert kwargs["runtime_build"] is False
         assert kwargs["runtime_tag"] is None
         assert kwargs["runtime_version_pin"] is None
+
+    def test_mint_missing_playwright_exact_error(self, monkeypatch) -> None:
+        runner = CliRunner()
+
+        async def _raise_import_error(self, **kwargs):  # noqa: ANN001, ARG001
+            raise ImportError("No module named 'playwright'")
+
+        monkeypatch.setattr(
+            "caskmcp.core.capture.playwright_capture.PlaywrightCapture.capture",
+            _raise_import_error,
+        )
+
+        result = runner.invoke(
+            cli,
+            [
+                "mint",
+                "https://app.example.com",
+                "-a",
+                "api.example.com",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert result.stdout == ""
+        assert (
+            result.stderr
+            == 'Error: Playwright not installed. Install with: pip install "caskmcp[playwright]"\n'
+        )
+
+    def test_mint_missing_browsers_exact_error(self, monkeypatch) -> None:
+        runner = CliRunner()
+
+        async def _raise_missing_browser(self, **kwargs):  # noqa: ANN001, ARG001
+            raise RuntimeError(
+                "BrowserType.launch: Executable doesn't exist. "
+                "Please run playwright install chromium"
+            )
+
+        monkeypatch.setattr(
+            "caskmcp.core.capture.playwright_capture.PlaywrightCapture.capture",
+            _raise_missing_browser,
+        )
+
+        result = runner.invoke(
+            cli,
+            [
+                "mint",
+                "https://app.example.com",
+                "-a",
+                "api.example.com",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert result.stdout == ""
+        assert (
+            result.stderr
+            == "Error: Playwright browsers not installed. Run: playwright install chromium\n"
+        )
+
+    def test_mint_missing_browsers_verbose_still_single_line(self, monkeypatch) -> None:
+        runner = CliRunner()
+
+        async def _raise_missing_browser(self, **kwargs):  # noqa: ANN001, ARG001
+            raise RuntimeError("Executable doesn't exist; run playwright install chromium")
+
+        monkeypatch.setattr(
+            "caskmcp.core.capture.playwright_capture.PlaywrightCapture.capture",
+            _raise_missing_browser,
+        )
+
+        result = runner.invoke(
+            cli,
+            [
+                "-v",
+                "mint",
+                "https://app.example.com",
+                "-a",
+                "api.example.com",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "Traceback" not in result.stderr
+        assert (
+            result.stderr
+            == "Error: Playwright browsers not installed. Run: playwright install chromium\n"
+        )

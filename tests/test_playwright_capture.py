@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mcpmint.core.capture.playwright_capture import PlaywrightCapture
+from caskmcp.core.capture.playwright_capture import PlaywrightCapture
 
 
 class TestPlaywrightCapture:
@@ -248,7 +248,7 @@ class TestPlaywrightCaptureImportError:
         with (
             patch.dict("sys.modules", {"playwright.async_api": None}),
             patch(
-                "mcpmint.core.capture.playwright_capture.PlaywrightCapture.capture",
+                "caskmcp.core.capture.playwright_capture.PlaywrightCapture.capture",
                 side_effect=ImportError("Playwright is required"),
             ),
             pytest.raises(ImportError, match="Playwright"),
@@ -261,7 +261,7 @@ class TestRunCapture:
 
     def test_run_capture_creates_instance(self):
         """run_capture creates a PlaywrightCapture instance."""
-        from mcpmint.core.capture.playwright_capture import run_capture
+        from caskmcp.core.capture.playwright_capture import run_capture
 
         # We can't easily test this without mocking asyncio.run
         # Just verify the function exists and has the right signature

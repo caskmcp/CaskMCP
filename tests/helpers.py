@@ -8,8 +8,8 @@ from typing import Any
 
 import yaml
 
-from mcpmint.cli.approve import sync_lockfile
-from mcpmint.core.toolpack import Toolpack, ToolpackOrigin, ToolpackPaths, write_toolpack
+from caskmcp.cli.approve import sync_lockfile
+from caskmcp.core.toolpack import Toolpack, ToolpackOrigin, ToolpackPaths, write_toolpack
 
 
 def write_demo_artifacts(artifact_dir: Path) -> dict[str, Path]:
@@ -86,7 +86,7 @@ def write_demo_toolpack(tmp_path: Path) -> Path:
     lockfile_dir.mkdir(parents=True, exist_ok=True)
     artifacts = write_demo_artifacts(artifact_dir)
 
-    pending_lockfile = lockfile_dir / "mcpmint.lock.pending.yaml"
+    pending_lockfile = lockfile_dir / "caskmcp.lock.pending.yaml"
     sync_lockfile(
         tools_path=str(artifacts["tools"]),
         policy_path=str(artifacts["policy"]),

@@ -6,13 +6,13 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from mcpmint.cli.main import cli
+from caskmcp.cli.main import cli
 from tests.helpers import load_yaml, write_demo_toolpack
 
 
 def test_approve_materializes_snapshot(tmp_path: Path) -> None:
     toolpack_file = write_demo_toolpack(tmp_path)
-    lockfile_path = toolpack_file.parent / "lockfile" / "mcpmint.lock.pending.yaml"
+    lockfile_path = toolpack_file.parent / "lockfile" / "caskmcp.lock.pending.yaml"
 
     runner = CliRunner()
     result = runner.invoke(

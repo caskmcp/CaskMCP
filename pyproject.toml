@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mcpmint"
+name = "caskmcp"
 version = "0.1.0a4"
 description = "Action surface compiler: turn observed web traffic into safe, versioned, agent-ready tools"
 readme = "README.md"
@@ -54,6 +54,9 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.5.0",
     "types-PyYAML>=6.0.0",
+    "mcp>=1.0.0",
+    "playwright>=1.40.0",
+    "build>=1.2.0",
 ]
 mcp = [
     "mcp>=1.0.0",
@@ -62,19 +65,21 @@ playwright = [
     "playwright>=1.40.0",
 ]
 all = [
-    "mcpmint[dev,mcp,playwright]",
+    "caskmcp[dev,mcp,playwright]",
 ]
 
 [project.scripts]
-mcpmint = "mcpmint.cli.main:cli"
+caskmcp = "caskmcp.cli.main:cli"
 
 [project.urls]
-Homepage = "https://github.com/tomallicino/MCPMint"
-Repository = "https://github.com/tomallicino/MCPMint.git"
-Documentation = "https://github.com/tomallicino/MCPMint#readme"
+Homepage = "https://github.com/tomallicino/CaskMCP"
+Repository = "https://github.com/tomallicino/CaskMCP.git"
+Documentation = "https://github.com/tomallicino/CaskMCP#readme"
 
 [tool.hatch.build.targets.wheel]
-packages = ["mcpmint"]
+packages = ["caskmcp"]
+
+[tool.hatch.build.targets.sdist]
 
 [tool.ruff]
 target-version = "py311"
@@ -99,7 +104,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["mcpmint"]
+known-first-party = ["caskmcp"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -119,16 +124,17 @@ testpaths = ["tests"]
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
-source = ["mcpmint"]
+source = ["caskmcp"]
 branch = true
 
 [tool.hatch.build]
+artifacts = ["caskmcp/assets/**/*.har"]
 exclude = [
     "/.venv",
     "/.pytest_cache",
     "/.mypy_cache",
     "/.ruff_cache",
-    "/.mcpmint",
+    "/.caskmcp",
     "/dist",
     "/build",
     "/output",

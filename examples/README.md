@@ -1,6 +1,6 @@
-# MCPMint Examples
+# CaskMCP Examples
 
-This directory contains example files to help you get started with MCPMint.
+This directory contains example files to help you get started with CaskMCP.
 
 ## 60-Second Interactive Demo
 
@@ -28,20 +28,20 @@ Run through the complete workflow step-by-step:
 
 ```bash
 # 1. Import the sample HAR file
-mcpmint capture import examples/sample.har \
+caskmcp capture import examples/sample.har \
   --allowed-hosts api.example.com \
   --name "Demo Session"
 
 # 2. Compile into artifacts
-mcpmint compile \
+caskmcp compile \
   --capture <capture-id-from-step-1> \
   --scope first_party_only \
   --format all
 
 # 3. View the generated artifacts
-ls .mcpmint/artifacts/
-cat .mcpmint/artifacts/*/contract.yaml
-cat .mcpmint/artifacts/*/tools.json
+ls .caskmcp/artifacts/
+cat .caskmcp/artifacts/*/contract.yaml
+cat .caskmcp/artifacts/*/tools.json
 ```
 
 ## Files
@@ -127,22 +127,22 @@ Review and approve tools before use:
 
 ```bash
 # Sync lockfile with generated tools
-mcpmint approve sync --tools .mcpmint/artifacts/*/tools.json
+caskmcp approve sync --tools .caskmcp/artifacts/*/tools.json
 
 # List pending approvals
-mcpmint approve list --status pending
+caskmcp approve list --status pending
 
 # Approve specific tools
-mcpmint approve tool get_users get_products
+caskmcp approve tool get_users get_products
 
 # Or approve all pending tools
-mcpmint approve tool --all --by "security@team.com"
+caskmcp approve tool --all --by "security@team.com"
 
 # Reject dangerous tools
-mcpmint approve reject delete_all_users --reason "Too dangerous"
+caskmcp approve reject delete_all_users --reason "Too dangerous"
 
 # CI check (for pipelines)
-mcpmint approve check
+caskmcp approve check
 ```
 
 ## Testing Drift Detection
@@ -152,7 +152,7 @@ mcpmint approve check
 3. Run drift detection:
 
 ```bash
-mcpmint drift --from <old-capture> --to <new-capture>
+caskmcp drift --from <old-capture> --to <new-capture>
 ```
 
 You should see drift detected for the removed endpoint.
@@ -163,18 +163,18 @@ Expose your compiled tools to AI agents like Claude:
 
 ```bash
 # Basic usage (dry run - no actual API calls)
-mcpmint mcp serve \
-  --tools .mcpmint/artifacts/*/tools.json \
+caskmcp mcp serve \
+  --tools .caskmcp/artifacts/*/tools.json \
   --dry-run
 
 # With policy enforcement
-mcpmint mcp serve \
-  --tools .mcpmint/artifacts/*/tools.json \
-  --policy .mcpmint/artifacts/*/policy.yaml
+caskmcp mcp serve \
+  --tools .caskmcp/artifacts/*/tools.json \
+  --policy .caskmcp/artifacts/*/policy.yaml
 
 # With upstream API configuration
-mcpmint mcp serve \
-  --tools .mcpmint/artifacts/*/tools.json \
+caskmcp mcp serve \
+  --tools .caskmcp/artifacts/*/tools.json \
   --base-url https://api.example.com \
   --auth "Bearer your-api-token"
 ```
@@ -187,7 +187,7 @@ Add to `~/.claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "my-api": {
-      "command": "mcpmint",
+      "command": "caskmcp",
       "args": [
         "mcp", "serve",
         "--tools", "/path/to/tools.json",

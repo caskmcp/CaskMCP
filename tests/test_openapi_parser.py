@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from mcpmint.core.capture.openapi_parser import OpenAPIParser
+from caskmcp.core.capture.openapi_parser import OpenAPIParser
 
 
 @pytest.fixture
@@ -326,10 +326,10 @@ class TestOpenAPICLI:
         """Test CLI openapi import command."""
         from click.testing import CliRunner
 
-        from mcpmint.cli.main import cli
+        from caskmcp.cli.main import cli
 
         runner = CliRunner()
-        output_dir = tmp_path / ".mcpmint" / "captures"
+        output_dir = tmp_path / ".caskmcp" / "captures"
 
         result = runner.invoke(
             cli,
@@ -351,10 +351,10 @@ class TestOpenAPICLI:
         """Test CLI openapi import with verbose output."""
         from click.testing import CliRunner
 
-        from mcpmint.cli.main import cli
+        from caskmcp.cli.main import cli
 
         runner = CliRunner()
-        output_dir = tmp_path / ".mcpmint" / "captures"
+        output_dir = tmp_path / ".caskmcp" / "captures"
 
         result = runner.invoke(
             cli,

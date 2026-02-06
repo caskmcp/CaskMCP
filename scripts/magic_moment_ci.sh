@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AF_BIN=${MCPMINT_BIN:-mcpmint}
+AF_BIN=${MCPMINT_BIN:-caskmcp}
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/mcpmint-magic-XXXXXX")"
+WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/caskmcp-magic-XXXXXX")"
 AF_PYTHON=${MCPMINT_PYTHON:-}
 
 if [[ -z "$AF_PYTHON" ]]; then
@@ -129,7 +129,7 @@ gateway_execute() {
 import json
 import sys
 
-from mcpmint.cli.enforce import EnforcementGateway
+from caskmcp.cli.enforce import EnforcementGateway
 
 tools, toolsets, policy, lockfile, action_name, params_raw, token = sys.argv[1:]
 params = json.loads(params_raw)
@@ -141,7 +141,7 @@ gateway = EnforcementGateway(
     lockfile_path=lockfile,
     mode="proxy",
     dry_run=True,
-    confirmation_store_path=".mcpmint/confirmations.db",
+    confirmation_store_path=".caskmcp/confirmations.db",
 )
 result = gateway.execute_action(action_name, params, token or None)
 print(json.dumps(result))
@@ -161,7 +161,7 @@ target = Path(sys.argv[1])
 har = {
     "log": {
         "version": "1.2",
-        "creator": {"name": "MCPMint CI Fixture", "version": "1.0.0"},
+        "creator": {"name": "CaskMCP CI Fixture", "version": "1.0.0"},
         "entries": [
             {
                 "startedDateTime": "2026-01-01T00:00:00.000Z",
@@ -218,13 +218,13 @@ cd "$WORKDIR"
 
 log "1) Compile from capture"
 "$AF_BIN" capture import sample.har --allowed-hosts api.example.com --name "Magic Base"
-CAPTURE_BASE="$(latest_dir .mcpmint/captures)"
+CAPTURE_BASE="$(latest_dir .caskmcp/captures)"
 "$AF_BIN" compile --capture "$CAPTURE_BASE" --scope first_party_only --format all
-ARTIFACT_BASE="$(latest_dir .mcpmint/artifacts)"
-TOOLS_BASE=".mcpmint/artifacts/${ARTIFACT_BASE}/tools.json"
-POLICY_BASE=".mcpmint/artifacts/${ARTIFACT_BASE}/policy.yaml"
-TOOLSETS_BASE=".mcpmint/artifacts/${ARTIFACT_BASE}/toolsets.yaml"
-BASELINE_BASE=".mcpmint/artifacts/${ARTIFACT_BASE}/baseline.json"
+ARTIFACT_BASE="$(latest_dir .caskmcp/artifacts)"
+TOOLS_BASE=".caskmcp/artifacts/${ARTIFACT_BASE}/tools.json"
+POLICY_BASE=".caskmcp/artifacts/${ARTIFACT_BASE}/policy.yaml"
+TOOLSETS_BASE=".caskmcp/artifacts/${ARTIFACT_BASE}/toolsets.yaml"
+BASELINE_BASE=".caskmcp/artifacts/${ARTIFACT_BASE}/baseline.json"
 
 TOOLS_OUTPUT="$(extract_tools "$TOOLS_BASE")"
 READ_TOOL="$(printf '%s\n' "$TOOLS_OUTPUT" | sed -n '1p')"
@@ -236,26 +236,26 @@ assert_readonly_excludes_write "$TOOLSETS_BASE" "$WRITE_TOOL"
 
 log "3) Show blocked state-changing call (pending approval)"
 set +e
-"$AF_BIN" approve sync --tools "$TOOLS_BASE" --policy "$POLICY_BASE" --toolsets "$TOOLSETS_BASE" --lockfile mcpmint.lock.yaml >/tmp/af_sync1.log 2>&1
+"$AF_BIN" approve sync --tools "$TOOLS_BASE" --policy "$POLICY_BASE" --toolsets "$TOOLSETS_BASE" --lockfile caskmcp.lock.yaml >/tmp/af_sync1.log 2>&1
 SYNC1_EXIT=$?
 set -e
 if [[ $SYNC1_EXIT -eq 0 ]]; then
   fail "expected approve sync to fail with pending tools"
 fi
 
-BLOCKED_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "mcpmint.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}')"
+BLOCKED_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "caskmcp.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}')"
 assert_reason "$BLOCKED_PAYLOAD" "denied_not_approved"
 
 log "4) Approve via lockfile"
-"$AF_BIN" approve tool --all --lockfile mcpmint.lock.yaml --by "ci@mcpmint"
-"$AF_BIN" approve check --lockfile mcpmint.lock.yaml
+"$AF_BIN" approve tool --all --lockfile caskmcp.lock.yaml --by "ci@caskmcp"
+"$AF_BIN" approve check --lockfile caskmcp.lock.yaml
 
 log "5) Show allowed call after approval + out-of-band grant"
-CONFIRM_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "mcpmint.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}')"
+CONFIRM_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "caskmcp.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}')"
 CONFIRM_TOKEN="$(extract_confirmation_token "$CONFIRM_PAYLOAD")"
-"$AF_BIN" confirm grant "$CONFIRM_TOKEN" --store .mcpmint/confirmations.db
+"$AF_BIN" confirm grant "$CONFIRM_TOKEN" --store .caskmcp/confirmations.db
 
-ALLOWED_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "mcpmint.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}' "$CONFIRM_TOKEN")"
+ALLOWED_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "caskmcp.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}' "$CONFIRM_TOKEN")"
 assert_allow "$ALLOWED_PAYLOAD"
 
 log "6) Introduce drift and show CI failure until re-approval"
@@ -274,12 +274,12 @@ Path("sample_drift.har").write_text(json.dumps(har, indent=2))
 PY
 
 "$AF_BIN" capture import sample_drift.har --allowed-hosts api.example.com --name "Magic Drift"
-CAPTURE_DRIFT="$(latest_dir .mcpmint/captures)"
+CAPTURE_DRIFT="$(latest_dir .caskmcp/captures)"
 "$AF_BIN" compile --capture "$CAPTURE_DRIFT" --scope first_party_only --format all
-ARTIFACT_DRIFT="$(latest_dir .mcpmint/artifacts)"
-TOOLS_DRIFT=".mcpmint/artifacts/${ARTIFACT_DRIFT}/tools.json"
-POLICY_DRIFT=".mcpmint/artifacts/${ARTIFACT_DRIFT}/policy.yaml"
-TOOLSETS_DRIFT=".mcpmint/artifacts/${ARTIFACT_DRIFT}/toolsets.yaml"
+ARTIFACT_DRIFT="$(latest_dir .caskmcp/artifacts)"
+TOOLS_DRIFT=".caskmcp/artifacts/${ARTIFACT_DRIFT}/tools.json"
+POLICY_DRIFT=".caskmcp/artifacts/${ARTIFACT_DRIFT}/policy.yaml"
+TOOLSETS_DRIFT=".caskmcp/artifacts/${ARTIFACT_DRIFT}/toolsets.yaml"
 
 # Force a signature/path change in the drift artifact to simulate a changed endpoint contract.
 "$AF_PYTHON" - "$TOOLS_DRIFT" <<'PY'
@@ -309,7 +309,7 @@ if [[ $DRIFT_EXIT -eq 0 ]]; then
 fi
 
 set +e
-"$AF_BIN" approve sync --tools "$TOOLS_DRIFT" --policy "$POLICY_DRIFT" --toolsets "$TOOLSETS_DRIFT" --lockfile mcpmint.lock.yaml >/tmp/af_sync2.log 2>&1
+"$AF_BIN" approve sync --tools "$TOOLS_DRIFT" --policy "$POLICY_DRIFT" --toolsets "$TOOLSETS_DRIFT" --lockfile caskmcp.lock.yaml >/tmp/af_sync2.log 2>&1
 SYNC2_EXIT=$?
 set -e
 if [[ $SYNC2_EXIT -eq 0 ]]; then
@@ -317,14 +317,14 @@ if [[ $SYNC2_EXIT -eq 0 ]]; then
 fi
 
 set +e
-"$AF_BIN" approve check --lockfile mcpmint.lock.yaml >/tmp/af_check_fail.log 2>&1
+"$AF_BIN" approve check --lockfile caskmcp.lock.yaml >/tmp/af_check_fail.log 2>&1
 CHECK_EXIT=$?
 set -e
 if [[ $CHECK_EXIT -eq 0 ]]; then
   fail "expected approve check to fail until re-approval"
 fi
 
-"$AF_BIN" approve tool --all --lockfile mcpmint.lock.yaml --by "ci@mcpmint"
-"$AF_BIN" approve check --lockfile mcpmint.lock.yaml
+"$AF_BIN" approve tool --all --lockfile caskmcp.lock.yaml --by "ci@caskmcp"
+"$AF_BIN" approve check --lockfile caskmcp.lock.yaml
 
 log "Magic moment harness passed"

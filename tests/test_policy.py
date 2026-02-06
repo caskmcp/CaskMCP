@@ -3,8 +3,8 @@
 
 import pytest
 
-from mcpmint.core.enforce import PolicyEngine
-from mcpmint.models.policy import (
+from caskmcp.core.enforce import PolicyEngine
+from caskmcp.models.policy import (
     MatchCondition,
     Policy,
     PolicyRule,

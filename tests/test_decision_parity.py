@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mcpmint.core.enforce import ConfirmationStore, DecisionEngine, PolicyEngine
-from mcpmint.models.decision import DecisionContext, DecisionRequest
-from mcpmint.models.policy import MatchCondition, Policy, PolicyRule, RuleType
+from caskmcp.core.enforce import ConfirmationStore, DecisionEngine, PolicyEngine
+from caskmcp.models.decision import DecisionContext, DecisionRequest
+from caskmcp.models.policy import MatchCondition, Policy, PolicyRule, RuleType
 
 
 def test_same_request_has_identical_decision_for_enforce_and_mcp_sources(tmp_path: Path) -> None:

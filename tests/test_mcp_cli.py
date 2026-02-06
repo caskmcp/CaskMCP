@@ -8,8 +8,10 @@ from unittest.mock import patch
 
 import pytest
 import yaml
+from click.testing import CliRunner
 
-from mcpmint.cli.mcp import run_mcp_serve
+from caskmcp.cli.main import cli
+from caskmcp.cli.mcp import run_mcp_serve
 
 
 def _write_toolpack_fixture(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
@@ -66,7 +68,7 @@ def _write_toolpack_fixture(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         )
     )
 
-    pending_lockfile = lockfile_dir / "mcpmint.lock.pending.yaml"
+    pending_lockfile = lockfile_dir / "caskmcp.lock.pending.yaml"
     pending_lockfile.write_text("version: '1.0.0'\nschema_version: '1.0'\ntools: {}\n")
 
     toolpack_path = toolpack_dir / "toolpack.yaml"
@@ -87,7 +89,7 @@ def _write_toolpack_fixture(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
                     "toolsets": "artifact/toolsets.yaml",
                     "policy": "artifact/policy.yaml",
                     "baseline": "artifact/baseline.json",
-                    "lockfiles": {"pending": "lockfile/mcpmint.lock.pending.yaml"},
+                    "lockfiles": {"pending": "lockfile/caskmcp.lock.pending.yaml"},
                 },
             },
             sort_keys=False,
@@ -105,7 +107,7 @@ class TestMCPToolpackResolution:
     ) -> None:
         toolpack_path, tools_path, toolsets_path, policy_path = _write_toolpack_fixture(tmp_path)
 
-        with patch("mcpmint.mcp.server.run_mcp_server") as mock_run:
+        with patch("caskmcp.mcp.server.run_mcp_server") as mock_run:
             run_mcp_serve(
                 tools_path=None,
                 toolpack_path=str(toolpack_path),
@@ -117,7 +119,7 @@ class TestMCPToolpackResolution:
                 auth_header=None,
                 audit_log=None,
                 dry_run=False,
-                confirmation_store_path=".mcpmint/confirmations.db",
+                confirmation_store_path=".caskmcp/confirmations.db",
                 allow_private_cidrs=[],
                 allow_redirects=False,
                 verbose=False,
@@ -145,7 +147,7 @@ class TestMCPToolpackResolution:
             )
         )
 
-        with patch("mcpmint.mcp.server.run_mcp_server") as mock_run:
+        with patch("caskmcp.mcp.server.run_mcp_server") as mock_run:
             run_mcp_serve(
                 tools_path=str(override_tools),
                 toolpack_path=str(toolpack_path),
@@ -157,7 +159,7 @@ class TestMCPToolpackResolution:
                 auth_header=None,
                 audit_log=None,
                 dry_run=False,
-                confirmation_store_path=".mcpmint/confirmations.db",
+                confirmation_store_path=".caskmcp/confirmations.db",
                 allow_private_cidrs=[],
                 allow_redirects=False,
                 verbose=False,
@@ -180,9 +182,26 @@ class TestMCPToolpackResolution:
                 auth_header=None,
                 audit_log=None,
                 dry_run=False,
-                confirmation_store_path=".mcpmint/confirmations.db",
+                confirmation_store_path=".caskmcp/confirmations.db",
                 allow_private_cidrs=[],
                 allow_redirects=False,
                 verbose=False,
             )
         assert exc.value.code == 1
+
+
+def test_mcp_serve_missing_mcp_exact_error(tmp_path: Path, monkeypatch) -> None:
+    toolpack_path, _tools_path, _toolsets_path, _policy_path = _write_toolpack_fixture(tmp_path)
+    runner = CliRunner()
+
+    monkeypatch.setattr("importlib.util.find_spec", lambda _name: None)
+    monkeypatch.setattr("caskmcp.mcp.server.run_mcp_server", lambda **_kwargs: None)
+
+    result = runner.invoke(cli, ["mcp", "serve", "--toolpack", str(toolpack_path)])
+
+    assert result.exit_code != 0
+    assert result.stdout == ""
+    assert (
+        result.stderr
+        == 'Error: mcp not installed. Install with: pip install "caskmcp[mcp]"\n'
+    )

@@ -1,4 +1,4 @@
-# MCPMint User Guide
+# CaskMCP User Guide
 
 This guide covers the governance workflow end-to-end:
 1. Capture observed API behavior
@@ -12,7 +12,7 @@ This guide covers the governance workflow end-to-end:
 For the one-command loop (capture -> compile -> MCP-ready toolpack):
 
 ```bash
-mcpmint mint https://app.example.com \
+caskmcp mint https://app.example.com \
   -a api.example.com \
   --scope agent_safe_readonly \
   --print-mcp-config
@@ -21,7 +21,7 @@ mcpmint mint https://app.example.com \
 Outputs:
 
 ```text
-.mcpmint/toolpacks/<toolpack-id>/
+.caskmcp/toolpacks/<toolpack-id>/
 ├── toolpack.yaml
 ├── artifact/
 │   ├── tools.json
@@ -29,44 +29,66 @@ Outputs:
 │   ├── policy.yaml
 │   └── baseline.json
 └── lockfile/
-    └── mcpmint.lock.pending.yaml
+    └── caskmcp.lock.pending.yaml
 ```
 
 Serve directly:
 
 ```bash
-mcpmint run --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+caskmcp run --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
 ```
+
+## Fast Path: Offline Demo
+
+For a deterministic first-run path with no browser/network capture:
+
+```bash
+caskmcp demo
+```
+
+This command is generate-only (no auto-serve), writes artifacts/toolpack locally, and prints
+the exact next commands to run.
 
 Generate a client config snippet:
 
 ```bash
-mcpmint config --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+caskmcp config --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
 ```
 
 Sanity check the toolpack before running:
 
 ```bash
-mcpmint doctor --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml --runtime local
+caskmcp doctor --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml --runtime local
 ```
 
 Optional container runtime (emits Dockerfile + entrypoint + run wrapper):
 
 ```bash
-mcpmint mint https://app.example.com \
+caskmcp mint https://app.example.com \
   -a api.example.com \
   --scope agent_safe_readonly \
   --runtime=container
 
-mcpmint run --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml --runtime container
+caskmcp run --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml --runtime container
 ```
 
 ## Install
 
 ```bash
-pip install mcpmint
-mcpmint --version
+pip install caskmcp
+caskmcp --version
 ```
+
+Optional extras:
+
+```bash
+pip install "caskmcp[mcp]"         # runtime serving (run/mcp serve/mcp meta)
+pip install "caskmcp[playwright]"  # browser capture/mint
+pip install "caskmcp[dev]"         # contributor/CI dependencies
+```
+
+If MCP is missing for runtime commands, CaskMCP exits with:
+`Error: mcp not installed. Install with: pip install "caskmcp[mcp]"`
 
 If you installed `playwright` but not the browser binaries, run:
 `python -m playwright install chromium`
@@ -76,7 +98,7 @@ If you installed `playwright` but not the browser binaries, run:
 ### Import HAR
 
 ```bash
-mcpmint capture import recording.har \
+caskmcp capture import recording.har \
   --allowed-hosts api.example.com \
   --name "My API Session"
 ```
@@ -84,10 +106,10 @@ mcpmint capture import recording.har \
 ### Record with Playwright
 
 ```bash
-pip install 'mcpmint[playwright]'
+pip install 'caskmcp[playwright]'
 playwright install chromium
 
-mcpmint capture record https://app.example.com \
+caskmcp capture record https://app.example.com \
   --allowed-hosts api.example.com \
   --headless \
   --duration 30
@@ -96,7 +118,7 @@ mcpmint capture record https://app.example.com \
 Scripted capture is also supported:
 
 ```bash
-mcpmint capture record https://app.example.com \
+caskmcp capture record https://app.example.com \
   --allowed-hosts api.example.com \
   --script scripts/capture_flow.py
 ```
@@ -111,7 +133,7 @@ async def run(page, context) -> None:
 ### Playbook Capture (Deterministic)
 
 ```bash
-mcpmint capture record https://app.example.com \
+caskmcp capture record https://app.example.com \
   --allowed-hosts api.example.com \
   --playbook flows/search.yaml \
   --headless
@@ -138,13 +160,13 @@ steps:
 ### Import OpenAPI (bootstrap)
 
 ```bash
-mcpmint openapi openapi.yaml --name "Bootstrap Session"
+caskmcp openapi openapi.yaml --name "Bootstrap Session"
 ```
 
 ## 2) Compile Artifacts
 
 ```bash
-mcpmint compile \
+caskmcp compile \
   --capture <capture-id> \
   --scope first_party_only \
   --format all
@@ -153,7 +175,7 @@ mcpmint compile \
 Outputs:
 
 ```text
-.mcpmint/artifacts/<artifact-id>/
+.caskmcp/artifacts/<artifact-id>/
 ├── contract.yaml
 ├── contract.json
 ├── tools.json
@@ -192,34 +214,34 @@ Notes:
 Sync manifest into lockfile (new/changed tools become pending):
 
 ```bash
-mcpmint approve sync \
-  --tools .mcpmint/artifacts/<artifact-id>/tools.json \
-  --policy .mcpmint/artifacts/<artifact-id>/policy.yaml \
-  --toolsets .mcpmint/artifacts/<artifact-id>/toolsets.yaml \
-  --lockfile mcpmint.lock.yaml || true
+caskmcp approve sync \
+  --tools .caskmcp/artifacts/<artifact-id>/tools.json \
+  --policy .caskmcp/artifacts/<artifact-id>/policy.yaml \
+  --toolsets .caskmcp/artifacts/<artifact-id>/toolsets.yaml \
+  --lockfile caskmcp.lock.yaml || true
 ```
 
 Review and approve:
 
 ```bash
-mcpmint approve list --lockfile mcpmint.lock.yaml
-mcpmint approve tool --all --lockfile mcpmint.lock.yaml --by security@example.com
-mcpmint approve check --lockfile mcpmint.lock.yaml
+caskmcp approve list --lockfile caskmcp.lock.yaml
+caskmcp approve tool --all --lockfile caskmcp.lock.yaml --by security@example.com
+caskmcp approve check --lockfile caskmcp.lock.yaml
 
 # Optional: scoped governance for a rollout toolset
-mcpmint approve check --lockfile mcpmint.lock.yaml --toolset readonly
+caskmcp approve check --lockfile caskmcp.lock.yaml --toolset readonly
 ```
 
 Important behavior:
 - Lockfile identity is signature-first (`signature_id`) for stability.
 - Name-based lookups still work for operator UX.
 - Lockfile stores an `artifacts_digest` over `tools.json` + `toolsets.yaml` + `policy.yaml`.
-- Approvals materialize a baseline snapshot under `.mcpmint/approvals/...` inside the toolpack.
+- Approvals materialize a baseline snapshot under `.caskmcp/approvals/...` inside the toolpack.
 
 If you need to backfill a snapshot (rare), run:
 
 ```bash
-mcpmint approve snapshot --lockfile mcpmint.lock.yaml
+caskmcp approve snapshot --lockfile caskmcp.lock.yaml
 ```
 
 ## 3.5) Plan + Bundle
@@ -227,7 +249,7 @@ mcpmint approve snapshot --lockfile mcpmint.lock.yaml
 Generate a deterministic capability diff (defaults to the approved snapshot baseline):
 
 ```bash
-mcpmint plan --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+caskmcp plan --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
 ```
 
 Use `--baseline` to compare against another snapshot/toolpack if needed.
@@ -235,8 +257,8 @@ Use `--baseline` to compare against another snapshot/toolpack if needed.
 Bundle a toolpack for sharing (toolpack + plan + config + RUN.md):
 
 ```bash
-mcpmint bundle \
-  --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml \
+caskmcp bundle \
+  --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml \
   --out ./toolpack_bundle.zip
 ```
 
@@ -245,21 +267,21 @@ mcpmint bundle \
 ### Evaluate mode (policy decision only)
 
 ```bash
-mcpmint enforce \
-  --tools .mcpmint/artifacts/<artifact-id>/tools.json \
-  --toolsets .mcpmint/artifacts/<artifact-id>/toolsets.yaml \
+caskmcp enforce \
+  --tools .caskmcp/artifacts/<artifact-id>/tools.json \
+  --toolsets .caskmcp/artifacts/<artifact-id>/toolsets.yaml \
   --toolset readonly \
-  --policy .mcpmint/artifacts/<artifact-id>/policy.yaml \
+  --policy .caskmcp/artifacts/<artifact-id>/policy.yaml \
   --mode=evaluate
 ```
 
 ### Proxy mode (decision + upstream execution)
 
 ```bash
-mcpmint enforce \
-  --tools .mcpmint/artifacts/<artifact-id>/tools.json \
-  --policy .mcpmint/artifacts/<artifact-id>/policy.yaml \
-  --lockfile mcpmint.lock.yaml \
+caskmcp enforce \
+  --tools .caskmcp/artifacts/<artifact-id>/tools.json \
+  --policy .caskmcp/artifacts/<artifact-id>/policy.yaml \
+  --lockfile caskmcp.lock.yaml \
   --mode=proxy \
   --base-url https://api.example.com \
   --auth "Bearer $API_TOKEN"
@@ -270,8 +292,8 @@ Use `--unsafe-no-lockfile` only as an explicit local escape hatch.
 State-changing calls require out-of-band confirmation by default:
 
 ```bash
-mcpmint confirm list
-mcpmint confirm grant <confirmation_token_id>
+caskmcp confirm list
+caskmcp confirm grant <confirmation_token_id>
 ```
 
 ## 5) Verification
@@ -279,7 +301,7 @@ mcpmint confirm grant <confirmation_token_id>
 Verify that UI actions map cleanly to captured API responses:
 
 ```bash
-mcpmint verify https://app.example.com \
+caskmcp verify https://app.example.com \
   --allowed-hosts api.example.com \
   --playbook flows/search.yaml
 ```
@@ -287,7 +309,7 @@ mcpmint verify https://app.example.com \
 Mint + verify in one command:
 
 ```bash
-mcpmint mint https://app.example.com \
+caskmcp mint https://app.example.com \
   -a api.example.com \
   --playbook flows/search.yaml \
   --verify-ui
@@ -314,15 +336,15 @@ curl -X POST http://localhost:8081/evaluate \
 Compare two captures:
 
 ```bash
-mcpmint drift --from <old-capture-id> --to <new-capture-id>
-mcpmint drift --from <old-capture-id> --to <new-capture-id> --volatile-metadata
+caskmcp drift --from <old-capture-id> --to <new-capture-id>
+caskmcp drift --from <old-capture-id> --to <new-capture-id> --volatile-metadata
 ```
 
 Compare against baseline:
 
 ```bash
-mcpmint drift \
-  --baseline .mcpmint/artifacts/<artifact-id>/baseline.json \
+caskmcp drift \
+  --baseline .caskmcp/artifacts/<artifact-id>/baseline.json \
   --capture <new-capture-id>
 ```
 
@@ -334,7 +356,7 @@ Exit codes:
 CI example:
 
 ```bash
-mcpmint drift --baseline baseline.json --capture "$CAPTURE_ID"
+caskmcp drift --baseline baseline.json --capture "$CAPTURE_ID"
 STATUS=$?
 if [ "$STATUS" -eq 2 ]; then
   echo "Breaking drift detected"
@@ -347,10 +369,10 @@ fi
 Serve compiled tools to MCP clients:
 
 ```bash
-mcpmint mcp serve \
+caskmcp mcp serve \
   --tools tools.json \
   --toolsets toolsets.yaml \
-  --lockfile mcpmint.lock.yaml \
+  --lockfile caskmcp.lock.yaml \
   --policy policy.yaml \
   --dry-run
 ```
@@ -358,7 +380,7 @@ mcpmint mcp serve \
 Or resolve all paths from a minted toolpack:
 
 ```bash
-mcpmint mcp serve --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+caskmcp mcp serve --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
 ```
 
 Approval behavior:
@@ -369,7 +391,7 @@ Approval behavior:
 Serve governance/meta tools:
 
 ```bash
-mcpmint mcp meta --tools tools.json --policy policy.yaml --lockfile mcpmint.lock.yaml
+caskmcp mcp meta --tools tools.json --policy policy.yaml --lockfile caskmcp.lock.yaml
 ```
 
 ## 7) Scope Reference
@@ -384,8 +406,8 @@ Built-in scopes:
 Examples:
 
 ```bash
-mcpmint compile --capture <capture-id> --scope auth_surface
-mcpmint compile --capture <capture-id> --scope agent_safe_readonly
+caskmcp compile --capture <capture-id> --scope auth_surface
+caskmcp compile --capture <capture-id> --scope agent_safe_readonly
 ```
 
 ## 8) Documentation Maintenance Rule
@@ -405,9 +427,9 @@ Minimum doc checks before merge:
 Use volatile metadata only when you explicitly want ephemeral IDs/timestamps:
 
 ```bash
-mcpmint compile --capture <capture-id> --volatile-metadata
-mcpmint approve sync --tools tools.json --volatile-metadata
-mcpmint drift --from <old-capture-id> --to <new-capture-id> --volatile-metadata
+caskmcp compile --capture <capture-id> --volatile-metadata
+caskmcp approve sync --tools tools.json --volatile-metadata
+caskmcp drift --from <old-capture-id> --to <new-capture-id> --volatile-metadata
 ```
 
 ## 10) CI Magic-Moment Harness
