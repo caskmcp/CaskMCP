@@ -117,7 +117,7 @@ class TestMint:
 
         out = capsys.readouterr().out
         assert "Mint complete:" in out
-        assert "mcpmint mcp serve --toolpack" in out
+        assert "mcpmint run --toolpack" in out
         assert "mcpmint approve tool --all --toolset readonly" in out
 
         toolpack_files = list((tmp_path / "toolpacks").glob("*/toolpack.yaml"))
@@ -144,6 +144,7 @@ class TestMint:
             server_name="demo",
         )
         assert '"command": "mcpmint"' in snippet
+        assert '"run"' in snippet
         assert '"--toolpack"' in snippet
 
     def test_mint_cli_wires_arguments(self) -> None:
@@ -168,3 +169,7 @@ class TestMint:
         assert kwargs["allowed_hosts"] == ["api.example.com"]
         assert kwargs["duration_seconds"] == 20
         assert kwargs["print_mcp_config"] is True
+        assert kwargs["runtime_mode"] == "local"
+        assert kwargs["runtime_build"] is False
+        assert kwargs["runtime_tag"] is None
+        assert kwargs["runtime_version_pin"] is None

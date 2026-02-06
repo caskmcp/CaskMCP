@@ -158,6 +158,26 @@ def capture(
     help="Deterministic metadata by default; use --volatile-metadata for ephemeral IDs/timestamps",
 )
 @click.option(
+    "--runtime",
+    type=click.Choice(["local", "container"]),
+    default="local",
+    show_default=True,
+    help="Runtime mode metadata/emission (container emits runtime files)",
+)
+@click.option(
+    "--runtime-build",
+    is_flag=True,
+    help="Build container image after emitting runtime files (requires Docker)",
+)
+@click.option(
+    "--runtime-tag",
+    help="Container image tag to use when --runtime=container",
+)
+@click.option(
+    "--runtime-version-pin",
+    help="Exact requirement line for mcpmint runtime when --runtime=container",
+)
+@click.option(
     "--print-mcp-config",
     is_flag=True,
     help="Print a ready-to-paste Claude Desktop MCP config snippet",
@@ -174,6 +194,10 @@ def mint(
     duration: int,
     output: str,
     deterministic: bool,
+    runtime: str,
+    runtime_build: bool,
+    runtime_tag: str | None,
+    runtime_version_pin: str | None,
     print_mcp_config: bool,
 ) -> None:
     """Capture traffic and mint a first-class toolpack for MCP serving.
@@ -194,7 +218,232 @@ def mint(
         duration_seconds=duration,
         output_root=output,
         deterministic=deterministic,
+        runtime_mode=runtime,
+        runtime_build=runtime_build,
+        runtime_tag=runtime_tag,
+        runtime_version_pin=runtime_version_pin,
         print_mcp_config=print_mcp_config,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@cli.command()
+@click.option(
+    "--toolpack",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to toolpack.yaml",
+)
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["json", "yaml"]),
+    default="json",
+    show_default=True,
+    help="Output format for config snippet",
+)
+def config(toolpack: str, output_format: str) -> None:
+    """Print a ready-to-paste MCP client config snippet."""
+    from mcpmint.cli.config import run_config
+
+    run_config(toolpack_path=toolpack, fmt=output_format)
+
+
+@cli.command()
+@click.option(
+    "--toolpack",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to toolpack.yaml",
+)
+@click.option(
+    "--runtime",
+    type=click.Choice(["auto", "local", "container"]),
+    default="auto",
+    show_default=True,
+    help="Runtime to validate",
+)
+@click.pass_context
+def doctor(ctx: click.Context, toolpack: str, runtime: str) -> None:
+    """Validate toolpack readiness for execution."""
+    from mcpmint.cli.doctor import run_doctor
+
+    run_doctor(
+        toolpack_path=toolpack,
+        runtime=runtime,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@cli.command()
+@click.option(
+    "--toolpack",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to toolpack.yaml",
+)
+@click.option(
+    "--runtime",
+    type=click.Choice(["auto", "local", "container"]),
+    default="auto",
+    show_default=True,
+    help="Runtime to use",
+)
+@click.option(
+    "--print-config-and-exit",
+    is_flag=True,
+    help="Print MCP config snippet to stdout and exit",
+)
+@click.option(
+    "--toolset",
+    help="Named toolset to expose (optional)",
+)
+@click.option(
+    "--lockfile",
+    type=click.Path(),
+    help="Path to mcpmint.lock.yaml (optional; enforces approved tools when provided)",
+)
+@click.option(
+    "--base-url",
+    help="Base URL for upstream API (overrides manifest hosts)",
+)
+@click.option(
+    "--auth",
+    "auth_header",
+    help="Authorization header value for upstream requests",
+)
+@click.option(
+    "--audit-log",
+    type=click.Path(),
+    help="Path for audit log file",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Evaluate policy but don't execute upstream calls",
+)
+@click.option(
+    "--confirm-store",
+    default=".mcpmint/confirmations.db",
+    show_default=True,
+    type=click.Path(),
+    help="Path to local out-of-band confirmation store",
+)
+@click.option(
+    "--allow-private-cidr",
+    "allow_private_cidrs",
+    multiple=True,
+    help="Allow private CIDR targets (repeatable; default denies private ranges)",
+)
+@click.option(
+    "--allow-redirects",
+    is_flag=True,
+    help="Allow redirects (each hop is re-validated against allowlists)",
+)
+@click.pass_context
+def run(
+    ctx: click.Context,
+    toolpack: str,
+    runtime: str,
+    print_config_and_exit: bool,
+    toolset: str | None,
+    lockfile: str | None,
+    base_url: str | None,
+    auth_header: str | None,
+    audit_log: str | None,
+    dry_run: bool,
+    confirm_store: str,
+    allow_private_cidrs: tuple[str, ...],
+    allow_redirects: bool,
+) -> None:
+    """Run a toolpack locally or in a container runtime."""
+    from mcpmint.cli.run import run_run
+
+    run_run(
+        toolpack_path=toolpack,
+        runtime=runtime,
+        print_config_and_exit=print_config_and_exit,
+        toolset=toolset,
+        lockfile=lockfile,
+        base_url=base_url,
+        auth_header=auth_header,
+        audit_log=audit_log,
+        dry_run=dry_run,
+        confirm_store=confirm_store,
+        allow_private_cidrs=list(allow_private_cidrs),
+        allow_redirects=allow_redirects,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@cli.command()
+@click.option(
+    "--toolpack",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to toolpack.yaml",
+)
+@click.option(
+    "--baseline",
+    type=click.Path(),
+    help="Baseline toolpack.yaml or snapshot directory",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    help="Output directory for plan artifacts",
+)
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["json", "markdown", "both"]),
+    default="both",
+    show_default=True,
+    help="Plan output format",
+)
+@click.pass_context
+def plan(
+    ctx: click.Context,
+    toolpack: str,
+    baseline: str | None,
+    output: str | None,
+    output_format: str,
+) -> None:
+    """Generate a deterministic plan report."""
+    from mcpmint.cli.plan import run_plan
+
+    run_plan(
+        toolpack_path=toolpack,
+        baseline=baseline,
+        output_dir=output,
+        output_format=output_format,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@cli.command()
+@click.option(
+    "--toolpack",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to toolpack.yaml",
+)
+@click.option(
+    "--out",
+    "output",
+    required=True,
+    type=click.Path(),
+    help="Output bundle zip path",
+)
+@click.pass_context
+def bundle(ctx: click.Context, toolpack: str, output: str) -> None:
+    """Create a deterministic toolpack bundle."""
+    from mcpmint.cli.bundle import run_bundle
+
+    run_bundle(
+        toolpack_path=toolpack,
+        output_path=output,
         verbose=ctx.obj.get("verbose", False),
     )
 
@@ -1070,6 +1319,23 @@ def approve_check(
     run_approve_check(
         lockfile_path=lockfile,
         toolset=toolset,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@approve.command("snapshot")
+@click.option(
+    "--lockfile", "-l",
+    type=click.Path(),
+    help="Path to lockfile (default: ./mcpmint.lock.yaml)",
+)
+@click.pass_context
+def approve_snapshot(ctx: click.Context, lockfile: str | None) -> None:
+    """Materialize a baseline snapshot for an approved lockfile."""
+    from mcpmint.cli.approve import run_approve_snapshot
+
+    run_approve_snapshot(
+        lockfile_path=lockfile,
         verbose=ctx.obj.get("verbose", False),
     )
 

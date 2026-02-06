@@ -267,10 +267,11 @@ class MCPMintMCPServer:
 
             if decision.decision == DecisionType.CONFIRM:
                 if decision.confirmation_token_id:
-                    print(
+                    import sys
+
+                    sys.stderr.write(
                         f"[mcpmint] Confirmation required for {name}. "
-                        f"Run: mcpmint confirm grant {decision.confirmation_token_id}",
-                        flush=True,
+                        f"Run: mcpmint confirm grant {decision.confirmation_token_id}\\n"
                     )
                 return [types.TextContent(
                     type="text",

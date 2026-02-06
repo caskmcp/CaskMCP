@@ -9,6 +9,8 @@ import pytest
 import yaml
 
 from mcpmint.core.approval import ApprovalStatus, LockfileManager, ToolApproval
+from mcpmint.core.approval.snapshot import materialize_snapshot
+from tests.helpers import write_demo_toolpack
 
 
 class TestToolApproval:
@@ -384,18 +386,21 @@ class TestLockfileManager:
         manager.approve_all()
         assert not manager.has_pending()
 
-    def test_check_ci_all_approved(
-        self, tmp_lockfile: Path, sample_manifest: dict
-    ) -> None:
-        """Test CI check with all tools approved."""
-        manager = LockfileManager(tmp_lockfile)
+    def test_check_ci_all_approved(self, tmp_path: Path) -> None:
+        """Test CI check with all tools approved and snapshot present."""
+        toolpack_file = write_demo_toolpack(tmp_path)
+        lockfile_path = toolpack_file.parent / "lockfile" / "mcpmint.lock.pending.yaml"
+        manager = LockfileManager(lockfile_path)
         manager.load()
-        manager.sync_from_manifest(sample_manifest)
         manager.approve_all()
+        result = materialize_snapshot(lockfile_path)
+        relative_dir = result.snapshot_dir.relative_to(toolpack_file.parent)
+        manager.set_baseline_snapshot(str(relative_dir), result.digest)
+        manager.save()
 
         passed, message = manager.check_ci()
         assert passed is True
-        assert "All tools approved" in message
+        assert "verified baseline snapshot" in message
 
     def test_check_ci_pending(
         self, tmp_lockfile: Path, sample_manifest: dict
@@ -409,22 +414,23 @@ class TestLockfileManager:
         assert passed is False
         assert "Pending approval" in message
 
-    def test_check_ci_toolset_scoped(
-        self,
-        tmp_lockfile: Path,
-        sample_manifest: dict,
-        sample_toolsets: dict,
-    ) -> None:
+    def test_check_ci_toolset_scoped(self, tmp_path: Path) -> None:
         """Toolset CI checks should only evaluate selected toolset approvals."""
-        manager = LockfileManager(tmp_lockfile)
+        toolpack_file = write_demo_toolpack(tmp_path)
+        lockfile_path = toolpack_file.parent / "lockfile" / "mcpmint.lock.pending.yaml"
+        manager = LockfileManager(lockfile_path)
         manager.load()
-        manager.sync_from_manifest(sample_manifest, toolsets=sample_toolsets)
 
         passed, message = manager.check_ci(toolset="readonly")
         assert passed is False
         assert "Pending approval in 'readonly'" in message
 
         manager.approve("get_users", "security@example.com", toolset="readonly")
+        result = materialize_snapshot(lockfile_path)
+        relative_dir = result.snapshot_dir.relative_to(toolpack_file.parent)
+        manager.set_baseline_snapshot(str(relative_dir), result.digest)
+        manager.save()
+
         passed, message = manager.check_ci(toolset="readonly")
         assert passed is True
         assert "All tools approved in 'readonly'" in message
@@ -654,66 +660,38 @@ class TestApprovalCLI:
         assert result.exit_code == 1
         assert "Pending approval" in result.output
 
-    def test_check_passes_when_all_approved(self, setup_env: tuple[Path, Path]) -> None:
-        """Test that check passes when all tools approved."""
+    def test_check_passes_when_all_approved(self, tmp_path: Path) -> None:
+        """Test that check passes when all tools approved with snapshot present."""
         from click.testing import CliRunner
 
         from mcpmint.cli.main import cli
 
-        tools_path, lockfile_path = setup_env
+        toolpack_file = write_demo_toolpack(tmp_path)
+        lockfile_path = toolpack_file.parent / "lockfile" / "mcpmint.lock.pending.yaml"
         runner = CliRunner()
 
-        # Sync
-        runner.invoke(
-            cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
-        )
-
-        # Approve all
         runner.invoke(
             cli,
             ["approve", "tool", "--all", "--lockfile", str(lockfile_path)],
         )
 
-        # Check
         result = runner.invoke(
             cli,
             ["approve", "check", "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 0
-        assert "All tools approved" in result.output
+        assert "verified baseline snapshot" in result.output
 
-    def test_toolset_scoped_approval_check(self, setup_env: tuple[Path, Path], tmp_path: Path) -> None:
+    def test_toolset_scoped_approval_check(self, tmp_path: Path) -> None:
         """CLI supports toolset-scoped approval/check workflow."""
         from click.testing import CliRunner
 
         from mcpmint.cli.main import cli
 
-        tools_path, lockfile_path = setup_env
-        toolsets_path = tmp_path / "toolsets.yaml"
-        toolsets_path.write_text(
-            yaml.dump(
-                {
-                    "schema_version": "1.0",
-                    "toolsets": {
-                        "readonly": {"actions": ["get_users"]},
-                        "operator": {"actions": ["get_users", "create_user"]},
-                    },
-                }
-            )
-        )
-
+        toolpack_file = write_demo_toolpack(tmp_path)
+        lockfile_path = toolpack_file.parent / "lockfile" / "mcpmint.lock.pending.yaml"
         runner = CliRunner()
-        runner.invoke(
-            cli,
-            [
-                "approve", "sync",
-                "--tools", str(tools_path),
-                "--toolsets", str(toolsets_path),
-                "--lockfile", str(lockfile_path),
-            ],
-        )
 
         pending_check = runner.invoke(
             cli,

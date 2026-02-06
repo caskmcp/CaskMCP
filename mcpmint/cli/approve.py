@@ -16,6 +16,7 @@ from mcpmint.core.approval import (
     LockfileManager,
     compute_artifacts_digest_from_paths,
 )
+from mcpmint.core.approval.snapshot import materialize_snapshot, resolve_toolpack_root
 from mcpmint.utils.schema_version import resolve_schema_version
 
 
@@ -39,6 +40,7 @@ def sync_lockfile(
     capture_id: str | None,
     scope: str | None,
     deterministic: bool,
+    evidence_summary_sha256: str | None = None,
 ) -> ApprovalSyncResult:
     """Sync a lockfile from manifest + optional policy/toolsets."""
     if not Path(tools_path).exists():
@@ -89,6 +91,8 @@ def sync_lockfile(
         deterministic=deterministic,
     )
     manager.set_artifacts_digest(artifacts_digest)
+    if evidence_summary_sha256:
+        manager.set_evidence_summary_sha256(evidence_summary_sha256)
     manager.save()
 
     pending = manager.get_pending()
@@ -280,6 +284,7 @@ def run_approve_tool(
         count = manager.approve_all(approved_by, toolset=toolset)
         manager.save()
         click.echo(f"Approved {count} tools")
+        _maybe_materialize_snapshot(manager)
         return
 
     if not tool_ids:
@@ -303,6 +308,8 @@ def run_approve_tool(
     if not_found:
         click.echo(f"Not found: {', '.join(not_found)}", err=True)
         sys.exit(1)
+
+    _maybe_materialize_snapshot(manager)
 
 
 def run_approve_reject(
@@ -350,6 +357,27 @@ def run_approve_reject(
         sys.exit(1)
 
 
+def run_approve_snapshot(
+    lockfile_path: str | None,
+    verbose: bool,
+) -> None:
+    """Materialize baseline snapshot for an approved lockfile."""
+    manager = LockfileManager(lockfile_path)
+
+    if not manager.exists():
+        click.echo(f"No lockfile found at: {manager.lockfile_path}")
+        click.echo("Run 'mcpmint approve sync' first.")
+        sys.exit(2)
+
+    manager.load()
+    approvals_passed, message = manager.check_approvals()
+    if not approvals_passed:
+        click.echo(f"Cannot snapshot: {message}")
+        sys.exit(1)
+
+    _materialize_snapshot(manager, verbose=verbose, require_toolpack=True)
+
+
 def run_approve_check(
     lockfile_path: str | None,
     toolset: str | None,
@@ -387,3 +415,33 @@ def run_approve_check(
                     click.echo(f"  - {tool.name} [{tool.risk_tier}] {tool.method} {tool.path}")
 
         sys.exit(1)
+
+
+def _materialize_snapshot(
+    manager: LockfileManager,
+    *,
+    verbose: bool,
+    require_toolpack: bool,
+) -> None:
+    toolpack_root = resolve_toolpack_root(manager.lockfile_path)
+    if toolpack_root is None:
+        if require_toolpack:
+            click.echo("toolpack.yaml not found; cannot materialize snapshot", err=True)
+            sys.exit(1)
+        return
+
+    result = materialize_snapshot(manager.lockfile_path)
+    relative_dir = result.snapshot_dir.relative_to(toolpack_root)
+    manager.set_baseline_snapshot(str(relative_dir), result.digest)
+    manager.save()
+
+    if verbose:
+        status = "created" if result.created else "reused"
+        click.echo(f"Baseline snapshot {status}: {relative_dir}")
+
+
+def _maybe_materialize_snapshot(manager: LockfileManager) -> None:
+    approvals_passed, _message = manager.check_approvals()
+    if not approvals_passed:
+        return
+    _materialize_snapshot(manager, verbose=False, require_toolpack=False)

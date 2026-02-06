@@ -35,7 +35,30 @@ Outputs:
 Serve directly:
 
 ```bash
-mcpmint mcp serve --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+mcpmint run --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+```
+
+Generate a client config snippet:
+
+```bash
+mcpmint config --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+```
+
+Sanity check the toolpack before running:
+
+```bash
+mcpmint doctor --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml --runtime local
+```
+
+Optional container runtime (emits Dockerfile + entrypoint + run wrapper):
+
+```bash
+mcpmint mint https://app.example.com \
+  -a api.example.com \
+  --scope agent_safe_readonly \
+  --runtime=container
+
+mcpmint run --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml --runtime container
 ```
 
 ## Install
@@ -44,6 +67,9 @@ mcpmint mcp serve --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
 pip install mcpmint
 mcpmint --version
 ```
+
+If you installed `playwright` but not the browser binaries, run:
+`python -m playwright install chromium`
 
 ## 1) Capture Traffic
 
@@ -80,6 +106,33 @@ mcpmint capture record https://app.example.com \
 ```python
 async def run(page, context) -> None:
     ...
+```
+
+### Playbook Capture (Deterministic)
+
+```bash
+mcpmint capture record https://app.example.com \
+  --allowed-hosts api.example.com \
+  --playbook flows/search.yaml \
+  --headless
+```
+
+Minimal playbook example:
+
+```yaml
+version: "1.0"
+steps:
+  - id: open
+    type: goto
+    url: "https://app.example.com"
+  - id: search
+    type: type
+    selector: "input[name='q']"
+    text: "test"
+  - id: submit
+    type: press
+    selector: "input[name='q']"
+    key: "Enter"
 ```
 
 ### Import OpenAPI (bootstrap)
@@ -161,6 +214,31 @@ Important behavior:
 - Lockfile identity is signature-first (`signature_id`) for stability.
 - Name-based lookups still work for operator UX.
 - Lockfile stores an `artifacts_digest` over `tools.json` + `toolsets.yaml` + `policy.yaml`.
+- Approvals materialize a baseline snapshot under `.mcpmint/approvals/...` inside the toolpack.
+
+If you need to backfill a snapshot (rare), run:
+
+```bash
+mcpmint approve snapshot --lockfile mcpmint.lock.yaml
+```
+
+## 3.5) Plan + Bundle
+
+Generate a deterministic capability diff (defaults to the approved snapshot baseline):
+
+```bash
+mcpmint plan --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+```
+
+Use `--baseline` to compare against another snapshot/toolpack if needed.
+
+Bundle a toolpack for sharing (toolpack + plan + config + RUN.md):
+
+```bash
+mcpmint bundle \
+  --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml \
+  --out ./toolpack_bundle.zip
+```
 
 ## 4) Runtime Enforcement Gateway
 
@@ -194,6 +272,25 @@ State-changing calls require out-of-band confirmation by default:
 ```bash
 mcpmint confirm list
 mcpmint confirm grant <confirmation_token_id>
+```
+
+## 5) Verification
+
+Verify that UI actions map cleanly to captured API responses:
+
+```bash
+mcpmint verify https://app.example.com \
+  --allowed-hosts api.example.com \
+  --playbook flows/search.yaml
+```
+
+Mint + verify in one command:
+
+```bash
+mcpmint mint https://app.example.com \
+  -a api.example.com \
+  --playbook flows/search.yaml \
+  --verify-ui
 ```
 
 Gateway endpoints:
