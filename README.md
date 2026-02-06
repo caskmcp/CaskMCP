@@ -86,14 +86,13 @@ caskmcp run --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
 bash scripts/magic_moment_ci.sh
 ```
 
-Playbook + verification:
+Authenticated capture (reuse a logged-in session):
 
 ```bash
-caskmcp mint https://app.example.com \
+caskmcp capture record https://app.example.com \
   -a api.example.com \
-  --playbook flows/search.yaml \
-  --verify-ui \
-  --print-mcp-config
+  --load-storage-state auth-state.json \
+  --save-storage-state auth-state.json
 ```
 
 Client config snippet (Claude Desktop):
@@ -208,9 +207,22 @@ CaskMCP is designed for first-party or explicitly authorized captures only. It k
 - `caskmcp enforce` - runtime policy gateway (evaluate/proxy)
 - `caskmcp mcp serve` - expose tools as an MCP server
 - `caskmcp mcp meta` - expose governance introspection tools as MCP
-- `caskmcp verify` - verify UI evidence against captured API responses
+- `caskmcp verify` - verify UI evidence against captured API responses *(planned)*
 
 `caskmcp serve` is a convenience alias for `caskmcp mcp serve`.
+
+## CI Integration
+
+Use the built-in GitHub Action to gate PRs on drift detection:
+
+```yaml
+# .github/workflows/drift-check.yml
+- uses: ./.github/actions/caskmcp-drift
+  with:
+    toolpack: .caskmcp/toolpacks/my-api/toolpack.yaml
+```
+
+Or use `caskmcp drift` directly in any CI system. See `examples/ci/drift-check.yml` for a full workflow.
 
 ## Demos And Docs
 
