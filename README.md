@@ -123,12 +123,17 @@ caskmcp config --toolpack /absolute/path/to/.caskmcp/toolpacks/<toolpack-id>/too
 - **Toolset**: Named subset of tools (for example `readonly`) used to limit what agents can call.
 - **Toolpack**: Portable bundle that points to artifacts + lockfile metadata for immediate MCP serving.
 - **Lockfile**: Human-approved tool surface (`pending`, `approved`, `rejected`) for runtime and CI gating.
+- **Flow**: Detected data dependency between endpoints (e.g., "list products" enables "create order").
+- **Tag**: Semantic label auto-assigned to endpoints (e.g., `commerce`, `auth`, `users`, `destructive`).
 
 ## Use Cases
 
 - Shrink an internal API surface for agents (start `readonly`, then expand to `operator`).
 - Turn messy browser workflows into a governed, reusable toolpack.
 - Gate agent tool changes in CI with drift + approvals.
+- Auto-classify endpoints by domain (commerce, users, auth) for tag-based scoping.
+- Detect API flow sequences so agents know which endpoints to call first.
+- Generate EU AI Act compliance evidence from your tool governance chain.
 
 ## Install
 
@@ -174,6 +179,29 @@ Default output root: `.caskmcp/`
 
 `toolpack.yaml` is the handoff object for MCP serving (`--toolpack`).
 
+## Intelligence Features
+
+CaskMCP goes beyond structural compilation to understand what APIs *do*:
+
+**Auto-Tagging**: Endpoints are automatically classified with semantic tags from three signals:
+- Path segments (`/orders/` -> `commerce`, `/users/` -> `users`)
+- Response fields (`{price, quantity}` -> `commerce`, `{token}` -> `auth`)
+- HTTP semantics (`DELETE` -> `destructive`, `GET` collection -> `listing`)
+
+**Tag-Based Scoping**: Filter your tool surface using tags in scope YAML:
+```yaml
+name: commerce_tools
+tags:
+  include: [commerce, products]
+  exclude: [auth, admin]
+```
+
+**Flow Detection**: CaskMCP detects data dependencies between endpoints. If `GET /products` returns `{id}` and `POST /orders` needs `product_id`, the flow is detected. Compiled tools include `depends_on`/`enables` metadata and descriptions like "Call get_products first to obtain id."
+
+**LLM Enrichment** *(optional)*: Post-compile pass that sends endpoint schemas to a user-configured LLM for richer tags, descriptions, and "when to use" guidance. No LLM SDK dependency.
+
+**EU AI Act Compliance**: `caskmcp compliance report` generates structured evidence of human oversight (approval chain), tool inventory (by risk tier), and accuracy monitoring (drift history).
+
 ## Permissions and Modes
 
 CaskMCP is designed for first-party or explicitly authorized captures only. It keeps redaction on by default, applies deny-by-default policy behavior, gates state-changing operations with confirmations/approvals, and includes SSRF-oriented runtime protections (private network deny-by-default and redirect controls in proxy mode). These defaults align with [MCP security best practices](https://modelcontextprotocol.io/specification/draft/basic/security_best_practices) around consent, least privilege, and explicit authorization.
@@ -207,6 +235,7 @@ CaskMCP is designed for first-party or explicitly authorized captures only. It k
 - `caskmcp enforce` - runtime policy gateway (evaluate/proxy)
 - `caskmcp mcp serve` - expose tools as an MCP server
 - `caskmcp mcp meta` - expose governance introspection tools as MCP
+- `caskmcp compliance report` - generate EU AI Act compliance evidence
 - `caskmcp verify` - verify UI evidence against captured API responses *(planned)*
 
 `caskmcp serve` is a convenience alias for `caskmcp mcp serve`.
