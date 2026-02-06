@@ -42,23 +42,26 @@ def run_doctor(toolpack_path: str, runtime: str, verbose: bool) -> None:
     else:
         manager = LockfileManager(lockfile_path)
         lockfile = manager.load()
-        digest = compute_artifacts_digest_from_paths(
-            tools_path=resolved.tools_path,
-            toolsets_path=resolved.toolsets_path,
-            policy_path=resolved.policy_path,
-        )
-        if lockfile.artifacts_digest and lockfile.artifacts_digest != digest:
-            errors.append("lockfile artifacts digest mismatch; re-run mcpmint approve sync")
+        if not errors:
+            digest = compute_artifacts_digest_from_paths(
+                tools_path=resolved.tools_path,
+                toolsets_path=resolved.toolsets_path,
+                policy_path=resolved.policy_path,
+            )
+            if lockfile.artifacts_digest and lockfile.artifacts_digest != digest:
+                errors.append("lockfile artifacts digest mismatch; re-run mcpmint approve sync")
 
-        expected_hash = lockfile.evidence_summary_sha256
-        if expected_hash:
-            actual_hash = None
-            if resolved.evidence_summary_sha256_path and resolved.evidence_summary_sha256_path.exists():
-                actual_hash = resolved.evidence_summary_sha256_path.read_text().strip()
-            if actual_hash != expected_hash:
-                errors.append("evidence summary hash mismatch; re-run verification")
+            expected_hash = lockfile.evidence_summary_sha256
+            if expected_hash:
+                actual_hash = None
+                if (
+                    resolved.evidence_summary_sha256_path
+                    and resolved.evidence_summary_sha256_path.exists()
+                ):
+                    actual_hash = resolved.evidence_summary_sha256_path.read_text().strip()
+                if actual_hash != expected_hash:
+                    errors.append("evidence summary hash mismatch; re-run verification")
 
-    requested_runtime = runtime
     mode = runtime
     if mode == "auto":
         mode = toolpack.runtime.mode if toolpack.runtime else "local"
@@ -79,11 +82,7 @@ def run_doctor(toolpack_path: str, runtime: str, verbose: bool) -> None:
                 if not path.exists():
                     errors.append(f"container runtime file missing: {path}")
         if not docker_available():
-            message = "docker not available; install Docker or use --runtime local"
-            if requested_runtime == "auto":
-                warnings.append(message)
-            else:
-                errors.append(message)
+            errors.append("docker not available; install Docker or use --runtime local")
     else:
         errors.append(f"unknown runtime mode: {mode}")
 

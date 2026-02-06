@@ -100,7 +100,9 @@ def _write_toolpack_fixture(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
 
 
 class TestMCPToolpackResolution:
-    def test_toolpack_resolves_paths_and_defaults_readonly(self, tmp_path: Path) -> None:
+    def test_toolpack_resolves_paths_and_defaults_readonly(
+        self, tmp_path: Path, capsys
+    ) -> None:
         toolpack_path, tools_path, toolsets_path, policy_path = _write_toolpack_fixture(tmp_path)
 
         with patch("mcpmint.mcp.server.run_mcp_server") as mock_run:
@@ -127,6 +129,8 @@ class TestMCPToolpackResolution:
         assert kwargs["policy_path"] == str(policy_path)
         assert kwargs["toolset_name"] == "readonly"
         assert kwargs["lockfile_path"] is None
+        captured = capsys.readouterr()
+        assert captured.err == ""
 
     def test_explicit_tools_override_toolpack_tools(self, tmp_path: Path) -> None:
         toolpack_path, _tools_path, toolsets_path, _policy_path = _write_toolpack_fixture(tmp_path)

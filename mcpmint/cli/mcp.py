@@ -111,10 +111,11 @@ def run_mcp_serve(
     effective_toolset = toolset_name
     if effective_toolset is None and resolved_toolsets_path and resolved_toolsets_path.exists():
         effective_toolset = "readonly"
-        click.echo(
-            "Defaulting to toolset readonly. Use --toolset <name> to change.",
-            err=True,
-        )
+        if verbose:
+            click.echo(
+                "Defaulting to toolset readonly. Use --toolset <name> to change.",
+                err=True,
+            )
 
     if verbose:
         click.echo("Starting MCPMint MCP Server...", err=True)
