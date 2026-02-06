@@ -1,0 +1,48 @@
+# Example GitHub Actions workflow for CaskMCP drift detection.
+#
+# This workflow runs on every push and pull request to detect
+# API drift in your compiled toolpacks.
+#
+# Copy this file to .github/workflows/drift-check.yml in your project.
+
+name: API Drift Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Option A: Use the composite action (if caskmcp is in the same repo)
+      # - uses: ./.github/actions/caskmcp-drift
+      #   with:
+      #     toolpack: .caskmcp/toolpacks/my-api/toolpack.yaml
+
+      # Option B: Install and run directly
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CaskMCP
+        run: pip install caskmcp
+
+      - name: Check for drift
+        run: |
+          caskmcp drift \
+            --toolpack .caskmcp/toolpacks/my-api/toolpack.yaml \
+            --output .caskmcp/reports \
+            --format both
+
+      - name: Upload drift report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-report
+          path: .caskmcp/reports/
+          retention-days: 30

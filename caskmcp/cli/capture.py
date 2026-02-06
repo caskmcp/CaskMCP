@@ -23,6 +23,8 @@ def run_capture(
     script_path: str | None,
     duration_seconds: int,
     verbose: bool,
+    load_storage_state: str | None = None,
+    save_storage_state: str | None = None,
 ) -> None:
     """Run the capture command."""
     if subcommand == "import":
@@ -51,6 +53,8 @@ def run_capture(
             headless=headless,
             script_path=script_path,
             duration_seconds=duration_seconds,
+            load_storage_state=load_storage_state,
+            save_storage_state=save_storage_state,
             verbose=verbose,
         )
 
@@ -175,6 +179,8 @@ def _record_playwright(
     script_path: str | None,
     duration_seconds: int,
     verbose: bool,
+    load_storage_state: str | None = None,
+    save_storage_state: str | None = None,
 ) -> None:
     """Record traffic using Playwright browser automation."""
     try:
@@ -196,7 +202,12 @@ def _record_playwright(
     try:
         import asyncio
 
-        capture = PlaywrightCapture(allowed_hosts=allowed_hosts, headless=headless)
+        capture = PlaywrightCapture(
+            allowed_hosts=allowed_hosts,
+            headless=headless,
+            storage_state_path=load_storage_state,
+            save_storage_state_path=save_storage_state,
+        )
         session = asyncio.run(
             capture.capture(
                 start_url=start_url,

@@ -63,6 +63,16 @@ def cli(ctx: click.Context, verbose: bool) -> None:
     show_default=True,
     help="Capture duration in seconds for non-interactive/headless mode",
 )
+@click.option(
+    "--load-storage-state",
+    type=click.Path(exists=True),
+    help="Load browser storage state (cookies, localStorage) from a JSON file",
+)
+@click.option(
+    "--save-storage-state",
+    type=click.Path(),
+    help="Save browser storage state to a JSON file after capture",
+)
 @click.pass_context
 def capture(
     ctx: click.Context,
@@ -75,6 +85,8 @@ def capture(
     headless: bool,
     script: str | None,
     duration: int,
+    load_storage_state: str | None,
+    save_storage_state: str | None,
 ) -> None:
     """Import traffic from HAR files or capture with Playwright.
 
@@ -88,6 +100,10 @@ def capture(
 
       # Record traffic interactively with Playwright
       caskmcp capture record https://example.com --allowed-hosts api.example.com
+
+      # Record with pre-authenticated session
+      caskmcp capture record https://example.com -a api.example.com \\
+        --load-storage-state auth-state.json
 
     Record mode supports interactive (`--no-headless`), timed headless
     capture (`--headless --duration`), and scripted automation (`--script`).
@@ -104,6 +120,8 @@ def capture(
         headless=headless,
         script_path=script,
         duration_seconds=duration,
+        load_storage_state=load_storage_state,
+        save_storage_state=save_storage_state,
         verbose=ctx.obj.get("verbose", False),
     )
 
