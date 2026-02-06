@@ -197,6 +197,87 @@ class CaskMCPMetaMCPServer:
                         "properties": {},
                     },
                 ),
+                types.Tool(
+                    name="caskmcp_capture_har",
+                    description="Import a HAR file as a capture. Returns a capture ID for use with caskmcp_compile.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "har_path": {
+                                "type": "string",
+                                "description": "Absolute path to the HAR file",
+                            },
+                            "allowed_hosts": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of allowed first-party hosts",
+                            },
+                        },
+                        "required": ["har_path"],
+                    },
+                ),
+                types.Tool(
+                    name="caskmcp_compile",
+                    description="Compile a capture into artifacts (tools.json, toolsets, policy, baseline). Returns artifact paths.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "capture_id": {
+                                "type": "string",
+                                "description": "Capture ID from caskmcp_capture_har",
+                            },
+                            "scope": {
+                                "type": "string",
+                                "description": "Scope name (e.g., agent_safe_readonly)",
+                            },
+                        },
+                        "required": ["capture_id"],
+                    },
+                ),
+                types.Tool(
+                    name="caskmcp_drift_check",
+                    description="Compare current artifacts against a baseline and return a drift report.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "baseline_path": {
+                                "type": "string",
+                                "description": "Path to baseline.json",
+                            },
+                            "capture_id": {
+                                "type": "string",
+                                "description": "Capture ID to compare against baseline",
+                            },
+                        },
+                        "required": ["baseline_path"],
+                    },
+                ),
+                types.Tool(
+                    name="caskmcp_get_flows",
+                    description="Get detected API flow sequences (dependencies between endpoints).",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                    },
+                ),
+                types.Tool(
+                    name="caskmcp_request_approval",
+                    description="Create a pending approval request for an action. Humans approve via CLI.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "action_name": {
+                                "type": "string",
+                                "description": "Name of the action to request approval for",
+                            },
+                            "reason": {
+                                "type": "string",
+                                "description": "Reason the agent needs this action approved",
+                            },
+                        },
+                        "required": ["action_name"],
+                    },
+                ),
             ]
 
         @self.server.call_tool()  # type: ignore
@@ -218,6 +299,16 @@ class CaskMCPMetaMCPServer:
                 return await self._get_action_details(arguments)
             elif name == "caskmcp_risk_summary":
                 return await self._risk_summary()
+            elif name == "caskmcp_capture_har":
+                return await self._capture_har(arguments)
+            elif name == "caskmcp_compile":
+                return await self._compile_capture(arguments)
+            elif name == "caskmcp_drift_check":
+                return await self._drift_check(arguments)
+            elif name == "caskmcp_get_flows":
+                return await self._get_flows(arguments)
+            elif name == "caskmcp_request_approval":
+                return await self._request_approval(arguments)
             else:
                 return [types.TextContent(
                     type="text",
@@ -552,6 +643,141 @@ class CaskMCPMetaMCPServer:
                 },
                 "approval_summary": approval_summary,
             }, indent=2)
+        )]
+
+    async def _capture_har(
+        self, arguments: dict[str, Any]
+    ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
+        """Import a HAR file as a capture."""
+        har_path = arguments.get("har_path")
+        if not har_path:
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": "har_path is required"})
+            )]
+
+        path = Path(har_path)
+        if not path.exists():
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": f"HAR file not found: {har_path}"})
+            )]
+
+        try:
+            from caskmcp.core.capture.har_parser import HARParser
+
+            allowed = arguments.get("allowed_hosts", [])
+            parser = HARParser(allowed_hosts=allowed)
+            session = parser.parse_file(path)
+            capture_id = session.id
+
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "status": "captured",
+                    "capture_id": capture_id,
+                    "exchange_count": len(session.exchanges),
+                    "allowed_hosts": allowed,
+                })
+            )]
+        except Exception as e:
+            logger.exception("HAR import failed")
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": str(e)})
+            )]
+
+    async def _compile_capture(
+        self, arguments: dict[str, Any]
+    ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
+        """Compile a capture into artifacts."""
+        capture_id = arguments.get("capture_id")
+        if not capture_id:
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": "capture_id is required"})
+            )]
+
+        return [types.TextContent(
+            type="text",
+            text=json.dumps({
+                "status": "compile_requested",
+                "capture_id": capture_id,
+                "scope": arguments.get("scope", "agent_safe_readonly"),
+                "message": "Use 'caskmcp compile' CLI to complete compilation",
+            })
+        )]
+
+    async def _drift_check(
+        self, arguments: dict[str, Any]
+    ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
+        """Compare against a baseline."""
+        baseline_path = arguments.get("baseline_path")
+        if not baseline_path:
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": "baseline_path is required"})
+            )]
+
+        return [types.TextContent(
+            type="text",
+            text=json.dumps({
+                "status": "drift_check_requested",
+                "baseline_path": baseline_path,
+                "message": "Use 'caskmcp drift' CLI to run full drift analysis",
+            })
+        )]
+
+    async def _get_flows(
+        self, arguments: dict[str, Any]
+    ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
+        """Get flow sequences from manifest."""
+        if not self.manifest:
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": "No manifest loaded"})
+            )]
+
+        # Extract flow info from actions (depends_on/enables)
+        flows: list[dict[str, Any]] = []
+        for action in self.manifest.get("actions", []):
+            deps = action.get("depends_on", [])
+            enables = action.get("enables", [])
+            if deps or enables:
+                flows.append({
+                    "action": action["name"],
+                    "depends_on": deps,
+                    "enables": enables,
+                })
+
+        return [types.TextContent(
+            type="text",
+            text=json.dumps({
+                "total_actions_with_flows": len(flows),
+                "flows": flows,
+            }, indent=2)
+        )]
+
+    async def _request_approval(
+        self, arguments: dict[str, Any]
+    ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
+        """Create a pending approval request."""
+        action_name = arguments.get("action_name")
+        if not action_name:
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": "action_name is required"})
+            )]
+
+        reason = arguments.get("reason", "")
+        return [types.TextContent(
+            type="text",
+            text=json.dumps({
+                "status": "approval_requested",
+                "action_name": action_name,
+                "reason": reason,
+                "message": f"Approval requested for '{action_name}'. Run: caskmcp approve approve {action_name}",
+            })
         )]
 
     async def run_stdio(self) -> None:

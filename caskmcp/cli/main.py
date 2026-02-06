@@ -1461,5 +1461,31 @@ def confirm_list(ctx: click.Context, store_path: str) -> None:
     )
 
 
+# Register compliance command group (lazy import)
+@cli.group()
+def compliance():
+    """EU AI Act compliance reporting."""
+    pass
+
+
+@compliance.command("report")
+@click.option(
+    "--tools", "tools_path",
+    type=click.Path(exists=True),
+    help="Path to tools.json manifest",
+)
+@click.option(
+    "--output", "output_path",
+    type=click.Path(),
+    default=None,
+    help="Output path for the report (default: stdout as JSON)",
+)
+def compliance_report(tools_path: str | None, output_path: str | None) -> None:
+    """Generate a structured compliance report."""
+    from caskmcp.cli.compliance import run_compliance_report
+
+    run_compliance_report(tools_path=tools_path, output_path=output_path)
+
+
 if __name__ == "__main__":
     cli()
