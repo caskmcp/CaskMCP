@@ -2,14 +2,19 @@
 
 <!-- mcp-name: io.github.tomallicino/caskmcp -->
 
-Mint a minimal, enforceable MCP tool surface from first-party, authorized traffic.
+Compile a minimal, governed MCP tool surface from observed traffic. Like `terraform plan` for agent tools.
 
-> **CaskMCP is a compiler for agent tools.**
-> It mints a minimal, stable, reviewable MCP tool surface from observed traffic (HAR, Playwright) or specs (OpenAPI), then enforces it with approvals, drift checks, and runtime policy.
+> **CaskMCP is a compiler for agent tool surfaces.**
+> Capture real API traffic (HAR, Playwright) or import specs (OpenAPI), compile it into a minimal MCP tool surface, approve it with a lockfile, serve it, and fail CI when it drifts.
+
+```
+pip install caskmcp && caskmcp demo
+```
 
 Why this matters:
-- Agents degrade with tool sprawl.
+- **8,250+ MCP servers** exist and growing -- tool sprawl is the #1 agent reliability problem.
 - OpenAPI is often missing, stale, or incomplete versus live behavior.
+- EU AI Act (Aug 2026) requires operational evidence of what tools agents can access.
 - Governance only works when the exposed tool surface is small, stable, and explicit.
 
 ## What It Is / Isn’t
@@ -30,10 +35,13 @@ Why this matters:
 | CaskMCP | Tool surface compiler | Produces a minimal, governable tool surface from captures/specs |
 | [FastMCP](https://gofastmcp.com/) | Server framework | Serves tools you choose to expose |
 | [MintMCP](https://www.mintmcp.com/) | Enterprise gateway | Runtime auth, RBAC, audit logging; no capture or compilation |
-| [MCPTrust](https://mcptrust.dev/) | Enforcement firewall | Enforces server usage; CaskMCP can run upstream to mint/curate toolpacks |
+| [MCPTrust](https://github.com/mcptrust/mcptrust) | Enforcement firewall | Runtime lockfile enforcement + signing; CaskMCP can run upstream |
+| [Runlayer](https://www.runlayer.com/) | Enterprise security platform | Zero-trust MCP gateway; no traffic capture or spec compilation |
+| [DriftCop](https://github.com/sudoviz/driftcop) | Static analysis + drift | Scans existing MCP servers; doesn't compile from traffic |
+| [Specmatic](https://specmatic.io/) | Schema testing | Regression tests from schemas; doesn't generate specs from behavior |
 | [agentgateway](https://github.com/agentgateway/agentgateway) | Enterprise proxy plane | Handles network/proxy concerns around already-exposed surfaces |
 
-CaskMCP is the only tool that does the full loop: **observed traffic -> normalized contracts -> scoped tool surface -> approved lockfile -> MCP server -> drift gates**. Gateways and firewalls enforce at runtime; CaskMCP compiles what they enforce.
+CaskMCP is the only tool that does the full loop: **observed traffic -> normalized contracts -> scoped tool surface -> approved lockfile -> MCP server -> drift gates**. Runtime proxies enforce what's already exposed; static analyzers scan existing code. CaskMCP compiles the surface from scratch.
 
 ## 5-Minute Proof (Blocking + Drift Gate)
 
