@@ -76,3 +76,20 @@ def test_doctor_auto_container_requires_docker(tmp_path: Path, monkeypatch) -> N
 
     assert result.exit_code != 0
     assert "docker not available" in result.stderr
+
+
+def test_doctor_handles_mcp_spec_error(tmp_path: Path, monkeypatch) -> None:
+    toolpack_file = write_demo_toolpack(tmp_path)
+    runner = CliRunner()
+
+    def _raise_value_error(_name: str) -> None:
+        raise ValueError("mcp.__spec__ is None")
+
+    monkeypatch.setattr("importlib.util.find_spec", _raise_value_error)
+    result = runner.invoke(
+        cli,
+        ["doctor", "--toolpack", str(toolpack_file), "--runtime", "local"],
+    )
+
+    assert result.exit_code != 0
+    assert 'mcp not installed' in result.stderr

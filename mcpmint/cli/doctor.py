@@ -67,7 +67,11 @@ def run_doctor(toolpack_path: str, runtime: str, verbose: bool) -> None:
         mode = toolpack.runtime.mode if toolpack.runtime else "local"
 
     if mode == "local":
-        if importlib.util.find_spec("mcp") is None:
+        try:
+            spec = importlib.util.find_spec("mcp")
+        except ValueError:
+            spec = None
+        if spec is None:
             errors.append('mcp not installed. Install with: pip install "mcpmint[mcp]"')
     elif mode == "container":
         if toolpack.runtime is None or toolpack.runtime.container is None:
