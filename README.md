@@ -60,13 +60,27 @@ mcpmint mint https://app.example.com \
   --print-mcp-config
 
 # 2) Serve the curated surface immediately
-mcpmint mcp serve --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+mcpmint run --toolpack .mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
 
 # 3) CI gate: fail if surface drifts
 bash scripts/magic_moment_ci.sh
 ```
 
+Playbook + verification:
+
+```bash
+mcpmint mint https://app.example.com \
+  -a api.example.com \
+  --playbook flows/search.yaml \
+  --verify-ui \
+  --print-mcp-config
+```
+
 Client config snippet (Claude Desktop):
+
+```bash
+mcpmint config --toolpack /absolute/path/to/.mcpmint/toolpacks/<toolpack-id>/toolpack.yaml
+```
 
 ```json
 {
@@ -74,8 +88,7 @@ Client config snippet (Claude Desktop):
     "my-toolpack": {
       "command": "mcpmint",
       "args": [
-        "mcp",
-        "serve",
+        "run",
         "--toolpack",
         "/absolute/path/to/.mcpmint/toolpacks/<toolpack-id>/toolpack.yaml"
       ]
@@ -107,11 +120,17 @@ pip install mcpmint
 Optional extras:
 
 ```bash
-pip install "mcpmint[mcp,playwright]"
+pip install "mcpmint[playwright]"   # mint/capture
+pip install "mcpmint[mcp]"          # serve
+pip install "mcpmint[playwright,mcp]"  # full quickstart
+pip install "mcpmint[cryptography]" # optional encrypted evidence reports
 ```
 
 - `mcp` extra: built-in MCP server runtime
 - `playwright` extra: browser traffic capture for `mint` / `capture record`
+- If you installed `playwright` but not the browser binaries, run:
+  `python -m playwright install chromium`
+- Encrypted verification reports require `MCPMINT_EVIDENCE_KEY` and the `cryptography` extra.
 
 ## What `mint` Produces
 
@@ -128,10 +147,14 @@ Default output root: `.mcpmint/`
   - `toolpack.yaml`
   - `artifact/` (copied artifacts)
   - `lockfile/mcpmint.lock.pending.yaml`
+  - `evidence_summary.json` (when `--verify-ui`)
+  - `evidence_summary.sha256` (when `--verify-ui`)
+  - `Dockerfile`, `entrypoint.sh`, `mcpmint.run`, `requirements.lock` (when `--runtime=container`)
+  - `.mcpmint/approvals/...` (after approvals, for plan/check_ci baselines)
 
 `toolpack.yaml` is the handoff object for MCP serving (`--toolpack`).
 
-## Security Model
+## Permissions and Modes
 
 MCPMint is designed for first-party or explicitly authorized captures only. It keeps redaction on by default, applies deny-by-default policy behavior, gates state-changing operations with confirmations/approvals, and includes SSRF-oriented runtime protections (private network deny-by-default and redirect controls in proxy mode). These defaults align with [MCP security best practices](https://modelcontextprotocol.io/specification/draft/basic/security_best_practices) around consent, least privilege, and explicit authorization.
 
@@ -150,6 +173,11 @@ MCPMint is designed for first-party or explicitly authorized captures only. It k
 ## CLI Map
 
 - `mcpmint mint` - one-shot mint loop (`capture -> compile -> toolpack`)
+- `mcpmint config` - emit MCP client config snippet for a toolpack
+- `mcpmint doctor` - validate toolpack readiness and dependencies
+- `mcpmint run` - run a toolpack locally or in a container
+- `mcpmint plan` - deterministic capability diff report
+- `mcpmint bundle` - deterministic zip bundle for sharing
 - `mcpmint capture` - import HAR or record browser traffic
 - `mcpmint openapi` - import OpenAPI spec as a capture
 - `mcpmint compile` - generate artifacts/toolsets/policy/baseline
@@ -158,6 +186,7 @@ MCPMint is designed for first-party or explicitly authorized captures only. It k
 - `mcpmint enforce` - runtime policy gateway (evaluate/proxy)
 - `mcpmint mcp serve` - expose tools as an MCP server
 - `mcpmint mcp meta` - expose governance introspection tools as MCP
+- `mcpmint verify` - verify UI evidence against captured API responses
 
 `mcpmint serve` is a convenience alias for `mcpmint mcp serve`.
 

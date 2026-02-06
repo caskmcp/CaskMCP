@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import shutil
+import subprocess
 import sys
 import uuid
 from datetime import UTC, datetime
@@ -13,16 +14,22 @@ from pathlib import Path
 
 import click
 
+from mcpmint import __version__
 from mcpmint.cli.approve import sync_lockfile
 from mcpmint.cli.compile import compile_capture_session
 from mcpmint.core.capture.redactor import Redactor
+from mcpmint.core.runtime.container import DEFAULT_BASE_IMAGE, emit_container_runtime
 from mcpmint.core.toolpack import (
     Toolpack,
+    ToolpackContainerRuntime,
     ToolpackOrigin,
     ToolpackPaths,
+    ToolpackRuntime,
     write_toolpack,
 )
 from mcpmint.storage import Storage
+from mcpmint.utils.config import build_mcp_config_payload
+from mcpmint.utils.runtime import is_stable_release
 from mcpmint.utils.schema_version import resolve_generated_at
 
 
@@ -38,6 +45,10 @@ def run_mint(
     output_root: str,
     deterministic: bool,
     print_mcp_config: bool,
+    runtime_mode: str = "local",
+    runtime_build: bool = False,
+    runtime_tag: str | None = None,
+    runtime_version_pin: str | None = None,
     verbose: bool,
 ) -> None:
     """Mint a first-class toolpack from browser traffic capture."""
@@ -47,6 +58,12 @@ def run_mint(
 
     if duration_seconds <= 0:
         click.echo("Error: --duration must be > 0", err=True)
+        sys.exit(1)
+
+    if runtime_mode != "container" and (
+        runtime_build or runtime_tag or runtime_version_pin
+    ):
+        click.echo("Error: runtime flags require --runtime=container", err=True)
         sys.exit(1)
 
     try:
@@ -158,6 +175,12 @@ def run_mint(
     if approved_lockfile.exists():
         lockfiles["approved"] = str(approved_lockfile.relative_to(toolpack_dir))
 
+    runtime = _build_runtime(
+        toolpack_id=toolpack_id,
+        mode=runtime_mode,
+        tag=runtime_tag,
+    )
+
     toolpack = Toolpack(
         toolpack_id=toolpack_id,
         created_at=resolve_generated_at(
@@ -186,10 +209,42 @@ def run_mint(
             ),
             lockfiles=lockfiles,
         ),
+        runtime=runtime,
     )
 
     toolpack_file = toolpack_dir / "toolpack.yaml"
     write_toolpack(toolpack, toolpack_file)
+
+    if runtime_mode == "container" and runtime is not None:
+        if runtime.container is None:
+            click.echo("Error: runtime container configuration missing", err=True)
+            sys.exit(1)
+        try:
+            requirements_line = _resolve_requirements_pin(runtime_version_pin)
+        except ValueError as exc:
+            click.echo(f"Error: {exc}", err=True)
+            sys.exit(1)
+        try:
+            emit_container_runtime(
+                toolpack_dir=toolpack_dir,
+                image=runtime.container.image,
+                base_image=runtime.container.base_image,
+                requirements_line=requirements_line,
+                env_allowlist=runtime.container.env_allowlist,
+                healthcheck_cmd=runtime.container.healthcheck.cmd,
+                healthcheck_interval_s=runtime.container.healthcheck.interval_s,
+                healthcheck_timeout_s=runtime.container.healthcheck.timeout_s,
+                healthcheck_retries=runtime.container.healthcheck.retries,
+                build=runtime_build,
+            )
+        except RuntimeError:
+            click.echo("Error: docker not available (required for --build)", err=True)
+            sys.exit(1)
+        except subprocess.CalledProcessError as exc:
+            click.echo("Error: docker build failed", err=True)
+            if verbose:
+                click.echo(exc.stderr or str(exc), err=True)
+            sys.exit(1)
 
     click.echo(f"\nMint complete: {toolpack_id}")
     click.echo(f"  Capture: {session.id}")
@@ -199,7 +254,7 @@ def run_mint(
     click.echo(f"  Pending approvals: {sync_result.pending_count}")
 
     click.echo("\nNext commands:")
-    click.echo(f"  mcpmint mcp serve --toolpack {toolpack_file}")
+    click.echo(f"  mcpmint run --toolpack {toolpack_file}")
     click.echo(
         "  mcpmint approve tool --all --toolset readonly "
         f"--lockfile {pending_lockfile}"
@@ -220,20 +275,38 @@ def run_mint(
 
 def build_mcp_config_snippet(*, toolpack_path: Path, server_name: str) -> str:
     """Return a ready-to-paste Claude Desktop MCP config snippet."""
-    config = {
-        "mcpServers": {
-            server_name: {
-                "command": "mcpmint",
-                "args": [
-                    "mcp",
-                    "serve",
-                    "--toolpack",
-                    str(toolpack_path.resolve()),
-                ],
-            }
-        }
-    }
-    return json.dumps(config, indent=2)
+    payload = build_mcp_config_payload(
+        toolpack_path=toolpack_path,
+        server_name=server_name,
+    )
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def _build_runtime(
+    *,
+    toolpack_id: str,
+    mode: str,
+    tag: str | None,
+) -> ToolpackRuntime | None:
+    if mode != "container":
+        return ToolpackRuntime(mode=mode, container=None)
+    image = tag or f"mcpmint-toolpack:{toolpack_id}"
+    container = ToolpackContainerRuntime(
+        image=image,
+        base_image=DEFAULT_BASE_IMAGE,
+    )
+    return ToolpackRuntime(mode=mode, container=container)
+
+
+def _resolve_requirements_pin(runtime_version_pin: str | None) -> str:
+    if runtime_version_pin:
+        return runtime_version_pin
+    if is_stable_release(__version__):
+        return f"mcpmint[mcp]=={__version__}"
+    raise ValueError(
+        "Runtime version pin required for pre-release builds. "
+        "Pass --runtime-version-pin to mcpmint mint."
+    )
 
 
 def _generate_toolpack_id(

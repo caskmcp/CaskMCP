@@ -77,6 +77,10 @@ class Lockfile(BaseModel):
     capture_id: str | None = None
     scope: str | None = None
     artifacts_digest: str | None = None
+    evidence_summary_sha256: str | None = None
+    baseline_snapshot_dir: str | None = None
+    baseline_snapshot_digest: str | None = None
+    baseline_snapshot_id: str | None = None
 
     # Tool approvals indexed by tool_id
     tools: dict[str, ToolApproval] = Field(default_factory=dict)
@@ -178,8 +182,12 @@ class LockfileManager:
             if tool.get("changed_at"):
                 tool["changed_at"] = tool["changed_at"]
 
-        with open(self.lockfile_path, "w") as f:
-            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+        from mcpmint.utils.files import atomic_write_text
+
+        atomic_write_text(
+            self.lockfile_path,
+            yaml.dump(data, default_flow_style=False, sort_keys=False),
+        )
 
     def _sorted_tools_payload(self, tools: dict[str, Any]) -> dict[str, Any]:
         """Return tool payload sorted by tool_id for deterministic diffs."""
@@ -235,6 +243,22 @@ class LockfileManager:
             self.load()
         assert self.lockfile is not None
         self.lockfile.artifacts_digest = artifacts_digest
+
+    def set_evidence_summary_sha256(self, digest: str | None) -> None:
+        """Set evidence summary hash for verification governance."""
+        if self.lockfile is None:
+            self.load()
+        assert self.lockfile is not None
+        self.lockfile.evidence_summary_sha256 = digest
+
+    def set_baseline_snapshot(self, snapshot_dir: str, snapshot_digest: str) -> None:
+        """Set baseline snapshot metadata for governance."""
+        if self.lockfile is None:
+            self.load()
+        assert self.lockfile is not None
+        self.lockfile.baseline_snapshot_dir = snapshot_dir
+        self.lockfile.baseline_snapshot_digest = snapshot_digest
+        self.lockfile.baseline_snapshot_id = f"appr_{snapshot_digest[:12]}"
 
     def sync_from_manifest(
         self,
@@ -610,12 +634,8 @@ class LockfileManager:
         """
         return len(self.get_pending(toolset=toolset)) > 0
 
-    def check_ci(self, toolset: str | None = None) -> tuple[bool, str]:
-        """Check if CI should pass.
-
-        Returns:
-            Tuple of (should_pass, message)
-        """
+    def check_approvals(self, toolset: str | None = None) -> tuple[bool, str]:
+        """Check approval state without snapshot validation."""
         if self.lockfile is None:
             self.load()
 
@@ -651,6 +671,59 @@ class LockfileManager:
             return False, f"Pending approval: {', '.join(tool_names)}"
 
         return True, "All tools approved"
+
+    def check_ci(self, toolset: str | None = None) -> tuple[bool, str]:
+        """Check if CI should pass.
+
+        Returns:
+            Tuple of (should_pass, message)
+        """
+        approvals_passed, message = self.check_approvals(toolset=toolset)
+        if not approvals_passed:
+            return False, message
+
+        if self.lockfile is None:
+            self.load()
+        assert self.lockfile is not None
+
+        if not self.lockfile.baseline_snapshot_dir or not self.lockfile.baseline_snapshot_digest:
+            return False, "baseline snapshot missing; run mcpmint approve snapshot"
+
+        from mcpmint.core.approval.snapshot import (
+            load_snapshot_digest,
+            resolve_toolpack_root,
+        )
+        from mcpmint.core.toolpack import load_toolpack, resolve_toolpack_paths
+
+        toolpack_root = resolve_toolpack_root(self.lockfile_path)
+        if toolpack_root is None:
+            return False, "toolpack.yaml not found; check_ci requires toolpack context"
+
+        snapshot_dir = toolpack_root / self.lockfile.baseline_snapshot_dir
+        try:
+            digest = load_snapshot_digest(snapshot_dir)
+        except Exception:
+            return False, "baseline snapshot missing; run mcpmint approve snapshot"
+        if digest != self.lockfile.baseline_snapshot_digest:
+            return False, "baseline snapshot digest mismatch; re-run mcpmint approve snapshot"
+
+        toolpack_file = toolpack_root / "toolpack.yaml"
+        try:
+            toolpack = load_toolpack(toolpack_file)
+        except Exception:
+            return False, "toolpack.yaml invalid; check_ci requires toolpack context"
+        resolved = resolve_toolpack_paths(toolpack=toolpack, toolpack_path=toolpack_file)
+
+        expected_hash = self.lockfile.evidence_summary_sha256
+        if expected_hash:
+            actual_hash = None
+            sha_path = resolved.evidence_summary_sha256_path
+            if sha_path and sha_path.exists():
+                actual_hash = sha_path.read_text().strip()
+            if actual_hash != expected_hash:
+                return False, "evidence summary hash mismatch; re-run verification"
+
+        return True, f"{message} with verified baseline snapshot"
 
     def to_yaml(self) -> str:
         """Serialize lockfile to YAML string.

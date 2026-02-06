@@ -10,7 +10,63 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, Field
 
+from mcpmint.core.runtime.container import DEFAULT_BASE_IMAGE
 from mcpmint.utils.schema_version import CURRENT_SCHEMA_VERSION, resolve_schema_version
+
+
+def _default_env_allowlist() -> list[str]:
+    return [
+        "MCPMINT_TOOLPACK",
+        "MCPMINT_TOOLSET",
+        "MCPMINT_LOCKFILE",
+        "MCPMINT_BASE_URL",
+        "MCPMINT_AUTH_HEADER",
+        "MCPMINT_AUDIT_LOG",
+        "MCPMINT_DRY_RUN",
+        "MCPMINT_CONFIRM_STORE",
+        "MCPMINT_ALLOW_PRIVATE_CIDR",
+        "MCPMINT_ALLOW_REDIRECTS",
+    ]
+
+
+class ToolpackRuntimeHealthcheck(BaseModel):
+    """Container healthcheck configuration."""
+
+    cmd: list[str] = Field(
+        default_factory=lambda: [
+            "mcpmint",
+            "doctor",
+            "--runtime",
+            "local",
+            "--toolpack",
+            "/toolpack/toolpack.yaml",
+        ]
+    )
+    interval_s: int = 10
+    timeout_s: int = 5
+    retries: int = 3
+
+
+class ToolpackContainerRuntime(BaseModel):
+    """Container runtime configuration."""
+
+    image: str
+    base_image: str = DEFAULT_BASE_IMAGE
+    dockerfile: str = "Dockerfile"
+    entrypoint: str = "entrypoint.sh"
+    run: str = "mcpmint.run"
+    requirements: str = "requirements.lock"
+    env_allowlist: list[str] = Field(default_factory=_default_env_allowlist)
+    healthcheck: ToolpackRuntimeHealthcheck = Field(
+        default_factory=ToolpackRuntimeHealthcheck
+    )
+
+
+class ToolpackRuntime(BaseModel):
+    """Runtime metadata for executing a toolpack."""
+
+    mode: str = "local"
+    container: ToolpackContainerRuntime | None = None
 
 
 class ToolpackOrigin(BaseModel):
@@ -29,6 +85,8 @@ class ToolpackPaths(BaseModel):
     baseline: str
     contract_yaml: str | None = None
     contract_json: str | None = None
+    evidence_summary: str | None = None
+    evidence_summary_sha256: str | None = None
     lockfiles: dict[str, str] = Field(default_factory=dict)
 
 
@@ -45,6 +103,7 @@ class Toolpack(BaseModel):
     allowed_hosts: list[str] = Field(default_factory=list)
     origin: ToolpackOrigin
     paths: ToolpackPaths
+    runtime: ToolpackRuntime | None = None
 
 
 @dataclass(frozen=True)
@@ -58,6 +117,8 @@ class ResolvedToolpackPaths:
     baseline_path: Path
     contract_yaml_path: Path | None
     contract_json_path: Path | None
+    evidence_summary_path: Path | None
+    evidence_summary_sha256_path: Path | None
     pending_lockfile_path: Path | None
     approved_lockfile_path: Path | None
 
@@ -105,6 +166,8 @@ def resolve_toolpack_paths(
         baseline_path=(root / toolpack.paths.baseline).resolve(),
         contract_yaml_path=_resolve(toolpack.paths.contract_yaml),
         contract_json_path=_resolve(toolpack.paths.contract_json),
+        evidence_summary_path=_resolve(toolpack.paths.evidence_summary),
+        evidence_summary_sha256_path=_resolve(toolpack.paths.evidence_summary_sha256),
         pending_lockfile_path=pending_lockfile,
         approved_lockfile_path=approved_lockfile,
     )
