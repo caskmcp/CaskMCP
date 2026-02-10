@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AF_BIN=${MCPMINT_BIN:-caskmcp}
+AF_BIN=${CASKMCP_BIN:-${MCPMINT_BIN:-caskmcp}}
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/caskmcp-magic-XXXXXX")"
-AF_PYTHON=${MCPMINT_PYTHON:-}
+AF_PYTHON=${CASKMCP_PYTHON:-${MCPMINT_PYTHON:-}}
 
 if [[ -z "$AF_PYTHON" ]]; then
   AF_BIN_RESOLVED="$(command -v "$AF_BIN" 2>/dev/null || true)"
@@ -248,7 +248,43 @@ assert_reason "$BLOCKED_PAYLOAD" "denied_not_approved"
 
 log "4) Approve via lockfile"
 "$AF_BIN" approve tool --all --lockfile caskmcp.lock.yaml --by "ci@caskmcp"
-"$AF_BIN" approve check --lockfile caskmcp.lock.yaml
+
+# Build minimal toolpack structure for snapshot
+TOOLPACK_DIR="$WORKDIR/.caskmcp/toolpack_ci"
+mkdir -p "$TOOLPACK_DIR/artifact" "$TOOLPACK_DIR/lockfile"
+cp "$TOOLS_BASE" "$TOOLPACK_DIR/artifact/tools.json"
+cp "$TOOLSETS_BASE" "$TOOLPACK_DIR/artifact/toolsets.yaml"
+cp "$POLICY_BASE" "$TOOLPACK_DIR/artifact/policy.yaml"
+cp "$BASELINE_BASE" "$TOOLPACK_DIR/artifact/baseline.json"
+cp caskmcp.lock.yaml "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
+"$AF_PYTHON" - "$TOOLPACK_DIR/toolpack.yaml" "$CAPTURE_BASE" <<'PY'
+import sys, yaml
+from pathlib import Path
+tp = {
+    "version": "1.0.0",
+    "schema_version": "1.0",
+    "toolpack_id": "tp_ci_harness",
+    "created_at": "2026-01-01T00:00:00Z",
+    "capture_id": sys.argv[2],
+    "artifact_id": "art_ci",
+    "scope": "first_party_only",
+    "allowed_hosts": ["api.example.com"],
+    "origin": {"start_url": "https://api.example.com", "name": "CI Harness"},
+    "paths": {
+        "tools": "artifact/tools.json",
+        "toolsets": "artifact/toolsets.yaml",
+        "policy": "artifact/policy.yaml",
+        "baseline": "artifact/baseline.json",
+        "lockfiles": {"pending": "lockfile/caskmcp.lock.yaml"},
+    },
+    "runtime": {"mode": "local", "container": None},
+}
+Path(sys.argv[1]).write_text(yaml.dump(tp, default_flow_style=False))
+PY
+"$AF_BIN" approve snapshot --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
+"$AF_BIN" approve check --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
+# Copy back updated lockfile
+cp "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml" caskmcp.lock.yaml
 
 log "5) Show allowed call after approval + out-of-band grant"
 CONFIRM_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "caskmcp.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}')"
@@ -311,20 +347,28 @@ fi
 set +e
 "$AF_BIN" approve sync --tools "$TOOLS_DRIFT" --policy "$POLICY_DRIFT" --toolsets "$TOOLSETS_DRIFT" --lockfile caskmcp.lock.yaml >/tmp/af_sync2.log 2>&1
 SYNC2_EXIT=$?
+cp caskmcp.lock.yaml "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
 set -e
 if [[ $SYNC2_EXIT -eq 0 ]]; then
   fail "expected second approve sync to fail with pending approvals"
 fi
 
 set +e
-"$AF_BIN" approve check --lockfile caskmcp.lock.yaml >/tmp/af_check_fail.log 2>&1
+"$AF_BIN" approve check --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml" >/tmp/af_check_fail.log 2>&1
 CHECK_EXIT=$?
 set -e
 if [[ $CHECK_EXIT -eq 0 ]]; then
   fail "expected approve check to fail until re-approval"
 fi
 
-"$AF_BIN" approve tool --all --lockfile caskmcp.lock.yaml --by "ci@caskmcp"
-"$AF_BIN" approve check --lockfile caskmcp.lock.yaml
+# Update toolpack with drifted artifacts for final approve+check
+cp "$TOOLS_DRIFT" "$TOOLPACK_DIR/artifact/tools.json"
+cp "$TOOLSETS_DRIFT" "$TOOLPACK_DIR/artifact/toolsets.yaml"
+cp "$POLICY_DRIFT" "$TOOLPACK_DIR/artifact/policy.yaml"
+cp caskmcp.lock.yaml "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
+
+"$AF_BIN" approve tool --all --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml" --by "ci@caskmcp"
+"$AF_BIN" approve snapshot --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
+"$AF_BIN" approve check --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
 
 log "Magic moment harness passed"

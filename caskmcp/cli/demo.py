@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import shutil
 import sys
 import tempfile
@@ -45,7 +46,7 @@ def run_demo(*, output_root: str | None, verbose: bool) -> None:
     try:
         compile_result = compile_capture_session(
             session=session,
-            scope_name="agent_safe_readonly",
+            scope_name="first_party_only",
             scope_file=None,
             output_format="all",
             output_dir=root / "artifacts",
@@ -103,6 +104,7 @@ def run_demo(*, output_root: str | None, verbose: bool) -> None:
             toolsets=str(copied_toolsets.relative_to(toolpack_dir)),
             policy=str(copied_policy.relative_to(toolpack_dir)),
             baseline=str(copied_baseline.relative_to(toolpack_dir)),
+            contracts="artifact/contracts.yaml",
             contract_yaml="artifact/contract.yaml",
             contract_json="artifact/contract.json",
             lockfiles={"pending": str(pending_lockfile.relative_to(toolpack_dir))},
@@ -113,21 +115,45 @@ def run_demo(*, output_root: str | None, verbose: bool) -> None:
     toolpack_file = toolpack_dir / "toolpack.yaml"
     write_toolpack(toolpack, toolpack_file)
 
-    click.echo(f"Demo complete: {toolpack_id}")
-    click.echo(f"Output root: {root}")
-    click.echo(f"Capture: {session.id}")
-    click.echo(f"Capture location: {capture_path}")
-    click.echo(f"Toolpack: {toolpack_file}")
-    click.echo(f"Pending approvals: {sync_result.pending_count}")
-    click.echo("Next commands:")
-    click.echo(f"  caskmcp run --toolpack {toolpack_file}")
-    click.echo(
-        "  caskmcp approve tool --all --toolset readonly "
-        f"--lockfile {pending_lockfile}"
+    tools_data = json.loads(copied_tools.read_text())
+    actions = sorted(
+        tools_data.get("actions", []),
+        key=lambda a: (a.get("method", ""), a.get("path", "")),
     )
-    click.echo(
-        f"  caskmcp drift --baseline {copied_baseline} --capture {session.id}"
-    )
+
+    click.echo()
+    click.echo("=" * 60)
+    click.echo("Demo complete")
+    click.echo("=" * 60)
+    click.echo()
+    click.echo(f"{len(actions)} tools compiled from bundled API fixture:")
+    click.echo()
+    for action in actions:
+        m = action.get("method", "?")
+        p = action.get("path", "?")
+        n = action.get("name", "?")
+        click.echo(f"  {m:6s} {p:30s}  {n}")
+    click.echo()
+    click.echo(f"Toolpack:     {toolpack_file}")
+    click.echo(f"Pending lock: {pending_lockfile}")
+    click.echo(f"Baseline:     {copied_baseline}")
+    click.echo(f"Pending:      {sync_result.pending_count} tools awaiting approval")
+    click.echo()
+    click.echo("What just happened:")
+    click.echo(f"  1. Parsed {len(actions)} API endpoints from bundled HAR traffic")
+    click.echo("  2. Compiled into typed tools with schemas and risk tags")
+    click.echo("  3. Generated pending lockfile (needs approval before runtime)")
+    click.echo()
+    click.echo("Next steps:")
+    click.echo()
+    click.echo("  # Approve all tools:")
+    click.echo(f"  cask gate allow --all --lockfile {pending_lockfile}")
+    click.echo()
+    click.echo("  # Run under lockfile enforcement:")
+    click.echo(f"  cask run --toolpack {toolpack_file}")
+    click.echo()
+    click.echo("  # Check for API drift against baseline:")
+    click.echo(f"  cask drift --baseline {copied_baseline} --capture-path {capture_path}")
 
 
 def _resolve_output_root(output_root: str | None) -> Path:

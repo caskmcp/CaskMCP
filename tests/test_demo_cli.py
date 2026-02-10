@@ -9,28 +9,23 @@ from click.testing import CliRunner
 from caskmcp.cli.main import cli
 
 
-def _extract_output_root(stdout: str) -> Path:
-    for line in stdout.splitlines():
-        if line.startswith("Output root: "):
-            return Path(line.split("Output root: ", 1)[1].strip())
-    raise AssertionError("Output root line missing")
-
-
-def test_demo_default_temp_output_and_clean_stderr() -> None:
+def test_demo_default_root_output_and_clean_stderr() -> None:
     runner = CliRunner()
 
     result = runner.invoke(cli, ["demo"])
 
     assert result.exit_code == 0
     assert result.stderr == ""
-    assert "Demo complete:" in result.stdout
-    assert "Next commands:" in result.stdout
+    assert "Demo complete" in result.stdout
+    assert "Next steps:" in result.stdout
 
-    output_root = _extract_output_root(result.stdout)
-    assert output_root.exists()
-    assert (output_root / "captures").exists()
-    assert (output_root / "artifacts").exists()
-    assert (output_root / "toolpacks").exists()
+    # Default root is .caskmcp
+    assert "Toolpack:" in result.stdout
+    root = Path(".caskmcp")
+    assert root.exists()
+    assert (root / "captures").exists()
+    assert (root / "artifacts").exists()
+    assert (root / "toolpacks").exists()
 
 
 def test_demo_out_override(tmp_path: Path) -> None:
@@ -41,7 +36,7 @@ def test_demo_out_override(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert result.stderr == ""
-    assert f"Output root: {output_root}" in result.stdout
+    assert str(output_root) in result.stdout
     assert output_root.exists()
     assert (output_root / "captures").exists()
     assert (output_root / "artifacts").exists()
