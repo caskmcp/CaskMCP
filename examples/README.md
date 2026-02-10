@@ -1,205 +1,62 @@
 # CaskMCP Examples
 
-This directory contains example files to help you get started with CaskMCP.
+This folder contains runnable examples for the shipped workflow.
 
-## 60-Second Interactive Demo
+## Supported Happy Path (Under 5 Minutes)
 
-Run the complete workflow with a single command:
+The primary supported path is:
 
 ```bash
-./examples/demo.sh
+cask demo
 ```
 
-This script demonstrates:
-1. Importing HAR traffic capture
-2. Compiling into safe, agent-ready tools
-3. Reviewing and approving tools
-4. Configuring MCP server for AI agents
+The demo parses 8 API endpoints from a bundled HAR fixture, compiles them into typed tools with schemas and risk tags, and generates a pending lockfile that needs approval before runtime.
 
-For unattended CI coverage of the full governance wedge (approval + confirmation + drift gate), run:
+Expected output includes:
+
+- tool count and method/path table
+- artifact paths (toolpack, pending lockfile, baseline)
+- next-step commands for `gate`, `run`, and `drift`
+
+By default, `demo` writes to a temporary output root. For stable local paths, run:
+
+```bash
+cask demo --out ./demo-output
+```
+
+For the full CLI workflow walkthrough, see [docs/user-guide.md](../docs/user-guide.md).
+
+## CI Harness (Advanced)
+
+For unattended governance verification (approval + confirmation + drift gate):
 
 ```bash
 bash scripts/magic_moment_ci.sh
 ```
 
-## Manual Workflow
+This is an advanced validation harness, not the initial onboarding path.
 
-Run through the complete workflow step-by-step:
+Prerequisites:
 
-```bash
-# 1. Import the sample HAR file
-caskmcp capture import examples/sample.har \
-  --allowed-hosts api.example.com \
-  --name "Demo Session"
+- `caskmcp` available on `PATH`
+- working Python runtime (`python3` or interpreter near `caskmcp`)
+- `PyYAML` installed in that runtime
 
-# 2. Compile into artifacts
-caskmcp compile \
-  --capture <capture-id-from-step-1> \
-  --scope first_party_only \
-  --format all
+Optional compatibility env vars accepted by the script:
 
-# 3. View the generated artifacts
-ls .caskmcp/artifacts/
-cat .caskmcp/artifacts/*/contract.yaml
-cat .caskmcp/artifacts/*/tools.json
-```
+- `CASKMCP_BIN` (CLI binary override; legacy `MCPMINT_BIN` also accepted)
+- `CASKMCP_PYTHON` (Python interpreter override; legacy `MCPMINT_PYTHON` also accepted)
 
-## Files
+## Troubleshooting
 
-### `sample.har`
+### Playwright Browser Missing
 
-A sample HAR file containing typical API traffic:
-
-- `GET /api/users` - List users
-- `GET /api/users/{id}` - Get user by ID
-- `POST /api/users` - Create user
-- `PUT /api/users/{id}` - Update user
-- `DELETE /api/users/{id}` - Delete user
-- `GET /api/products` - List products
-- `GET /api/products/{id}` - Get product by ID
-- `POST /api/orders` - Create order
-
-### `custom-scope.yaml`
-
-Example custom scope for filtering to specific endpoints:
-
-```yaml
-name: orders_only
-description: "Only order-related endpoints"
-default_action: exclude
-rules:
-  - id: include_orders
-    action: include
-    filters:
-      - field: path
-        operator: contains
-        value: "/orders"
-```
-
-### `strict-policy.yaml`
-
-Example strict policy for production use:
-
-```yaml
-name: "Strict Production Policy"
-default_action: deny
-audit_all: true
-
-rules:
-  - id: allow_reads
-    type: allow
-    priority: 100
-    match:
-      methods: [GET]
-
-  - id: confirm_all_writes
-    type: confirm
-    priority: 90
-    match:
-      methods: [POST, PUT, PATCH, DELETE]
-    settings:
-      message: "This action will modify data. Confirm?"
-
-  - id: rate_limit_writes
-    type: budget
-    priority: 80
-    match:
-      methods: [POST, PUT, PATCH, DELETE]
-    settings:
-      per_minute: 5
-      per_hour: 50
-```
-
-## Expected Output
-
-After running the demo, you should see:
-
-1. **Capture saved** with an ID like `cap_20240204_abc12345`
-2. **Artifacts generated** including:
-   - `contract.yaml` - OpenAPI 3.1 spec with 8 endpoints
-   - `tools.json` - 8 agent-callable actions
-   - `policy.yaml` - Default enforcement policy
-   - `baseline.json` - Drift detection baseline
-
-## Approval Workflow
-
-Review and approve tools before use:
+If `mint` or `capture record` fails due to missing browser binaries:
 
 ```bash
-# Sync lockfile with generated tools
-caskmcp approve sync --tools .caskmcp/artifacts/*/tools.json
-
-# List pending approvals
-caskmcp approve list --status pending
-
-# Approve specific tools
-caskmcp approve tool get_users get_products
-
-# Or approve all pending tools
-caskmcp approve tool --all --by "security@team.com"
-
-# Reject dangerous tools
-caskmcp approve reject delete_all_users --reason "Too dangerous"
-
-# CI check (for pipelines)
-caskmcp approve check
+python -m playwright install chromium
 ```
 
-## Testing Drift Detection
+## More Detail
 
-1. Modify the HAR file (e.g., remove an endpoint)
-2. Import as a new capture
-3. Run drift detection:
-
-```bash
-caskmcp drift --from <old-capture> --to <new-capture>
-```
-
-You should see drift detected for the removed endpoint.
-
-## Running the MCP Server
-
-Expose your compiled tools to AI agents like Claude:
-
-```bash
-# Basic usage (dry run - no actual API calls)
-caskmcp mcp serve \
-  --tools .caskmcp/artifacts/*/tools.json \
-  --dry-run
-
-# With policy enforcement
-caskmcp mcp serve \
-  --tools .caskmcp/artifacts/*/tools.json \
-  --policy .caskmcp/artifacts/*/policy.yaml
-
-# With upstream API configuration
-caskmcp mcp serve \
-  --tools .caskmcp/artifacts/*/tools.json \
-  --base-url https://api.example.com \
-  --auth "Bearer your-api-token"
-```
-
-### Claude Desktop Configuration
-
-Add to `~/.claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "my-api": {
-      "command": "caskmcp",
-      "args": [
-        "mcp", "serve",
-        "--tools", "/path/to/tools.json",
-        "--policy", "/path/to/policy.yaml"
-      ]
-    }
-  }
-}
-```
-
-Then Claude can discover and use our API tools safely, with:
-- Policy enforcement (allow/deny/confirm)
-- Rate limiting
-- Audit logging
-- Confirmation for risky operations
+For full command walkthroughs, see [docs/user-guide.md](../docs/user-guide.md).

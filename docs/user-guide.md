@@ -1,443 +1,205 @@
 # CaskMCP User Guide
 
-This guide covers the governance workflow end-to-end:
-1. Capture observed API behavior
-2. Compile deterministic artifacts
-3. Approve tools through lockfile
-4. Enforce policy + approvals at runtime
-5. Detect drift and gate CI
+This guide documents the shipped v1 workflow and command surface.
 
-## Fast Path: Mint Toolpack
+Note: global flags like `--root` must appear before the subcommand, for example:
+`cask --root .caskmcp demo`.
 
-For the one-command loop (capture -> compile -> MCP-ready toolpack):
+Canonical naming:
 
-```bash
-caskmcp mint https://app.example.com \
-  -a api.example.com \
-  --scope agent_safe_readonly \
-  --print-mcp-config
-```
+- `diff` is canonical (`plan` alias)
+- `gate` is canonical (`approve` alias)
+- `mcp inspect` is canonical (`mcp meta` alias)
 
-Outputs:
-
-```text
-.caskmcp/toolpacks/<toolpack-id>/
-├── toolpack.yaml
-├── artifact/
-│   ├── tools.json
-│   ├── toolsets.yaml
-│   ├── policy.yaml
-│   └── baseline.json
-└── lockfile/
-    └── caskmcp.lock.pending.yaml
-```
-
-Serve directly:
+## Your first 5 minutes
 
 ```bash
-caskmcp run --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
+cask demo                                    # Offline demo from bundled fixture
+cask gate allow --all --lockfile <path>      # Approve all tools
+cask run --toolpack <path>                   # Run with enforcement
 ```
 
-## Fast Path: Offline Demo
-
-For a deterministic first-run path with no browser/network capture:
+The demo runs entirely offline using a bundled HAR fixture. No Playwright or network access needed. For real capture workflows (`cask mint`), install Playwright:
 
 ```bash
+pip install "caskmcp[playwright,mcp]"
+python -m playwright install chromium
+```
+
+## Day-one flow
+
+```bash
+# Optional offline proof
 caskmcp demo
+
+# Mint
+caskmcp mint https://app.example.com -a api.example.com --scope agent_safe_readonly
+
+# Diff
+caskmcp diff --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml --format github-md
+
+# Gate
+caskmcp gate allow --all --toolset readonly \
+  --lockfile .caskmcp/toolpacks/<toolpack-id>/lockfile/caskmcp.lock.pending.yaml
+
+# Run
+caskmcp run --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
+
+# Drift + verify
+caskmcp drift --baseline .caskmcp/toolpacks/<toolpack-id>/artifact/baseline.json --capture-id <capture-id>
+caskmcp verify --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml --mode all
 ```
 
-This command is generate-only (no auto-serve), writes artifacts/toolpack locally, and prints
-the exact next commands to run.
+## Help surface
 
-Generate a client config snippet:
+Default help (`caskmcp --help`) shows flagship commands only.
 
-```bash
-caskmcp config --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
-```
+Full help (`caskmcp --help-all`) includes advanced commands (`capture`, `compile`, `demo`, `config`, `scopes merge`, `lint`, `bundle`, `doctor`, `enforce`, `confirm`, `migrate`, `compliance report`, etc.).
 
-Sanity check the toolpack before running:
-
-```bash
-caskmcp doctor --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml --runtime local
-```
+CLI aliases:
 
-Optional container runtime (emits Dockerfile + entrypoint + run wrapper):
+- `cask` is a full alias of `caskmcp` (same command surface).
+- `plan -> diff`
+- `approve -> gate`
+- `mcp meta -> mcp inspect`
 
-```bash
-caskmcp mint https://app.example.com \
-  -a api.example.com \
-  --scope agent_safe_readonly \
-  --runtime=container
+## Root, output, and lookup semantics
 
-caskmcp run --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml --runtime container
-```
-
-## Install
+- `--root` defines canonical state root (default `.caskmcp`).
+- `--out` is export/output convenience.
+- Drift accepts exactly one of `--capture-id` or `--capture-path` for baseline mode.
+- Relative artifact paths in toolpack metadata resolve relative to `toolpack.yaml`.
 
-```bash
-pip install caskmcp
-caskmcp --version
-```
+Canonical root layout:
 
-Optional extras:
-
-```bash
-pip install "caskmcp[mcp]"         # runtime serving (run/mcp serve/mcp meta)
-pip install "caskmcp[playwright]"  # browser capture/mint
-pip install "caskmcp[dev]"         # contributor/CI dependencies
-```
-
-If MCP is missing for runtime commands, CaskMCP exits with:
-`Error: mcp not installed. Install with: pip install "caskmcp[mcp]"`
-
-If you installed `playwright` but not the browser binaries, run:
-`python -m playwright install chromium`
+- `captures/<capture_id>/`
+- `artifacts/<artifact_id>/`
+- `toolpacks/<toolpack_id>/`
+- `baselines/<toolpack_id>/`
+- `reports/`
+- `evidence/<run_id>/`
+- `state/lock`
+- `state/confirmations.db`
+- `state/keys/`
 
-## 1) Capture Traffic
+## Command reference
 
-### Import HAR
-
-```bash
-caskmcp capture import recording.har \
-  --allowed-hosts api.example.com \
-  --name "My API Session"
-```
-
-### Record with Playwright
-
-```bash
-pip install 'caskmcp[playwright]'
-playwright install chromium
-
-caskmcp capture record https://app.example.com \
-  --allowed-hosts api.example.com \
-  --headless \
-  --duration 30
-```
-
-Scripted capture is also supported:
-
-```bash
-caskmcp capture record https://app.example.com \
-  --allowed-hosts api.example.com \
-  --script scripts/capture_flow.py
-```
-
-`scripts/capture_flow.py` must export:
-
-```python
-async def run(page, context) -> None:
-    ...
-```
-
-### Playbook Capture (Deterministic)
-
-```bash
-caskmcp capture record https://app.example.com \
-  --allowed-hosts api.example.com \
-  --playbook flows/search.yaml \
-  --headless
-```
-
-Minimal playbook example:
-
-```yaml
-version: "1.0"
-steps:
-  - id: open
-    type: goto
-    url: "https://app.example.com"
-  - id: search
-    type: type
-    selector: "input[name='q']"
-    text: "test"
-  - id: submit
-    type: press
-    selector: "input[name='q']"
-    key: "Enter"
-```
-
-### Import OpenAPI (bootstrap)
-
-```bash
-caskmcp openapi openapi.yaml --name "Bootstrap Session"
-```
-
-## 2) Compile Artifacts
-
-```bash
-caskmcp compile \
-  --capture <capture-id> \
-  --scope first_party_only \
-  --format all
-```
-
-Outputs:
-
-```text
-.caskmcp/artifacts/<artifact-id>/
-├── contract.yaml
-├── contract.json
-├── tools.json
-├── toolsets.yaml
-├── policy.yaml
-└── baseline.json
-```
-
-Notes:
-- Deterministic metadata is the default for review-friendly Git diffs.
-- Artifacts include `schema_version` for compatibility checks.
-
-### Tool manifest shape
-
-`tools.json` actions use top-level endpoint fields:
-
-```json
-{
-  "schema_version": "1.0",
-  "actions": [
-    {
-      "name": "get_user",
-      "signature_id": "abc123...",
-      "endpoint_id": "def456...",
-      "method": "GET",
-      "path": "/api/users/{id}",
-      "host": "api.example.com",
-      "input_schema": {"type": "object", "properties": {"id": {"type": "string"}}}
-    }
-  ]
-}
-```
-
-## 3) Approval Workflow (Lockfile)
-
-Sync manifest into lockfile (new/changed tools become pending):
-
-```bash
-caskmcp approve sync \
-  --tools .caskmcp/artifacts/<artifact-id>/tools.json \
-  --policy .caskmcp/artifacts/<artifact-id>/policy.yaml \
-  --toolsets .caskmcp/artifacts/<artifact-id>/toolsets.yaml \
-  --lockfile caskmcp.lock.yaml || true
-```
-
-Review and approve:
-
-```bash
-caskmcp approve list --lockfile caskmcp.lock.yaml
-caskmcp approve tool --all --lockfile caskmcp.lock.yaml --by security@example.com
-caskmcp approve check --lockfile caskmcp.lock.yaml
-
-# Optional: scoped governance for a rollout toolset
-caskmcp approve check --lockfile caskmcp.lock.yaml --toolset readonly
-```
-
-Important behavior:
-- Lockfile identity is signature-first (`signature_id`) for stability.
-- Name-based lookups still work for operator UX.
-- Lockfile stores an `artifacts_digest` over `tools.json` + `toolsets.yaml` + `policy.yaml`.
-- Approvals materialize a baseline snapshot under `.caskmcp/approvals/...` inside the toolpack.
-
-If you need to backfill a snapshot (rare), run:
-
-```bash
-caskmcp approve snapshot --lockfile caskmcp.lock.yaml
-```
-
-## 3.5) Plan + Bundle
-
-Generate a deterministic capability diff (defaults to the approved snapshot baseline):
-
-```bash
-caskmcp plan --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
-```
-
-Use `--baseline` to compare against another snapshot/toolpack if needed.
-
-Bundle a toolpack for sharing (toolpack + plan + config + RUN.md):
-
-```bash
-caskmcp bundle \
-  --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml \
-  --out ./toolpack_bundle.zip
-```
-
-## 4) Runtime Enforcement Gateway
-
-### Evaluate mode (policy decision only)
-
-```bash
-caskmcp enforce \
-  --tools .caskmcp/artifacts/<artifact-id>/tools.json \
-  --toolsets .caskmcp/artifacts/<artifact-id>/toolsets.yaml \
-  --toolset readonly \
-  --policy .caskmcp/artifacts/<artifact-id>/policy.yaml \
-  --mode=evaluate
-```
-
-### Proxy mode (decision + upstream execution)
-
-```bash
-caskmcp enforce \
-  --tools .caskmcp/artifacts/<artifact-id>/tools.json \
-  --policy .caskmcp/artifacts/<artifact-id>/policy.yaml \
-  --lockfile caskmcp.lock.yaml \
-  --mode=proxy \
-  --base-url https://api.example.com \
-  --auth "Bearer $API_TOKEN"
-```
-
-In `proxy` mode, `--lockfile` is required by default so runtime always enforces approvals and artifact-digest integrity.
-Use `--unsafe-no-lockfile` only as an explicit local escape hatch.
-State-changing calls require out-of-band confirmation by default:
-
-```bash
-caskmcp confirm list
-caskmcp confirm grant <confirmation_token_id>
-```
-
-## 5) Verification
-
-Verify that UI actions map cleanly to captured API responses:
-
-```bash
-caskmcp verify https://app.example.com \
-  --allowed-hosts api.example.com \
-  --playbook flows/search.yaml
-```
-
-Mint + verify in one command:
-
-```bash
-caskmcp mint https://app.example.com \
-  -a api.example.com \
-  --playbook flows/search.yaml \
-  --verify-ui
-```
-
-Gateway endpoints:
-- `GET /health`
-- `GET /actions`
-- `GET /policy`
-- `GET /pending`
-- `POST /evaluate`
-- `POST /execute`
-
-Example evaluate call:
-
-```bash
-curl -X POST http://localhost:8081/evaluate \
-  -H "Content-Type: application/json" \
-  -d '{"action":"get_user","params":{"id":"123"}}'
-```
-
-## 5) Drift Detection + CI Gate
-
-Compare two captures:
-
-```bash
-caskmcp drift --from <old-capture-id> --to <new-capture-id>
-caskmcp drift --from <old-capture-id> --to <new-capture-id> --volatile-metadata
-```
-
-Compare against baseline:
-
-```bash
-caskmcp drift \
-  --baseline .caskmcp/artifacts/<artifact-id>/baseline.json \
-  --capture <new-capture-id>
-```
+### `mint`
+
+Captures traffic, compiles artifacts, creates toolpack, and writes pending lockfile.
+
+### `diff` / `plan`
+
+Deterministic capability diff report.
+
+- `--format github-md` emits PR-friendly markdown.
+
+### `gate` / `approve`
+
+Governance workflow.
+
+- Golden path: `gate allow --all --toolset readonly`
+- Advanced: `gate sync`, `gate status`, `gate block`, `gate check`, `gate snapshot`
+
+### `run`, `mcp serve`, `serve`
+
+Runtime execution with policy and lockfile enforcement.
+
+- Requires approved lockfile by default.
+- Pending lockfiles are rejected for runtime.
+- `--unsafe-no-lockfile` is explicit non-default escape hatch.
+
+### `drift`
+
+Detects changes against a baseline or between captures.
 
 Exit codes:
-- `0`: no risky drift
-- `1`: warning-level drift (review)
-- `2`: breaking/critical drift (fail CI)
 
-CI example:
+- `0`: no gated drift
+- `1`: gated non-breaking drift
+- `2`: breaking drift
+- `3`: invalid input/config
 
-```bash
-caskmcp drift --baseline baseline.json --capture "$CAPTURE_ID"
-STATUS=$?
-if [ "$STATUS" -eq 2 ]; then
-  echo "Breaking drift detected"
-  exit 1
-fi
-```
+### `verify`
 
-## 6) MCP Integration
+Verification modes:
 
-Serve compiled tools to MCP clients:
+- `contracts`, `replay`, `outcomes`, `provenance`, `all`
 
-```bash
-caskmcp mcp serve \
-  --tools tools.json \
-  --toolsets toolsets.yaml \
-  --lockfile caskmcp.lock.yaml \
-  --policy policy.yaml \
-  --dry-run
-```
+Provenance mode requires both:
 
-Or resolve all paths from a minted toolpack:
+- `--playbook <playbook.yaml|json>`
+- `--ui-assertions <assertions.yaml|json>`
 
-```bash
-caskmcp mcp serve --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
-```
+### `mcp inspect`
 
-Approval behavior:
-- default (no `--lockfile`): no approval gate, only toolset/policy constraints apply
-- with `--lockfile`: only approved tools are exposed
-- if `toolsets.yaml` exists and `--toolset` is omitted: defaults to `readonly` with a warning
+Read-only control-plane introspection for operator/CI workflows.
 
-Serve governance/meta tools:
+- No approval mutation APIs.
+- No upstream execution APIs.
 
-```bash
-caskmcp mcp meta --tools tools.json --policy policy.yaml --lockfile caskmcp.lock.yaml
-```
+### `scopes merge`
 
-## 7) Scope Reference
+Scope ownership model:
 
-Built-in scopes:
-- `first_party_only`
-- `auth_surface`
-- `state_changing`
-- `pii_surface`
-- `agent_safe_readonly`
+- `scopes.suggested.yaml` is generated.
+- `scopes.yaml` is user-owned and authoritative.
+- Merge proposes diffs and never silently overwrites.
 
-Examples:
+### `lint`
 
-```bash
-caskmcp compile --capture <capture-id> --scope auth_surface
-caskmcp compile --capture <capture-id> --scope agent_safe_readonly
-```
+Fails governance hygiene issues, including:
 
-## 8) Documentation Maintenance Rule
+- sensitive write/delete/money actions with empty guards
+- regex usage without justification
+- risk/state-changing overrides without justification
 
-When behavior changes, update docs in the same change:
-- `README.md` (positioning + key workflow)
-- `docs/user-guide.md` (command-level behavior)
-- `examples/demo.sh` (if workflow steps changed)
+### `bundle`
 
-Minimum doc checks before merge:
-- All CLI examples run against current command flags.
-- Artifact snippets match actual JSON/YAML shape.
-- Runtime/CI claims match enforced behavior.
+Produces a portable bundle.
 
-## 9) Optional Volatile Metadata Mode
+Bundle includes safe artifacts and excludes secrets and local sensitive state.
 
-Use volatile metadata only when you explicitly want ephemeral IDs/timestamps:
+## Runtime safety contracts
 
-```bash
-caskmcp compile --capture <capture-id> --volatile-metadata
-caskmcp approve sync --tools tools.json --volatile-metadata
-caskmcp drift --from <old-capture-id> --to <new-capture-id> --volatile-metadata
-```
+- Approval signatures use Ed25519 signer identity.
+- Trusted signer store lives at `<root>/state/keys/trusted_signers.json`.
+- Local signer keypair lives at `<root>/state/keys/approval_ed25519_private.pem` and `<root>/state/keys/approval_ed25519_public.pem`.
+- Rotation can keep multiple active trusted keys; revocation is explicit (`status: revoked`) and fail-closed.
+- Confirmation tokens are signed and single-use.
+- Runtime egress only allows `http/https`.
+- Redirect hops are checked per hop.
+- DNS resolution and private/metadata IP checks are enforced.
+- App and IdP hosts are separated; IdP hosts are auth-only.
 
-## 10) CI Magic-Moment Harness
+## Verification and provenance contracts
 
-Run the end-to-end governance demo in CI (compile -> blocked write -> lockfile approval -> out-of-band grant -> allowed retry -> drift gate -> re-approval):
+Defaults:
 
-```bash
-bash scripts/magic_moment_ci.sh
-```
+- `top_k=5`
+- `min_confidence=0.70`
+- `capture_window_ms=1500`
+- unknown provenance budget: `20%`
 
-The repository CI workflow runs this harness as the `magic-moment` job.
+Status rules:
+
+- `pass`: threshold met and >=2 strong signals
+- `unknown`: plausible candidates without threshold confidence or non-http dominance
+- `fail`: no plausible candidates or assertion state not reached
+
+## CI integration
+
+- Use `diff --format github-md` in PR checks.
+- Use gate checks via `.github/actions/caskmcp-gate/action.yml`.
+- Example workflow: `.github/workflows/gate-check.yaml.example`.
+
+## Related docs
+
+- `docs/scopes.md`
+- `docs/playbook-spec.md`
+- `docs/verification-spec.md`
+- `docs/evidence-redaction-spec.md`
+- `docs/ci-gate-policy.md`
+- `docs/compatibility-matrix.md`
+- `docs/known-limitations.md`
+- `docs/threat-model-boundaries.md`
