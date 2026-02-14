@@ -177,6 +177,9 @@ class ApprovalSigner:
         reason: str | None,
         mode: str,
     ) -> str:
+        toolsets = ",".join(sorted(set(tool.toolsets)))
+        approved_toolsets = ",".join(sorted(set(tool.approved_toolsets)))
+        status = tool.status.value if hasattr(tool.status, "value") else str(tool.status)
         return "|".join(
             [
                 tool.signature_id or tool.tool_id,
@@ -184,6 +187,9 @@ class ApprovalSigner:
                 tool.method.upper(),
                 tool.path,
                 tool.host.lower(),
+                toolsets,
+                approved_toolsets,
+                status,
                 approved_by,
                 approved_at.isoformat(),
                 reason or "",

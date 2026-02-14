@@ -26,15 +26,16 @@ def test_runtime_verifies_approval_signature_without_writing_keys_dir(tmp_path: 
         path="/api/users/{id}",
         host="api.example.com",
     )
+    tool.status = "approved"
+    tool.approved_by = "tester"
+    tool.approved_at = approval_time
     signature = signer.sign_approval(
         tool=tool,
         approved_by="tester",
         approved_at=approval_time,
         reason=None,
+        mode=tool.approval_mode,
     )
-    tool.status = "approved"
-    tool.approved_by = "tester"
-    tool.approved_at = approval_time
     tool.approval_signature = signature
     tool.approval_alg = signer.algorithm
     tool.approval_key_id = signer.key_id
@@ -60,4 +61,3 @@ def test_runtime_verifies_approval_signature_without_writing_keys_dir(tmp_path: 
     )
 
     assert engine._verify_approval_signature(tool=tool, context=context) is None
-

@@ -32,6 +32,7 @@ All notable changes to this project will be documented in this file.
 - `docs/user-guide.md` adds OTEL capture command guidance.
 - `docs/known-limitations.md` includes OTEL-specific limitations.
 - `docs/publishing.md` now marks `CHANGELOG.md` as canonical release history.
+- MCP/runtime: toolset-scoped runtime can use a pending lockfile when the selected toolset is fully approved (defaults to `readonly` when toolsets are present).
 - `cask init` next-step guidance now uses valid command surface:
   - OpenAPI bootstrap via `caskmcp openapi <spec> -a <api-host>`
   - Runtime step via `caskmcp run --toolpack <path>`
@@ -41,6 +42,7 @@ All notable changes to this project will be documented in this file.
   - emits explicit warning guidance for host override.
 - README quickstart demo expectations corrected to match bundled fixture output.
 - `server.json` version metadata synchronized with current package version line.
+- Approval signatures now bind toolset membership and toolset approvals (`toolsets`, `approved_toolsets`, `status`) to prevent tampering. Lockfiles signed before this change must be re-approved.
 
 ### Fixed
 

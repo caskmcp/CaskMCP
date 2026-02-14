@@ -305,22 +305,26 @@ def run_approve_tool(
         count = 0
         for tool in pending:
             approval_time = datetime.now(UTC)
-            signature = signer.sign_approval(
-                tool=tool,
-                approved_by=actor,
-                approved_at=approval_time,
-                reason=reason,
-            )
             if manager.approve(
                 tool.signature_id or tool.tool_id,
                 actor,
                 toolset=toolset,
                 reason=reason,
-                approval_signature=signature,
+                approval_signature="pending",
                 approval_alg=signer.algorithm,
                 approval_key_id=signer.key_id,
                 approved_at=approval_time,
             ):
+                signature = signer.sign_approval(
+                    tool=tool,
+                    approved_by=actor,
+                    approved_at=approval_time,
+                    reason=reason,
+                    mode=tool.approval_mode,
+                )
+                tool.approval_signature = signature
+                tool.approval_alg = signer.algorithm
+                tool.approval_key_id = signer.key_id
                 count += 1
         manager.save()
         click.echo(f"Approved {count} tools")
@@ -340,22 +344,26 @@ def run_approve_tool(
             not_found.append(tool_id)
             continue
         approval_time = datetime.now(UTC)
-        signature = signer.sign_approval(
-            tool=existing,
-            approved_by=actor,
-            approved_at=approval_time,
-            reason=reason,
-        )
         if manager.approve(
             tool_id,
             actor,
             toolset=toolset,
             reason=reason,
-            approval_signature=signature,
+            approval_signature="pending",
             approval_alg=signer.algorithm,
             approval_key_id=signer.key_id,
             approved_at=approval_time,
         ):
+            signature = signer.sign_approval(
+                tool=existing,
+                approved_by=actor,
+                approved_at=approval_time,
+                reason=reason,
+                mode=existing.approval_mode,
+            )
+            existing.approval_signature = signature
+            existing.approval_alg = signer.algorithm
+            existing.approval_key_id = signer.key_id
             approved.append(tool_id)
         else:
             not_found.append(tool_id)

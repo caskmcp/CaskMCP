@@ -537,6 +537,26 @@ class LockfileManager:
         tool = self.lockfile.tools[resolved_tool_id]
         actor = approved_by or os.environ.get("USER", "unknown")
         approval_time = approved_at or datetime.now(UTC)
+
+        if toolset:
+            if toolset not in tool.toolsets:
+                return False
+            approved_toolsets = set(tool.approved_toolsets)
+            approved_toolsets.add(toolset)
+            tool.approved_toolsets = sorted(approved_toolsets)
+            if set(tool.toolsets).issubset(approved_toolsets):
+                tool.status = ApprovalStatus.APPROVED
+            elif tool.status == ApprovalStatus.REJECTED:
+                tool.status = ApprovalStatus.PENDING
+        else:
+            tool.status = ApprovalStatus.APPROVED
+            tool.approved_toolsets = sorted(set(tool.toolsets))
+
+        tool.rejection_reason = None
+        tool.approved_at = approval_time
+        tool.approved_by = actor
+        tool.approval_reason = reason
+
         if approval_signature is None:
             from caskmcp.core.approval.signing import ApprovalSigner
 
@@ -551,33 +571,9 @@ class LockfileManager:
             approval_alg = signer.algorithm
             approval_key_id = signer.key_id
 
-        if toolset:
-            if toolset not in tool.toolsets:
-                return False
-            approved_toolsets = set(tool.approved_toolsets)
-            approved_toolsets.add(toolset)
-            tool.approved_toolsets = sorted(approved_toolsets)
-            tool.rejection_reason = None
-            tool.approved_at = approval_time
-            tool.approved_by = actor
-            tool.approval_reason = reason
-            tool.approval_signature = approval_signature
-            tool.approval_alg = approval_alg
-            tool.approval_key_id = approval_key_id
-            if set(tool.toolsets).issubset(approved_toolsets):
-                tool.status = ApprovalStatus.APPROVED
-            elif tool.status == ApprovalStatus.REJECTED:
-                tool.status = ApprovalStatus.PENDING
-        else:
-            tool.status = ApprovalStatus.APPROVED
-            tool.approved_toolsets = sorted(set(tool.toolsets))
-            tool.approved_at = approval_time
-            tool.approved_by = actor
-            tool.approval_reason = reason
-            tool.approval_signature = approval_signature
-            tool.approval_alg = approval_alg
-            tool.approval_key_id = approval_key_id
-            tool.rejection_reason = None
+        tool.approval_signature = approval_signature
+        tool.approval_alg = approval_alg
+        tool.approval_key_id = approval_key_id
 
         return True
 
