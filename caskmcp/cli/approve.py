@@ -491,6 +491,65 @@ def run_approve_check(
         sys.exit(1)
 
 
+def run_approve_resign(
+    lockfile_path: str | None,
+    toolset: str | None,
+    root_path: str,
+    verbose: bool,
+) -> None:
+    """Re-sign existing approval signatures (migration / repair helper).
+
+    This is intended for cases where the signature payload changes (for example, to bind
+    additional fields like toolset approvals) and existing lockfiles must be re-signed.
+    """
+    manager = LockfileManager(lockfile_path)
+
+    if not manager.exists():
+        click.echo(f"No lockfile found at: {manager.lockfile_path}")
+        click.echo("Run 'caskmcp approve sync' first.")
+        sys.exit(2)
+
+    manager.load()
+    assert manager.lockfile is not None
+
+    signer = ApprovalSigner(root_path=root_path)
+    count = 0
+
+    for tool in manager.lockfile.tools.values():
+        if toolset and toolset not in tool.toolsets:
+            continue
+        if not tool.approved_by or tool.approved_at is None:
+            continue
+        if not tool.approval_signature:
+            continue
+
+        signature = signer.sign_approval(
+            tool=tool,
+            approved_by=str(tool.approved_by),
+            approved_at=tool.approved_at,
+            reason=tool.approval_reason,
+            mode=tool.approval_mode,
+        )
+        tool.approval_signature = signature
+        tool.approval_alg = signer.algorithm
+        tool.approval_key_id = signer.key_id
+        count += 1
+
+    manager.save()
+    click.echo(f"Re-signed {count} tools")
+
+    # Make the result portable for MCP clients that run with `--root <toolpack>/.caskmcp`.
+    from caskmcp.core.approval.snapshot import resolve_toolpack_root
+
+    toolpack_root = resolve_toolpack_root(manager.lockfile_path)
+    if toolpack_root is not None:
+        _seed_toolpack_trust_store(
+            source_root=Path(root_path),
+            toolpack_root=toolpack_root,
+            verbose=verbose,
+        )
+
+
 def _materialize_snapshot(
     manager: LockfileManager,
     *,

@@ -1882,6 +1882,30 @@ def approve_snapshot(ctx: click.Context, lockfile: str | None) -> None:
     )
 
 
+@approve.command("resign")
+@click.option(
+    "--lockfile", "-l",
+    type=click.Path(),
+    help="Path to lockfile (default: ./caskmcp.lock.yaml)",
+)
+@click.option("--toolset", help="Re-sign approvals for tools within a specific toolset only")
+@click.pass_context
+def approve_resign(ctx: click.Context, lockfile: str | None, toolset: str | None) -> None:
+    """Re-sign existing approval signatures (migration / repair helper)."""
+    from caskmcp.cli.approve import run_approve_resign
+
+    _run_with_lock(
+        ctx,
+        "approve resign",
+        lambda: run_approve_resign(
+            lockfile_path=lockfile,
+            toolset=toolset,
+            root_path=str(ctx.obj.get("root", resolve_root())),
+            verbose=ctx.obj.get("verbose", False),
+        ),
+    )
+
+
 @cli.group()
 def gate() -> None:
     """Human approval workflow (canonical governance commands)."""
@@ -2019,6 +2043,19 @@ def gate_check(
 def gate_snapshot(ctx: click.Context, lockfile: str | None) -> None:
     """Alias for `caskmcp approve snapshot`."""
     ctx.invoke(approve_snapshot, lockfile=lockfile)
+
+
+@gate.command("resign")
+@click.option("--lockfile", "-l", type=click.Path(), help="Path to lockfile")
+@click.option("--toolset", help="Re-sign approvals for tools within a specific toolset only")
+@click.pass_context
+def gate_resign(
+    ctx: click.Context,
+    lockfile: str | None,
+    toolset: str | None,
+) -> None:
+    """Alias for `caskmcp approve resign`."""
+    ctx.invoke(approve_resign, lockfile=lockfile, toolset=toolset)
 
 
 @cli.group()
