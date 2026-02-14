@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0-beta.2] - 2026-02-14
+
 ### Added
 
 - OTEL capture adapter:
@@ -43,6 +45,7 @@ All notable changes to this project will be documented in this file.
 - README quickstart demo expectations corrected to match bundled fixture output.
 - `server.json` version metadata synchronized with current package version line.
 - Approval signatures now bind toolset membership and toolset approvals (`toolsets`, `approved_toolsets`, `status`) to prevent tampering. Lockfiles signed before this change must be re-approved.
+- Added `caskmcp gate resign` / `caskmcp approve resign` to re-sign lockfile approvals after signature-payload changes.
 
 ### Fixed
 
