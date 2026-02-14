@@ -60,7 +60,7 @@ caskmcp mint https://app.example.com -a api.example.com --scope agent_safe_reado
 # Diff
 caskmcp diff --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml --format github-md
 
-# Gate (once all tools are approved, this will also materialize an approved lockfile)
+# Gate (approving a toolset unlocks runtime for that toolset; full approval promotes an approved lockfile)
 caskmcp gate allow --all --toolset readonly \
   --lockfile .caskmcp/toolpacks/<toolpack-id>/lockfile/caskmcp.lock.pending.yaml
 
@@ -142,8 +142,8 @@ Governance workflow.
 Runtime execution with policy and lockfile enforcement.
 
 - Requires approved lockfile by default.
-- Pending lockfiles are rejected for runtime.
-- For minted toolpacks, approvals are tracked in `lockfile/caskmcp.lock.pending.yaml`. Once all tools are approved, CaskMCP promotes an approved copy to `lockfile/caskmcp.lock.yaml` and updates `toolpack.yaml` to reference it.
+- Pending lockfiles are allowed for runtime only when a toolset is selected and that toolset is fully approved (toolsets default to `readonly` when present).
+- For minted toolpacks, approvals are tracked in `lockfile/caskmcp.lock.pending.yaml`. Once all tools (across all toolsets) are approved, CaskMCP promotes an approved copy to `lockfile/caskmcp.lock.yaml` and updates `toolpack.yaml` to reference it.
 - `--unsafe-no-lockfile` is explicit non-default escape hatch.
 - Some hostile/anti-bot sites will return challenge pages or `403` when executed outside a real browser context. In those cases, treat runtime execution as best-effort; CaskMCP still supports capture/compile/gate, and you can still use manual browser-assisted capture/execution flows.
 

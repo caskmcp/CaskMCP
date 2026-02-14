@@ -91,6 +91,23 @@ def run_mcp_serve(
         if candidate.exists():
             resolved_toolsets_path = candidate
 
+    if toolset_name and (resolved_toolsets_path is None or not resolved_toolsets_path.exists()):
+        click.echo(
+            "Error: Toolset selection requires a toolsets artifact. "
+            "Pass --toolsets <path> or compile artifacts including toolsets.yaml.",
+            err=True,
+        )
+        sys.exit(1)
+
+    effective_toolset = toolset_name
+    if effective_toolset is None and resolved_toolsets_path and resolved_toolsets_path.exists():
+        effective_toolset = "readonly"
+        if verbose:
+            click.echo(
+                "Defaulting to toolset readonly. Use --toolset <name> to change.",
+                err=True,
+            )
+
     resolved_lockfile_path: Path | None = None
     if lockfile_path:
         resolved_lockfile_path = Path(lockfile_path)
@@ -110,6 +127,13 @@ def run_mcp_serve(
             if candidate.exists():
                 resolved_lockfile_path = candidate
                 break
+        if (
+            not unsafe_no_lockfile
+            and resolved_lockfile_path is None
+            and resolved_toolpack_paths.pending_lockfile_path
+            and resolved_toolpack_paths.pending_lockfile_path.exists()
+        ):
+            resolved_lockfile_path = resolved_toolpack_paths.pending_lockfile_path
 
     if resolved_lockfile_path and not resolved_lockfile_path.exists():
         click.echo(f"Error: Lockfile not found: {resolved_lockfile_path}", err=True)
@@ -136,29 +160,25 @@ def run_mcp_serve(
                 )
             sys.exit(1)
         if ".pending." in resolved_lockfile_path.name:
-            click.echo(
-                "Error: pending lockfile cannot be used for runtime. "
-                "Pass an approved lockfile or use --unsafe-no-lockfile.",
-                err=True,
-            )
-            sys.exit(1)
+            if not effective_toolset:
+                click.echo(
+                    "Error: pending lockfile cannot be used for runtime. "
+                    "Pass an approved lockfile or use --unsafe-no-lockfile.",
+                    err=True,
+                )
+                sys.exit(1)
+            from caskmcp.core.approval import LockfileManager
 
-    if toolset_name and (resolved_toolsets_path is None or not resolved_toolsets_path.exists()):
-        click.echo(
-            "Error: Toolset selection requires a toolsets artifact. "
-            "Pass --toolsets <path> or compile artifacts including toolsets.yaml.",
-            err=True,
-        )
-        sys.exit(1)
-
-    effective_toolset = toolset_name
-    if effective_toolset is None and resolved_toolsets_path and resolved_toolsets_path.exists():
-        effective_toolset = "readonly"
-        if verbose:
-            click.echo(
-                "Defaulting to toolset readonly. Use --toolset <name> to change.",
-                err=True,
-            )
+            manager = LockfileManager(resolved_lockfile_path)
+            manager.load()
+            approvals_passed, message = manager.check_approvals(toolset=effective_toolset)
+            if not approvals_passed:
+                click.echo(
+                    f"Error: pending lockfile is not fully approved for toolset '{effective_toolset}'. "
+                    f"{message}",
+                    err=True,
+                )
+                sys.exit(1)
 
     if verbose:
         click.echo("Starting CaskMCP MCP Server...", err=True)
