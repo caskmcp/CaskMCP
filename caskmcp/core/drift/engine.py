@@ -611,8 +611,8 @@ class DriftEngine:
         """Detect broken flows when endpoints in a flow are removed/changed."""
         drifts: list[DriftItem] = []
 
-        from_sigs = {ep.signature_id for ep in from_endpoints}
-        to_sigs = {ep.signature_id for ep in to_endpoints}
+        from_sigs = {ep.signature_id for ep in from_endpoints if ep.signature_id}
+        to_sigs = {ep.signature_id for ep in to_endpoints if ep.signature_id}
         removed_sigs = from_sigs - to_sigs
 
         if not removed_sigs:

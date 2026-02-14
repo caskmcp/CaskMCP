@@ -25,6 +25,7 @@ def run_mcp_serve(
     allow_private_cidrs: list[str],
     allow_redirects: bool,
     verbose: bool,
+    unsafe_no_lockfile: bool = False,
 ) -> None:
     """Run the MCP server command.
 
@@ -34,7 +35,7 @@ def run_mcp_serve(
         toolsets_path: Path to toolsets.yaml artifact
         toolset_name: Named toolset to expose
         policy_path: Path to policy.yaml file
-        lockfile_path: Path to approval lockfile (optional)
+        lockfile_path: Path to approval lockfile
         base_url: Base URL for upstream API
         auth_header: Authorization header value
         audit_log: Path for audit log
@@ -78,6 +79,8 @@ def run_mcp_serve(
         click.echo(f"Error: Policy file not found: {resolved_policy_path}", err=True)
         sys.exit(1)
 
+    require_mcp_dependency()
+
     resolved_toolsets_path: Path | None = None
     if toolsets_path:
         resolved_toolsets_path = Path(toolsets_path)
@@ -91,16 +94,54 @@ def run_mcp_serve(
     resolved_lockfile_path: Path | None = None
     if lockfile_path:
         resolved_lockfile_path = Path(lockfile_path)
-    elif (
-        resolved_toolpack_paths is not None
-        and resolved_toolpack_paths.approved_lockfile_path is not None
-        and resolved_toolpack_paths.approved_lockfile_path.exists()
-    ):
-        resolved_lockfile_path = resolved_toolpack_paths.approved_lockfile_path
+    elif resolved_toolpack_paths is not None:
+        toolpack_root = Path(toolpack_path).resolve().parent if toolpack_path else None
+        lockfile_candidates: list[Path] = []
+        if resolved_toolpack_paths.approved_lockfile_path is not None:
+            lockfile_candidates.append(resolved_toolpack_paths.approved_lockfile_path)
+        if toolpack_root is not None:
+            lockfile_candidates.extend(
+                [
+                    toolpack_root / "lockfile" / "caskmcp.lock.approved.yaml",
+                    toolpack_root / "lockfile" / "caskmcp.lock.yaml",
+                ]
+            )
+        for candidate in lockfile_candidates:
+            if candidate.exists():
+                resolved_lockfile_path = candidate
+                break
 
     if resolved_lockfile_path and not resolved_lockfile_path.exists():
         click.echo(f"Error: Lockfile not found: {resolved_lockfile_path}", err=True)
         sys.exit(1)
+
+    if not unsafe_no_lockfile:
+        if resolved_lockfile_path is None:
+            if (
+                resolved_toolpack is not None
+                and resolved_toolpack.paths.lockfiles.get("pending")
+            ):
+                click.echo(
+                    "Error: approved lockfile required for runtime. "
+                    "Toolpack contains pending approvals only. "
+                    "Run `caskmcp gate allow ...` then use an approved lockfile "
+                    "or pass --unsafe-no-lockfile (unsafe).",
+                    err=True,
+                )
+            else:
+                click.echo(
+                    "Error: runtime requires --lockfile with approved tools "
+                    "(or use --unsafe-no-lockfile for local unsafe mode).",
+                    err=True,
+                )
+            sys.exit(1)
+        if ".pending." in resolved_lockfile_path.name:
+            click.echo(
+                "Error: pending lockfile cannot be used for runtime. "
+                "Pass an approved lockfile or use --unsafe-no-lockfile.",
+                err=True,
+            )
+            sys.exit(1)
 
     if toolset_name and (resolved_toolsets_path is None or not resolved_toolsets_path.exists()):
         click.echo(
@@ -146,8 +187,8 @@ def run_mcp_serve(
             click.echo(f"  Audit log: {audit_log}", err=True)
         if dry_run:
             click.echo("  Mode: DRY RUN (no actual requests)", err=True)
-
-    require_mcp_dependency()
+        if unsafe_no_lockfile:
+            click.echo("  WARNING: unsafe no-lockfile mode enabled", err=True)
 
     # Import here to avoid loading MCP dependencies unless needed
     from caskmcp.mcp.server import run_mcp_server

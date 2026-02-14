@@ -26,8 +26,12 @@ class Storage:
         """Ensure directory structure exists."""
         (self.base_path / "captures").mkdir(parents=True, exist_ok=True)
         (self.base_path / "artifacts").mkdir(parents=True, exist_ok=True)
+        (self.base_path / "toolpacks").mkdir(parents=True, exist_ok=True)
+        (self.base_path / "baselines").mkdir(parents=True, exist_ok=True)
         (self.base_path / "reports").mkdir(parents=True, exist_ok=True)
+        (self.base_path / "evidence").mkdir(parents=True, exist_ok=True)
         (self.base_path / "scopes").mkdir(parents=True, exist_ok=True)
+        (self.base_path / "state").mkdir(parents=True, exist_ok=True)
 
     def save_capture(self, session: CaptureSession) -> Path:
         """Save a capture session to disk.
@@ -178,7 +182,7 @@ class Storage:
         Args:
             event: Audit event to log
         """
-        audit_file = self.base_path / "audit.jsonl"
+        audit_file = self.base_path / "audit.log.jsonl"
 
         # Add timestamp if not present
         if "timestamp" not in event:

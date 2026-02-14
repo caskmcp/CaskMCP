@@ -42,10 +42,10 @@ Prerequisites:
 - working Python runtime (`python3` or interpreter near `caskmcp`)
 - `PyYAML` installed in that runtime
 
-Optional compatibility env vars accepted by the script:
+Optional env vars accepted by the script:
 
-- `CASKMCP_BIN` (CLI binary override; legacy `MCPMINT_BIN` also accepted)
-- `CASKMCP_PYTHON` (Python interpreter override; legacy `MCPMINT_PYTHON` also accepted)
+- `CASKMCP_BIN` (CLI binary override)
+- `CASKMCP_PYTHON` (Python interpreter override)
 
 ## Troubleshooting
 

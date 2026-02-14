@@ -16,16 +16,16 @@ from caskmcp.utils.schema_version import CURRENT_SCHEMA_VERSION, resolve_schema_
 
 def _default_env_allowlist() -> list[str]:
     return [
-        "MCPMINT_TOOLPACK",
-        "MCPMINT_TOOLSET",
-        "MCPMINT_LOCKFILE",
-        "MCPMINT_BASE_URL",
-        "MCPMINT_AUTH_HEADER",
-        "MCPMINT_AUDIT_LOG",
-        "MCPMINT_DRY_RUN",
-        "MCPMINT_CONFIRM_STORE",
-        "MCPMINT_ALLOW_PRIVATE_CIDR",
-        "MCPMINT_ALLOW_REDIRECTS",
+        "CASKMCP_TOOLPACK",
+        "CASKMCP_TOOLSET",
+        "CASKMCP_LOCKFILE",
+        "CASKMCP_BASE_URL",
+        "CASKMCP_AUTH_HEADER",
+        "CASKMCP_AUDIT_LOG",
+        "CASKMCP_DRY_RUN",
+        "CASKMCP_CONFIRM_STORE",
+        "CASKMCP_ALLOW_PRIVATE_CIDR",
+        "CASKMCP_ALLOW_REDIRECTS",
     ]
 
 
@@ -83,6 +83,7 @@ class ToolpackPaths(BaseModel):
     toolsets: str
     policy: str
     baseline: str
+    contracts: str | None = None
     contract_yaml: str | None = None
     contract_json: str | None = None
     evidence_summary: str | None = None
@@ -115,6 +116,7 @@ class ResolvedToolpackPaths:
     toolsets_path: Path
     policy_path: Path
     baseline_path: Path
+    contracts_path: Path | None
     contract_yaml_path: Path | None
     contract_json_path: Path | None
     evidence_summary_path: Path | None
@@ -164,6 +166,7 @@ def resolve_toolpack_paths(
         toolsets_path=(root / toolpack.paths.toolsets).resolve(),
         policy_path=(root / toolpack.paths.policy).resolve(),
         baseline_path=(root / toolpack.paths.baseline).resolve(),
+        contracts_path=_resolve(toolpack.paths.contracts),
         contract_yaml_path=_resolve(toolpack.paths.contract_yaml),
         contract_json_path=_resolve(toolpack.paths.contract_json),
         evidence_summary_path=_resolve(toolpack.paths.evidence_summary),

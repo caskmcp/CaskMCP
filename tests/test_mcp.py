@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from caskmcp.core.approval import LockfileManager
-from caskmcp.mcp.server import CaskMCPMCPServer
+from caskmcp.mcp.server import CaskMCPMCPServer, RuntimeBlockError
 
 
 @pytest.fixture
@@ -340,3 +341,311 @@ class TestMCPServerDryRun:
         )
 
         assert server.auth_header == "Bearer test_token"
+
+
+class TestMCPRuntimeSafety:
+    """Tests for MCP runtime network safety checks."""
+
+    def test_validate_url_scheme_blocks_non_http(self, tools_file: Path) -> None:
+        server = CaskMCPMCPServer(tools_path=tools_file)
+        with pytest.raises(RuntimeBlockError, match="Unsupported URL scheme"):
+            server._validate_url_scheme("ftp://api.example.com/resource")
+
+    def test_idp_hosts_are_not_runtime_allowlisted(self, tmp_path: Path) -> None:
+        manifest = {
+            "version": "1.0.0",
+            "schema_version": "1.0",
+            "allowed_hosts": {
+                "app": ["api.example.com"],
+                "idp": ["auth.example.com"],
+            },
+            "actions": [
+                {
+                    "name": "get_users",
+                    "method": "GET",
+                    "path": "/api/users",
+                    "host": "api.example.com",
+                    "risk_tier": "low",
+                }
+            ],
+        }
+        tools_path = tmp_path / "tools.json"
+        tools_path.write_text(json.dumps(manifest), encoding="utf-8")
+        server = CaskMCPMCPServer(tools_path=tools_path)
+
+        server._validate_host_allowlist("api.example.com", "api.example.com")
+        with pytest.raises(RuntimeBlockError, match="not allowlisted"):
+            server._validate_host_allowlist("auth.example.com", "api.example.com")
+
+    @pytest.mark.asyncio
+    async def test_execute_request_applies_fixed_graphql_operation(self, tmp_path: Path) -> None:
+        """Runtime should enforce fixed GraphQL operationName for split actions."""
+        manifest = {
+            "version": "1.0.0",
+            "schema_version": "1.0",
+            "allowed_hosts": ["api.example.com"],
+            "actions": [
+                {
+                    "name": "query_get_product",
+                    "tool_id": "abcd1234efgh5678",
+                    "signature_id": "abcd1234efgh5678",
+                    "description": "GraphQL GetProduct",
+                    "method": "POST",
+                    "path": "/api/graphql",
+                    "host": "api.example.com",
+                    "risk_tier": "medium",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "operationName": {"type": "string"},
+                            "query": {"type": "string"},
+                        },
+                    },
+                    "fixed_body": {"operationName": "GetProduct"},
+                }
+            ],
+        }
+        tools_path = tmp_path / "tools.json"
+        tools_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        server = CaskMCPMCPServer(tools_path=tools_path, base_url="https://api.example.com")
+
+        captured: dict[str, object] = {}
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "application/json"}
+        mock_response.json = lambda: {"ok": True}
+
+        async def mock_get_client() -> AsyncMock:
+            client = AsyncMock()
+
+            async def request(method: str, url: str, **kwargs: object) -> AsyncMock:
+                captured["method"] = method
+                captured["url"] = url
+                captured["json"] = kwargs.get("json")
+                return mock_response
+
+            client.request = AsyncMock(side_effect=request)
+            return client
+
+        with (
+            patch.object(server, "_get_http_client", mock_get_client),
+            patch.object(server, "_validate_network_target"),
+        ):
+            await server._execute_request(
+                server.actions["query_get_product"],
+                {"operationName": "WrongOp", "query": "query { product { id } }"},
+            )
+
+        sent_body = captured["json"]
+        assert isinstance(sent_body, dict)
+        assert sent_body["operationName"] == "GetProduct"
+
+    @pytest.mark.asyncio
+    async def test_execute_request_resolves_nextjs_build_id_token(self, tmp_path: Path) -> None:
+        """Runtime should auto-resolve Next.js buildId tokens when omitted by caller."""
+        manifest = {
+            "version": "1.0.0",
+            "schema_version": "1.0",
+            "allowed_hosts": ["api.example.com"],
+            "actions": [
+                {
+                    "name": "get_next_data_search",
+                    "tool_id": "sig_next_data",
+                    "signature_id": "sig_next_data",
+                    "description": "Next.js data route",
+                    "method": "GET",
+                    "path": "/_next/data/{token}/en/search.json",
+                    "host": "api.example.com",
+                    "risk_tier": "low",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {"token": {"type": "string"}},
+                    },
+                }
+            ],
+        }
+        tools_path = tmp_path / "tools.json"
+        tools_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        server = CaskMCPMCPServer(tools_path=tools_path, base_url="https://api.example.com")
+
+        build_id = "build123"
+        html = (
+            '<html><head><script id="__NEXT_DATA__" type="application/json">'
+            + json.dumps({"buildId": build_id})
+            + "</script></head></html>"
+        )
+
+        captured_urls: list[str] = []
+        mock_html_response = AsyncMock()
+        mock_html_response.status_code = 200
+        mock_html_response.headers = {"content-type": "text/html"}
+        mock_html_response.text = html
+
+        mock_json_response = AsyncMock()
+        mock_json_response.status_code = 200
+        mock_json_response.headers = {"content-type": "application/json"}
+        mock_json_response.json = lambda: {"ok": True}
+
+        async def mock_get_client() -> AsyncMock:
+            client = AsyncMock()
+
+            async def request(_method: str, url: str, **_kwargs: object) -> AsyncMock:
+                captured_urls.append(url)
+                if "/_next/data/" in url:
+                    assert f"/_next/data/{build_id}/" in url
+                    return mock_json_response
+                return mock_html_response
+
+            client.request = AsyncMock(side_effect=request)
+            return client
+
+        with (
+            patch.object(server, "_get_http_client", mock_get_client),
+            patch.object(server, "_validate_network_target"),
+        ):
+            await server._execute_request(
+                server.actions["get_next_data_search"],
+                {"q": "jordan"},
+            )
+
+        assert any("/_next/data/" in url for url in captured_urls)
+
+    @pytest.mark.asyncio
+    async def test_execute_request_prefers_default_nextjs_build_id_token(self, tmp_path: Path) -> None:
+        """If a Next.js buildId token has a default, runtime should use it without probing HTML."""
+        default_build_id = "default_build_123"
+        manifest = {
+            "version": "1.0.0",
+            "schema_version": "1.0",
+            "allowed_hosts": ["api.example.com"],
+            "actions": [
+                {
+                    "name": "get_next_data_search",
+                    "tool_id": "sig_next_data",
+                    "signature_id": "sig_next_data",
+                    "description": "Next.js data route",
+                    "method": "GET",
+                    "path": "/_next/data/{token}/en/search.json",
+                    "host": "api.example.com",
+                    "risk_tier": "low",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "token": {"type": "string", "default": default_build_id},
+                        },
+                    },
+                }
+            ],
+        }
+        tools_path = tmp_path / "tools.json"
+        tools_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        server = CaskMCPMCPServer(tools_path=tools_path, base_url="https://api.example.com")
+
+        captured_urls: list[str] = []
+        mock_json_response = AsyncMock()
+        mock_json_response.status_code = 200
+        mock_json_response.headers = {"content-type": "application/json"}
+        mock_json_response.json = lambda: {"ok": True}
+
+        async def mock_get_client() -> AsyncMock:
+            client = AsyncMock()
+
+            async def request(_method: str, url: str, **_kwargs: object) -> AsyncMock:
+                captured_urls.append(url)
+                return mock_json_response
+
+            client.request = AsyncMock(side_effect=request)
+            return client
+
+        with (
+            patch.object(server, "_get_http_client", mock_get_client),
+            patch.object(server, "_validate_network_target"),
+            patch.object(
+                server,
+                "_resolve_nextjs_build_id",
+                AsyncMock(side_effect=AssertionError("nextjs_build_id probe should not run")),
+            ),
+        ):
+            await server._execute_request(
+                server.actions["get_next_data_search"],
+                {"q": "jordan"},
+            )
+
+        assert any(f"/_next/data/{default_build_id}/" in url for url in captured_urls)
+
+    @pytest.mark.asyncio
+    async def test_execute_request_refreshes_nextjs_build_id_token_on_404(self, tmp_path: Path) -> None:
+        """If a default buildId drifts, runtime should refresh via resolver and retry once."""
+        default_build_id = "default_build_123"
+        refreshed_build_id = "refreshed_build_456"
+        manifest = {
+            "version": "1.0.0",
+            "schema_version": "1.0",
+            "allowed_hosts": ["api.example.com"],
+            "actions": [
+                {
+                    "name": "get_next_data_search",
+                    "tool_id": "sig_next_data",
+                    "signature_id": "sig_next_data",
+                    "description": "Next.js data route",
+                    "method": "GET",
+                    "path": "/_next/data/{token}/en/search.json",
+                    "host": "api.example.com",
+                    "risk_tier": "low",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "token": {"type": "string", "default": default_build_id},
+                        },
+                    },
+                }
+            ],
+        }
+        tools_path = tmp_path / "tools.json"
+        tools_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        server = CaskMCPMCPServer(tools_path=tools_path, base_url="https://api.example.com")
+
+        captured_urls: list[str] = []
+        mock_404 = AsyncMock()
+        mock_404.status_code = 404
+        mock_404.headers = {"content-type": "application/json"}
+        mock_404.json = lambda: {"error": "not found"}
+
+        mock_200 = AsyncMock()
+        mock_200.status_code = 200
+        mock_200.headers = {"content-type": "application/json"}
+        mock_200.json = lambda: {"ok": True}
+
+        async def mock_get_client() -> AsyncMock:
+            client = AsyncMock()
+
+            async def request(_method: str, url: str, **_kwargs: object) -> AsyncMock:
+                captured_urls.append(url)
+                if f"/_next/data/{default_build_id}/" in url:
+                    return mock_404
+                if f"/_next/data/{refreshed_build_id}/" in url:
+                    return mock_200
+                raise AssertionError(f"unexpected url {url}")
+
+            client.request = AsyncMock(side_effect=request)
+            return client
+
+        resolver = AsyncMock(return_value=refreshed_build_id)
+        with (
+            patch.object(server, "_get_http_client", mock_get_client),
+            patch.object(server, "_validate_network_target"),
+            patch.object(server, "_resolve_nextjs_build_id", resolver),
+        ):
+            result = await server._execute_request(
+                server.actions["get_next_data_search"],
+                {"q": "jordan"},
+            )
+
+        assert result["status_code"] == 200
+        assert resolver.await_count == 1
+        assert any(f"/_next/data/{default_build_id}/" in url for url in captured_urls)
+        assert any(f"/_next/data/{refreshed_build_id}/" in url for url in captured_urls)

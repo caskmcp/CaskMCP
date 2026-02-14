@@ -123,6 +123,7 @@ class TestMCPToolpackResolution:
                 allow_private_cidrs=[],
                 allow_redirects=False,
                 verbose=False,
+                unsafe_no_lockfile=True,
             )
 
         kwargs = mock_run.call_args.kwargs
@@ -163,6 +164,7 @@ class TestMCPToolpackResolution:
                 allow_private_cidrs=[],
                 allow_redirects=False,
                 verbose=False,
+                unsafe_no_lockfile=True,
             )
 
         kwargs = mock_run.call_args.kwargs
@@ -186,8 +188,67 @@ class TestMCPToolpackResolution:
                 allow_private_cidrs=[],
                 allow_redirects=False,
                 verbose=False,
+                unsafe_no_lockfile=False,
             )
         assert exc.value.code == 1
+
+
+def test_runtime_lockfile_search_prefers_canonical_approved_name(tmp_path: Path) -> None:
+    toolpack_path, _tools_path, _toolsets_path, _policy_path = _write_toolpack_fixture(tmp_path)
+    toolpack_root = toolpack_path.parent
+    canonical_approved = toolpack_root / "lockfile" / "caskmcp.lock.approved.yaml"
+    canonical_approved.write_text("version: '1.0.0'\nschema_version: '1.0'\ntools: {}\n")
+
+    with patch("caskmcp.mcp.server.run_mcp_server") as mock_run:
+        run_mcp_serve(
+            tools_path=None,
+            toolpack_path=str(toolpack_path),
+            toolsets_path=None,
+            toolset_name=None,
+            policy_path=None,
+            lockfile_path=None,
+            base_url=None,
+            auth_header=None,
+            audit_log=None,
+            dry_run=False,
+            confirmation_store_path=".caskmcp/confirmations.db",
+            allow_private_cidrs=[],
+            allow_redirects=False,
+            verbose=False,
+            unsafe_no_lockfile=False,
+        )
+
+    kwargs = mock_run.call_args.kwargs
+    assert kwargs["lockfile_path"] == str(canonical_approved)
+
+
+def test_runtime_lockfile_search_falls_back_to_legacy_name(tmp_path: Path) -> None:
+    toolpack_path, _tools_path, _toolsets_path, _policy_path = _write_toolpack_fixture(tmp_path)
+    toolpack_root = toolpack_path.parent
+    legacy_approved = toolpack_root / "lockfile" / "caskmcp.lock.yaml"
+    legacy_approved.write_text("version: '1.0.0'\nschema_version: '1.0'\ntools: {}\n")
+
+    with patch("caskmcp.mcp.server.run_mcp_server") as mock_run:
+        run_mcp_serve(
+            tools_path=None,
+            toolpack_path=str(toolpack_path),
+            toolsets_path=None,
+            toolset_name=None,
+            policy_path=None,
+            lockfile_path=None,
+            base_url=None,
+            auth_header=None,
+            audit_log=None,
+            dry_run=False,
+            confirmation_store_path=".caskmcp/confirmations.db",
+            allow_private_cidrs=[],
+            allow_redirects=False,
+            verbose=False,
+            unsafe_no_lockfile=False,
+        )
+
+    kwargs = mock_run.call_args.kwargs
+    assert kwargs["lockfile_path"] == str(legacy_approved)
 
 
 def test_mcp_serve_missing_mcp_exact_error(tmp_path: Path, monkeypatch) -> None:

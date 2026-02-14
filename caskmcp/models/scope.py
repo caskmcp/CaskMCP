@@ -141,6 +141,42 @@ class ScopeRule(BaseModel):
         return self.include
 
 
+class RiskReason(StrEnum):
+    """Standardized risk reasons for scope confidence."""
+
+    STATE_CHANGING = "state_changing"
+    HAS_PII = "has_pii"
+    AUTH_RELATED = "auth_related"
+    HIGH_RISK_TIER = "high_risk_tier"
+    UNKNOWN_AUTH = "unknown_auth"
+    THIRD_PARTY = "third_party"
+    WRITE_OPERATION = "write_operation"
+    SENSITIVE_PATH = "sensitive_path"
+
+
+class ScopeDraft(BaseModel):
+    """A draft scope assignment with confidence scoring.
+
+    Per ARCHITECTURE.md §6.3: confidence scoring based on signal strength.
+    When confidence < 0.7 and risk >= high, review_required is set.
+    """
+
+    endpoint_id: str
+    scope_name: str
+    confidence: float = 0.5  # 0.0 - 1.0
+    risk_tier: str = "medium"
+    risk_reasons: list[RiskReason] = Field(default_factory=list)
+    signals: list[str] = Field(default_factory=list)  # human-readable signal descriptions
+    review_required: bool = False
+    explanation: str = ""
+
+    def model_post_init(self, __context: Any) -> None:
+        """Auto-set review_required based on confidence and risk."""
+        high_risk_tiers = {"high", "critical"}
+        if self.confidence < 0.7 and self.risk_tier in high_risk_tiers:
+            object.__setattr__(self, "review_required", True)
+
+
 class Scope(BaseModel):
     """A scope definition for filtering endpoints."""
 

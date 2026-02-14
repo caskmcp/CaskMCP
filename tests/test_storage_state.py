@@ -42,7 +42,7 @@ class TestStorageStateCLIFlags:
             Path(state_path).unlink(missing_ok=True)
 
     @patch("caskmcp.cli.capture.run_capture")
-    def test_capture_record_accepts_save_storage_state(self, mock_run):
+    def test_capture_record_accepts_save_storage_state(self, _mock_run):
         """--save-storage-state flag should be accepted by capture record."""
         runner = CliRunner()
         result = runner.invoke(

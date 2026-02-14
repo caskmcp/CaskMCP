@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from caskmcp.core.approval.lockfile import ApprovalStatus
+from caskmcp.core.approval.signing import ApprovalSigner
 from caskmcp.core.enforce.confirmation_store import ConfirmationStore
 from caskmcp.models.decision import (
     DecisionContext,
@@ -114,6 +115,7 @@ class DecisionEngine:
             method=method,
             path=path,
             host=host,
+            params=request.params,
         )
         requires_step_up = state_changing and not self._has_allow_without_confirmation(
             policy=context.policy,
@@ -124,6 +126,8 @@ class DecisionEngine:
             toolset_name=request.toolset_name,
         )
         if policy_result and policy_result.requires_confirmation:
+            requires_step_up = True
+        if str(action.get("confirmation_required", "")).strip().lower() == "always":
             requires_step_up = True
 
         if requires_step_up:
@@ -262,10 +266,79 @@ class DecisionEngine:
                     ReasonCode.DENIED_NOT_APPROVED,
                     f"Tool approval status is '{tool.status.value}'",
                 )
-            return None
+            return self._verify_approval_signature(tool=tool, context=context)
 
         if tool.status != ApprovalStatus.APPROVED:
             return ReasonCode.DENIED_NOT_APPROVED, f"Tool approval status is '{tool.status.value}'"
+        return self._verify_approval_signature(tool=tool, context=context)
+
+    def _verify_approval_signature(
+        self,
+        *,
+        tool: Any,
+        context: DecisionContext,
+    ) -> tuple[ReasonCode, str] | None:
+        """Validate approval signature and signer identity for approved tools."""
+        if not context.require_signed_approvals and not tool.approval_signature:
+            return None
+
+        if not tool.approved_by or tool.approved_at is None:
+            return (
+                ReasonCode.DENIED_APPROVAL_SIGNATURE_REQUIRED,
+                "Approved tool is missing signer identity or approval timestamp",
+            )
+
+        if not tool.approval_signature:
+            return (
+                ReasonCode.DENIED_APPROVAL_SIGNATURE_REQUIRED,
+                "Approved tool is missing approval signature",
+            )
+
+        if tool.approval_alg and tool.approval_alg.lower() != "ed25519":
+            return (
+                ReasonCode.DENIED_APPROVAL_SIGNATURE_INVALID,
+                f"Unsupported approval signature algorithm '{tool.approval_alg}'",
+            )
+
+        if context.require_signed_approvals and not tool.approval_key_id:
+            return (
+                ReasonCode.DENIED_APPROVAL_SIGNATURE_REQUIRED,
+                "Approved tool is missing approval key id",
+            )
+
+        try:
+            signer = ApprovalSigner(
+                root_path=context.approval_root_path or ".caskmcp",
+                read_only=True,
+            )
+        except Exception:
+            return (
+                ReasonCode.DENIED_APPROVAL_SIGNATURE_INVALID,
+                "Unable to initialize approval signer trust store",
+            )
+
+        valid = signer.verify_approval(
+            tool=tool,
+            approved_by=str(tool.approved_by),
+            approved_at=tool.approved_at,
+            reason=tool.approval_reason,
+            mode=tool.approval_mode,
+            signature=str(tool.approval_signature),
+        )
+        if not valid:
+            return (
+                ReasonCode.DENIED_APPROVAL_SIGNATURE_INVALID,
+                "Approval signature verification failed",
+            )
+
+        if tool.approval_key_id and tool.approval_signature:
+            parts = str(tool.approval_signature).split(":")
+            if len(parts) >= 2 and parts[1] != tool.approval_key_id:
+                return (
+                    ReasonCode.DENIED_APPROVAL_SIGNATURE_INVALID,
+                    "Approval signature key id does not match lockfile metadata",
+                )
+
         return None
 
     def _is_state_changing(
@@ -276,8 +349,12 @@ class DecisionEngine:
         method: str,
         path: str,
         host: str,
+        params: dict[str, Any],
     ) -> bool:
-        default_state_changing = method.upper() in self.STATE_CHANGING_METHODS
+        method_upper = method.upper()
+        default_state_changing = method_upper in self.STATE_CHANGING_METHODS
+        if method_upper == "GET" and self._looks_stateful_get(path=path, params=params):
+            default_state_changing = True
         if policy is None:
             return default_state_changing
 
@@ -291,6 +368,39 @@ class DecisionEngine:
         if override is not None:
             return override.state_changing
         return default_state_changing
+
+    def _looks_stateful_get(self, *, path: str, params: dict[str, Any]) -> bool:
+        """Heuristic guardrail for GET endpoints that mutate state."""
+        path_lower = path.lower()
+        risky_path_tokens = (
+            "/cart/add",
+            "/cart/remove",
+            "/checkout",
+            "/favorite",
+            "/favourite",
+            "/wishlist",
+            "/subscribe",
+            "/unsubscribe",
+            "/delete",
+            "/remove",
+            "/update",
+            "/toggle",
+        )
+        if any(token in path_lower for token in risky_path_tokens):
+            return True
+
+        risky_param_keys = {"add", "remove", "delete", "update", "toggle"}
+        if risky_param_keys.intersection({str(k).lower() for k in params}):
+            return True
+
+        for key in ("action", "op", "operation", "intent"):
+            value = params.get(key)
+            if not isinstance(value, str):
+                continue
+            value_lower = value.lower()
+            if any(word in value_lower for word in ("add", "remove", "delete", "update", "set", "toggle", "checkout", "purchase")):
+                return True
+        return False
 
     def _find_state_changing_override(
         self,

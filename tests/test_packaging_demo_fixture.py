@@ -25,14 +25,25 @@ def _venv_bin(venv_dir: Path, name: str) -> Path:
 
 def _build_dist(tmp_path: Path) -> tuple[Path, Path]:
     if importlib.util.find_spec("build") is None:
-        pytest.skip("packaging tests require the `build` package")
+        pytest.skip("packaging tests require `caskmcp[packaging-test]` (missing `build`)")
+    if importlib.util.find_spec("hatchling") is None:
+        pytest.skip("packaging tests require `caskmcp[packaging-test]` (missing `hatchling`)")
 
     repo_root = _repo_root()
     dist_dir = tmp_path / "dist"
     dist_dir.mkdir(parents=True, exist_ok=True)
 
     subprocess.run(
-        [sys.executable, "-m", "build", "--wheel", "--sdist", "--outdir", str(dist_dir)],
+        [
+            sys.executable,
+            "-m",
+            "build",
+            "--wheel",
+            "--sdist",
+            "--no-isolation",
+            "--outdir",
+            str(dist_dir),
+        ],
         cwd=repo_root,
         check=True,
         capture_output=True,
@@ -42,6 +53,18 @@ def _build_dist(tmp_path: Path) -> tuple[Path, Path]:
     wheel = next(dist_dir.glob("caskmcp-*.whl"))
     sdist = next(dist_dir.glob("caskmcp-*.tar.gz"))
     return wheel, sdist
+
+
+def _dependency_env() -> dict[str, str]:
+    dep_paths: list[str] = [p for p in site.getsitepackages() if Path(p).exists()]
+    user_site = site.getusersitepackages()
+    if user_site and Path(user_site).exists():
+        dep_paths.append(user_site)
+
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = os.pathsep.join(dep_paths + ([existing] if existing else []))
+    return env
 
 
 def test_demo_fixture_in_wheel_and_sdist(tmp_path: Path) -> None:
@@ -61,22 +84,35 @@ def test_demo_smoke_runs_from_installed_wheel(tmp_path: Path) -> None:
     subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
 
     pip_bin = _venv_bin(venv_dir, "pip")
-    py_bin = _venv_bin(venv_dir, "python")
+    caskmcp_bin = _venv_bin(venv_dir, "caskmcp")
+    cask_bin = _venv_bin(venv_dir, "cask")
 
     subprocess.run([str(pip_bin), "install", "--no-deps", str(wheel)], check=True)
-
-    dep_paths: list[str] = [p for p in site.getsitepackages() if Path(p).exists()]
-    user_site = site.getusersitepackages()
-    if user_site and Path(user_site).exists():
-        dep_paths.append(user_site)
-
-    env = os.environ.copy()
-    existing = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = os.pathsep.join(dep_paths + ([existing] if existing else []))
+    env = _dependency_env()
 
     output_root = tmp_path / "smoke-demo-output"
+    help_caskmcp = subprocess.run(
+        [str(caskmcp_bin), "--help"],
+        cwd=tmp_path,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "Usage:" in help_caskmcp.stdout
+
+    help_cask = subprocess.run(
+        [str(cask_bin), "--help"],
+        cwd=tmp_path,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "Usage:" in help_cask.stdout
+
     result = subprocess.run(
-        [str(py_bin), "-m", "caskmcp.cli.main", "demo", "--out", str(output_root)],
+        [str(cask_bin), "demo", "--out", str(output_root)],
         cwd=tmp_path,
         env=env,
         check=True,

@@ -9,7 +9,7 @@ using PyPI Trusted Publishing.
 
 1. Create/register the `caskmcp` project on PyPI.
 2. In PyPI project settings, add a Trusted Publisher:
-   - Owner: `tomallicino`
+   - Owner: `CaskMCP`
    - Repository: `CaskMCP`
    - Workflow: `publish-pypi.yaml`
    - Environment: `pypi`
@@ -20,15 +20,22 @@ using PyPI Trusted Publishing.
 1. Bump version in:
    - `pyproject.toml`
    - `caskmcp/__init__.py`
-2. Update `CHANGELOG.md`.
-3. Tag and push:
+2. Update `CHANGELOG.md` (canonical release history).
+   - `docs/releases/` contains historical alpha notes and should not be treated as the primary release ledger.
+3. Tag and push (recommended to mirror PEP 440):
 
 ```bash
-git tag v0.1.0-alpha.4
-git push origin v0.1.0-alpha.4
+git tag v<pep440-version>
+git push origin v<pep440-version>
 ```
 
 4. GitHub Actions builds and publishes to PyPI.
+
+Tag naming guidance:
+
+- Package version uses PEP 440 (example: `0.2.0b1`).
+- Prefer matching tag format `v<pep440-version>` for consistency.
+- If legacy `v0.1.0-alpha.4` tags are used, document the mapping in release notes.
 
 ### Verify
 
@@ -43,7 +50,7 @@ MCP Registry publishing is managed by the official publisher tooling.
 
 Pre-reqs:
 - README includes an `mcp-name` marker (already present):
-  - `io.github.tomallicino/caskmcp`
+  - `io.github.caskmcp/caskmcp`
 - Root `server.json` is present and kept in sync with released package version.
 - Repository is public.
 

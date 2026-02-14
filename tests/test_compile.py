@@ -324,6 +324,185 @@ class TestToolManifestGenerator:
         assert manifest["capture_id"] == "cap_123"
         assert manifest["default_confirmation"] == "on_risk"  # Not confirmation_required
 
+    def test_graphql_operations_split_into_operation_scoped_tools(self):
+        """POST /graphql should split into one tool per observed operationName."""
+        endpoint = make_endpoint(
+            method="POST",
+            path="/api/graphql",
+            is_state_changing=True,
+            risk_tier="medium",
+            request_body_schema={
+                "type": "object",
+                "properties": {
+                    "operationName": {"type": "string"},
+                    "query": {"type": "string"},
+                    "variables": {"type": "object"},
+                },
+            },
+        )
+        endpoint.request_examples = [
+            {
+                "operationName": "GetProduct",
+                "query": "query GetProduct($id: ID!) { product(id: $id) { id } }",
+                "variables": {"id": "1"},
+            },
+            {
+                "operationName": "SearchProducts",
+                "query": "query SearchProducts($q: String!) { search(q: $q) { id } }",
+                "variables": {"q": "shoe"},
+            },
+        ]
+
+        manifest = ToolManifestGenerator().generate([endpoint])
+        actions = manifest["actions"]
+
+        assert [a["name"] for a in actions] == ["query_get_product", "query_search_products"]
+        assert len({a["signature_id"] for a in actions}) == 2
+
+        for action in actions:
+            assert action["path"] == "/api/graphql"
+            assert action["fixed_body"]["operationName"] in {"GetProduct", "SearchProducts"}
+            op_schema = action["input_schema"]["properties"]["operationName"]
+            assert op_schema["enum"] == [action["fixed_body"]["operationName"]]
+            assert op_schema["default"] == action["fixed_body"]["operationName"]
+            assert "operationName" not in action["input_schema"].get("required", [])
+            assert "query" in action["fixed_body"]
+            assert "query" not in action["input_schema"].get("required", [])
+
+    def test_graphql_operation_type_is_inferred_for_split_actions(self):
+        """Operation-scoped GraphQL tools should expose inferred operation type."""
+        endpoint = make_endpoint(
+            method="POST",
+            path="/api/graphql",
+            is_state_changing=True,
+            risk_tier="medium",
+            request_body_schema={
+                "type": "object",
+                "properties": {
+                    "operationName": {"type": "string"},
+                    "query": {"type": "string"},
+                    "variables": {"type": "object"},
+                },
+            },
+        )
+        endpoint.request_examples = [
+            {
+                "operationName": "GetProduct",
+                "query": "query GetProduct($id: ID!) { product(id: $id) { id } }",
+                "variables": {"id": "1"},
+            },
+            {
+                "operationName": "UpdateBid",
+                "query": "mutation UpdateBid($id: ID!, $amount: Int!) { updateBid(id: $id, amount: $amount) { id } }",
+                "variables": {"id": "1", "amount": 100},
+            },
+        ]
+
+        manifest = ToolManifestGenerator().generate([endpoint])
+        by_name = {a["name"]: a for a in manifest["actions"]}
+
+        assert "query_get_product" in by_name
+        assert "mutate_update_bid" in by_name
+        assert by_name["query_get_product"]["graphql_operation_type"] == "query"
+        assert by_name["mutate_update_bid"]["graphql_operation_type"] == "mutation"
+        assert "read" in by_name["query_get_product"]["tags"]
+        assert "write" not in by_name["query_get_product"]["tags"]
+        assert "write" in by_name["mutate_update_bid"]["tags"]
+
+    def test_graphql_without_operation_name_stays_single_tool(self):
+        """If no operationName is observed, keep one generic GraphQL tool."""
+        endpoint = make_endpoint(
+            method="POST",
+            path="/api/graphql",
+            is_state_changing=True,
+            risk_tier="medium",
+            request_body_schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "variables": {"type": "object"},
+                },
+            },
+        )
+        endpoint.request_examples = [
+            {"query": "query { viewer { id } }"},
+        ]
+
+        manifest = ToolManifestGenerator().generate([endpoint])
+        actions = manifest["actions"]
+
+        assert len(actions) == 1
+        assert actions[0]["name"] == "query"
+        assert "fixed_body" not in actions[0]
+
+    def test_nextjs_build_id_param_is_optional_and_annotated(self):
+        """Next.js buildId params should be auto-resolved (not required input)."""
+        endpoint = make_endpoint(
+            method="GET",
+            path="/_next/data/{token}/en/search.json",
+            parameters=[
+                Parameter(
+                    name="token",
+                    location=ParameterLocation.PATH,
+                    param_type="string",
+                    required=True,
+                ),
+            ],
+        )
+
+        manifest = ToolManifestGenerator().generate([endpoint])
+        action = manifest["actions"][0]
+
+        required = action["input_schema"].get("required", [])
+        assert "token" not in required
+        token_schema = action["input_schema"]["properties"]["token"]
+        assert token_schema["x-cask-resolver"]["name"] == "nextjs_build_id"
+
+    def test_graphql_operation_tools_fix_query_when_unique(self):
+        """GraphQL operation tools should fix query text and not require it as input."""
+        endpoint = make_endpoint(
+            method="POST",
+            path="/api/graphql",
+            is_state_changing=True,
+            risk_tier="medium",
+            request_body_schema={
+                "type": "object",
+                "properties": {
+                    "operationName": {"type": "string"},
+                    "query": {"type": "string"},
+                    "variables": {"type": "object"},
+                },
+                "required": ["operationName", "query", "variables"],
+            },
+        )
+        endpoint.request_examples = [
+            {
+                "operationName": "GetProduct",
+                "query": "query GetProduct($id: ID!) { product(id: $id) { id } }",
+                "variables": {"id": "1"},
+            },
+            {
+                "operationName": "SearchProducts",
+                "query": "query SearchProducts($q: String!) { search(q: $q) { id } }",
+                "variables": {"q": "shoe"},
+            },
+        ]
+
+        manifest = ToolManifestGenerator().generate([endpoint])
+        by_name = {a["name"]: a for a in manifest["actions"]}
+
+        get_product = by_name["query_get_product"]
+        search_products = by_name["query_search_products"]
+
+        assert get_product["fixed_body"]["query"].startswith("query GetProduct")
+        assert search_products["fixed_body"]["query"].startswith("query SearchProducts")
+
+        for action in (get_product, search_products):
+            required = action["input_schema"].get("required", [])
+            assert "operationName" not in required
+            assert "query" not in required
+            assert action["input_schema"]["properties"]["query"]["enum"] == [action["fixed_body"]["query"]]
+
 
 class TestPolicyGenerator:
     """Tests for PolicyGenerator."""
@@ -384,6 +563,28 @@ class TestPolicyGenerator:
         confirm_rules = [r for r in policy["rules"] if r["type"] == "confirm"]
         assert len(confirm_rules) > 0
 
+    def test_generate_graphql_readonly_allow_without_confirmation(self):
+        """GraphQL POST should be allowlisted without confirmation in readonly toolset."""
+        endpoints = [
+            make_endpoint(
+                method="POST",
+                path="/api/graphql",
+                is_state_changing=True,
+                host="stockx.com",
+            ),
+        ]
+
+        generator = PolicyGenerator()
+        policy = generator.generate(endpoints)
+
+        allow_rules = [r for r in policy["rules"] if r["type"] == "allow"]
+        gql_rule = next((r for r in allow_rules if r.get("id") == "allow_graphql_readonly"), None)
+        assert gql_rule is not None
+        assert gql_rule["settings"]["allow_without_confirmation"] is True
+        assert gql_rule["match"]["methods"] == ["POST"]
+        assert "graphql" in gql_rule["match"]["path_pattern"]
+        assert gql_rule["match"]["scopes"] == ["readonly"]
+
     def test_generate_admin_deny_rule(self):
         """Test that admin endpoints get deny rule."""
         endpoints = [
@@ -438,6 +639,23 @@ class TestToolsetGenerator:
         assert high_risk == ["create_user", "delete_user"]
         assert sorted(operator) == ["create_user", "delete_user", "get_users"]
 
+    def test_toolsets_exclude_high_risk_reads_from_readonly(self) -> None:
+        """Readonly toolset should avoid high/critical risk tools even if method is GET."""
+        endpoints = [
+            make_endpoint(method="GET", path="/api/mfa", risk_tier="critical"),
+            make_endpoint(method="GET", path="/api/users", risk_tier="low"),
+        ]
+
+        manifest = ToolManifestGenerator().generate(endpoints, capture_id="cap_123")
+        toolsets = ToolsetGenerator().generate(manifest)
+
+        readonly = set(toolsets["toolsets"]["readonly"]["actions"])
+        high_risk = set(toolsets["toolsets"]["high_risk"]["actions"])
+
+        assert "get_users" in readonly
+        assert "get_mfa" not in readonly
+        assert "get_mfa" in high_risk
+
     def test_generate_toolsets_is_deterministic(self):
         """Toolsets should be stable regardless of action input order."""
         endpoints = [
@@ -451,6 +669,82 @@ class TestToolsetGenerator:
         toolsets_a = ToolsetGenerator().generate(manifest_a)
         toolsets_b = ToolsetGenerator().generate(manifest_b)
         assert toolsets_a["toolsets"] == toolsets_b["toolsets"]
+
+    def test_toolsets_classify_graphql_query_as_readonly(self):
+        """GraphQL query operations should be eligible for readonly toolsets."""
+        endpoint = make_endpoint(
+            method="POST",
+            path="/api/graphql",
+            is_state_changing=True,
+            risk_tier="medium",
+            request_body_schema={
+                "type": "object",
+                "properties": {
+                    "operationName": {"type": "string"},
+                    "query": {"type": "string"},
+                    "variables": {"type": "object"},
+                },
+            },
+        )
+        endpoint.request_examples = [
+            {
+                "operationName": "GetProduct",
+                "query": "query GetProduct($id: ID!) { product(id: $id) { id } }",
+                "variables": {"id": "1"},
+            },
+            {
+                "operationName": "UpdateBid",
+                "query": "mutation UpdateBid($id: ID!, $amount: Int!) { updateBid(id: $id, amount: $amount) { id } }",
+                "variables": {"id": "1", "amount": 100},
+            },
+        ]
+
+        manifest = ToolManifestGenerator().generate([endpoint], capture_id="cap_123")
+        toolsets = ToolsetGenerator().generate(manifest)
+
+        readonly = set(toolsets["toolsets"]["readonly"]["actions"])
+        write_ops = set(toolsets["toolsets"]["write_ops"]["actions"])
+
+        assert "query_get_product" in readonly
+        assert "query_get_product" not in write_ops
+        assert "mutate_update_bid" in write_ops
+
+    def test_toolsets_classify_persisted_graphql_query_name_as_readonly(self):
+        """When query text is missing, operationName heuristics should still classify obvious reads."""
+        endpoint = make_endpoint(
+            method="POST",
+            path="/api/graphql",
+            is_state_changing=True,
+            risk_tier="medium",
+            request_body_schema={
+                "type": "object",
+                "properties": {
+                    "operationName": {"type": "string"},
+                    "variables": {"type": "object"},
+                    "extensions": {"type": "object"},
+                },
+            },
+        )
+        endpoint.request_examples = [
+            {
+                "operationName": "RecentlyViewedProducts",
+                "variables": {"productId": "abc"},
+                "extensions": {"persistedQuery": {"version": 1, "sha256Hash": "deadbeef"}},
+            },
+        ]
+
+        manifest = ToolManifestGenerator().generate([endpoint], capture_id="cap_123")
+        action = manifest["actions"][0]
+        toolsets = ToolsetGenerator().generate(manifest)
+
+        readonly = set(toolsets["toolsets"]["readonly"]["actions"])
+        write_ops = set(toolsets["toolsets"]["write_ops"]["actions"])
+
+        assert action["name"] == "query_recently_viewed_products"
+        assert action["graphql_operation_type"] == "query"
+        assert "read" in action["tags"]
+        assert action["name"] in readonly
+        assert action["name"] not in write_ops
 
 
 class TestBaselineGenerator:

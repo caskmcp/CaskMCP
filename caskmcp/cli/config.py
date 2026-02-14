@@ -11,7 +11,7 @@ from caskmcp.core.toolpack import load_toolpack
 from caskmcp.utils.config import build_mcp_config_payload, render_config_payload
 
 
-def run_config(toolpack_path: str, fmt: str) -> None:
+def run_config(toolpack_path: str, fmt: str, *, name_override: str | None = None) -> None:
     """Emit an MCP client config snippet."""
     try:
         toolpack = load_toolpack(Path(toolpack_path))
@@ -21,6 +21,6 @@ def run_config(toolpack_path: str, fmt: str) -> None:
 
     payload = build_mcp_config_payload(
         toolpack_path=Path(toolpack_path),
-        server_name=toolpack.toolpack_id,
+        server_name=name_override or toolpack.toolpack_id,
     )
     click.echo(render_config_payload(payload, fmt))

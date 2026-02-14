@@ -7,6 +7,108 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+
+- OTEL capture adapter:
+  - `CaptureSource.OTEL`
+  - `OTELParser` for JSON/NDJSON trace-export imports
+  - `cask capture import <file> --input-format otel`
+- Static-asset filtering for OTEL capture imports (parity with HAR anti-noise behavior).
+- Documentation for OTEL capture input: `docs/capture-otel.md`.
+- `CODE_OF_CONDUCT.md` with reporting/enforcement guidelines for contributors.
+- `docs/releases/README.md` to clarify release-note archive status.
+- Scope merge compatibility for compile-emitted draft payloads:
+  - `caskmcp scopes merge` now accepts both `scopes:` map format and `drafts:` list format.
+  - Draft payloads are normalized into reviewable scope entries with risk/confidence metadata.
+- Mint WebMCP augmentation:
+  - `caskmcp mint --webmcp` now discovers and appends WebMCP tool exchanges before compile.
+  - Added regression coverage for mint-time WebMCP session augmentation.
+
+### Changed
+
+- README pipeline and feature matrix now include OTEL capture input.
+- README clarifies draft proposal queue vs planned autonomous draft expansion.
+- CONTRIBUTING now includes code-of-conduct link, help paths, and docs/release-note contribution rules.
+- ARCHITECTURE section 10 clarifies shipped proposal queue vs planned autonomous expansion.
+- `docs/user-guide.md` adds OTEL capture command guidance.
+- `docs/known-limitations.md` includes OTEL-specific limitations.
+- `docs/publishing.md` now marks `CHANGELOG.md` as canonical release history.
+- `cask init` next-step guidance now uses valid command surface:
+  - OpenAPI bootstrap via `caskmcp openapi <spec> -a <api-host>`
+  - Runtime step via `caskmcp run --toolpack <path>`
+- OpenAPI relative-server import behavior now:
+  - honors explicit `--allowed-hosts` for synthetic exchange hosts,
+  - defaults `session.allowed_hosts` to discovered synthetic host when unspecified,
+  - emits explicit warning guidance for host override.
+- README quickstart demo expectations corrected to match bundled fixture output.
+- `server.json` version metadata synchronized with current package version line.
+
+### Fixed
+
+- Lint and type-quality regressions across CLI/core/test modules (`ruff` and `mypy` now clean on the branch).
+- `scopes merge` no-op behavior against compile-generated `scopes.suggested.yaml` draft payloads.
+
+## [0.2.0-beta.1] - 2026-02-10
+
+### Added
+
+#### Verify Engine (`core/verify/`)
+- `VerifyEngine` orchestrator with contract, replay, outcomes, and provenance modes.
+- `VerificationContract` model with multi-signal assertions (equals, contains, matches_regex, gt/gte/lt/lte, exists).
+- `FlakePolicy` for configurable flake tolerance in verification.
+- Replay mode: offline structural comparison against saved baselines.
+- Outcomes mode: evaluate contract assertions against captured data.
+- Provenance mode: match UI assertions to captured API actions with confidence scoring.
+- `EvidenceBundle` model with SHA-256 digests and JSONL storage.
+- Evidence collection with redaction profile application.
+
+#### Auth Profiles
+- `cask auth login/status/clear/list` commands for managing capture-time auth.
+- Playwright `storage_state.json` persistence with 0600 POSIX permissions.
+- `--auth-profile` flag on `cask mint` for authenticated capture.
+- Auth detection: auto-detects 401/403, login redirects, auth header patterns during capture.
+- `TokenProvider` Protocol (design-only) for future runtime token handling.
+- Auth state is excluded from toolpacks, bundles, evidence, and baselines.
+
+#### WebMCP Capture
+- `WEBMCP` capture source — discovers `navigator.modelContext` tool registrations.
+- MCP-B polyfill fallback (`window.__MCP_B_TOOLS__`).
+- Meta tag and `.well-known/mcp-tools.json` manifest detection.
+- `--webmcp` flag on `cask mint`.
+
+#### Agent Draft Proposals
+- `MissingCapability` and `DraftProposal` models.
+- `ProposalEngine` with create, list, approve, reject workflows.
+- `cask propose list/show/approve/reject` CLI commands.
+- Draft/published storage isolation — runtime ignores `drafts/`.
+
+#### Project Init and MCP Config
+- `cask init` command with project type auto-detection (16 language/framework rules).
+- OpenAPI spec discovery during init.
+- MCP client config generation for Claude Desktop, Cursor, and generic stdio.
+- `.gitignore` entry generation for CaskMCP artifacts.
+
+#### Scope Confidence Scoring
+- `ScopeDraft` model with 0.0-1.0 confidence and auto `review_required` flag.
+- `RiskReason` enum (STATE_CHANGING, HAS_PII, AUTH_RELATED, THIRD_PARTY, SENSITIVE_PATH).
+
+#### Redaction Profiles
+- `default_safe` profile: auth headers, tokens, keys, cookies, body patterns.
+- `high_risk_pii` profile: email, phone, SSN regex patterns, aggressive body truncation.
+- `get_profile()` and `list_profiles()` registry API.
+
+#### Verify-Drift Integration
+- `CONTRACT` drift type for verification contract assertion failures.
+- `contract_count` field in `DriftReport`.
+- Contract failures trigger exit code 2 (breaking).
+
+### Changed
+- Version bumped to `0.2.0b1` (beta).
+- Development status classifier updated to `4 - Beta`.
+- README feature status table updated with all beta features.
+- Pipeline description expanded: `init -> mint -> diff -> gate -> run -> drift -> verify`.
+- Command surface expanded with `auth` and `propose` workflow groups.
+
+### Added (from previous unreleased)
 - `docs/archive/` directory for historical reference documents.
 - `ARCHITECTURE.md` with `[SHIPPED]`/`[ALPHA]`/`[PLANNED]` status markers on all sections.
 - Feature Status table in README as canonical shipped/planned source of truth.
@@ -54,7 +156,7 @@ All notable changes to this project will be documented in this file.
 - Approval signing moved to Ed25519 with signer/key metadata recorded in lockfile approvals.
 - Demo defaults to canonical `--root` output when `--out` is not provided.
 - Confirmation store defaults use `<root>/state/confirmations.db`.
-- **Project renamed from MCPMint to CaskMCP** to avoid brand confusion with MintMCP gateway.
+- **Project renamed to CaskMCP** to avoid brand confusion with MintMCP gateway.
   Package is now `caskmcp`, CLI is `caskmcp`, config directory is `.caskmcp/`.
 - Updated competitive comparison table with MintMCP and ecosystem positioning.
 - `dev` extra now includes `mcp`, `playwright`, and `build` for CI/contributor parity.

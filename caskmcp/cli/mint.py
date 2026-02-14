@@ -28,6 +28,7 @@ from caskmcp.core.toolpack import (
     ToolpackRuntime,
     write_toolpack,
 )
+from caskmcp.models.capture import CaptureSource, HttpExchange, HTTPMethod
 from caskmcp.storage import Storage
 from caskmcp.utils.config import build_mcp_config_payload
 from caskmcp.utils.runtime import is_stable_release
@@ -50,6 +51,9 @@ def run_mint(
     runtime_build: bool = False,
     runtime_tag: str | None = None,
     runtime_version_pin: str | None = None,
+    auth_profile: str | None = None,
+    webmcp: bool = False,
+    redaction_profile: str | None = None,
     verbose: bool,
 ) -> None:
     """Mint a first-class toolpack from browser traffic capture."""
@@ -78,12 +82,34 @@ def run_mint(
         click.echo(f"  Start URL: {start_url}")
         click.echo(f"  Allowed hosts: {', '.join(allowed_hosts)}")
         click.echo(f"  Headless: {headless}")
+        if webmcp:
+            click.echo("  WebMCP discovery: enabled")
         if script_path:
             click.echo(f"  Script: {script_path}")
         else:
             click.echo(f"  Duration: {duration_seconds}s")
 
-    capture = PlaywrightCapture(allowed_hosts=allowed_hosts, headless=headless)
+    # Resolve auth profile to storage_state path if provided
+    storage_state_path: str | None = None
+    if auth_profile:
+        from caskmcp.core.auth.profiles import AuthProfileManager
+
+        auth_manager = AuthProfileManager(Path(output_root))
+        state_path = auth_manager.get_storage_state_path(auth_profile)
+        if state_path is None:
+            click.echo(f"Error: Auth profile '{auth_profile}' not found.", err=True)
+            click.echo(f"  Run: caskmcp auth login --profile {auth_profile} --url {start_url}", err=True)
+            sys.exit(1)
+        storage_state_path = str(state_path)
+        if verbose:
+            click.echo(f"  Auth profile: {auth_profile}")
+        auth_manager.update_last_used(auth_profile)
+
+    capture = PlaywrightCapture(
+        allowed_hosts=allowed_hosts,
+        headless=headless,
+        storage_state_path=storage_state_path,
+    )
     try:
         session = asyncio.run(
             capture.capture(
@@ -101,8 +127,46 @@ def run_mint(
         emit_playwright_error(exc, verbose=verbose, operation="capture")
         sys.exit(1)
 
-    redactor = Redactor()
+    if webmcp:
+        webmcp_exchanges = discover_webmcp_exchanges(
+            start_url=start_url,
+            headless=headless,
+            verbose=verbose,
+        )
+        if webmcp_exchanges:
+            session.exchanges.extend(webmcp_exchanges)
+            session.total_requests = len(session.exchanges)
+            webmcp_hosts = {exchange.host for exchange in webmcp_exchanges if exchange.host}
+            if webmcp_hosts:
+                session.allowed_hosts = sorted(set(session.allowed_hosts + list(webmcp_hosts)))
+            if verbose:
+                click.echo(f"  WebMCP tools discovered: {len(webmcp_exchanges)}")
+        elif verbose:
+            click.echo("  WebMCP tools discovered: 0")
+
+    redactor_profile = None
+    if redaction_profile:
+        from caskmcp.core.capture.redaction_profiles import get_profile
+
+        redactor_profile = get_profile(redaction_profile)
+        if verbose:
+            click.echo(f"  Redaction profile: {redaction_profile}")
+
+    redactor = Redactor(profile=redactor_profile)
     session = redactor.redact_session(session)
+
+    # Auth detection: warn if API appears to require auth but none was provided
+    if not auth_profile:
+        from caskmcp.core.auth.detector import detect_auth_requirements
+
+        auth_req = detect_auth_requirements(session)
+        if auth_req.requires_auth:
+            click.echo(click.style("\nAuth detection:", fg="yellow"))
+            for ev in auth_req.evidence:
+                click.echo(f"  {ev}")
+            if auth_req.suggestion:
+                click.echo(f"  Suggestion: {auth_req.suggestion}")
+            click.echo()
 
     output_base = Path(output_root)
     storage = Storage(base_path=output_base)
@@ -135,12 +199,14 @@ def run_mint(
     if verbose:
         click.echo("Mint step 3/4: creating toolpack...")
 
+    effective_allowed_hosts = sorted(set(session.allowed_hosts or allowed_hosts))
+
     toolpack_id = _generate_toolpack_id(
         capture_id=session.id,
         artifact_id=compile_result.artifact_id,
         scope_name=scope_name,
         start_url=start_url,
-        allowed_hosts=allowed_hosts,
+        allowed_hosts=effective_allowed_hosts,
         deterministic=deterministic,
     )
     toolpack_dir = output_base / "toolpacks" / toolpack_id
@@ -154,6 +220,7 @@ def run_mint(
     copied_toolsets = artifact_dir / "toolsets.yaml"
     copied_policy = artifact_dir / "policy.yaml"
     copied_baseline = artifact_dir / "baseline.json"
+    copied_contracts = artifact_dir / "contracts.yaml"
     copied_contract_yaml = artifact_dir / "contract.yaml"
     copied_contract_json = artifact_dir / "contract.json"
 
@@ -190,13 +257,18 @@ def run_mint(
         capture_id=session.id,
         artifact_id=compile_result.artifact_id,
         scope=scope_name,
-        allowed_hosts=sorted(set(allowed_hosts)),
+        allowed_hosts=effective_allowed_hosts,
         origin=ToolpackOrigin(start_url=start_url, name=name),
         paths=ToolpackPaths(
             tools=str(copied_tools.relative_to(toolpack_dir)),
             toolsets=str(copied_toolsets.relative_to(toolpack_dir)),
             policy=str(copied_policy.relative_to(toolpack_dir)),
             baseline=str(copied_baseline.relative_to(toolpack_dir)),
+            contracts=(
+                str(copied_contracts.relative_to(toolpack_dir))
+                if copied_contracts.exists()
+                else None
+            ),
             contract_yaml=(
                 str(copied_contract_yaml.relative_to(toolpack_dir))
                 if copied_contract_yaml.exists()
@@ -254,14 +326,16 @@ def run_mint(
     click.echo(f"  Pending approvals: {sync_result.pending_count}")
 
     click.echo("\nNext commands:")
-    click.echo(f"  caskmcp run --toolpack {toolpack_file}")
     click.echo(
-        "  caskmcp approve tool --all --toolset readonly "
+        "  caskmcp gate allow --all --toolset readonly "
         f"--lockfile {pending_lockfile}"
     )
+    click.echo(f"  caskmcp run --toolpack {toolpack_file}")
     click.echo(
-        f"  caskmcp drift --baseline {copied_baseline} --capture {session.id}"
+        f"  caskmcp drift --baseline {copied_baseline} --capture-path {capture_path}"
     )
+
+    click.echo(build_mcp_integration_output(toolpack_path=toolpack_file))
 
     if print_mcp_config:
         click.echo("\nClaude Desktop MCP config:")
@@ -273,6 +347,25 @@ def run_mint(
         )
 
 
+def build_mcp_integration_output(toolpack_path: str | Path) -> str:
+    """Return ready-to-paste MCP integration instructions.
+
+    Primary: guide users to generate a config snippet via `cask config`.
+    """
+    tp = str(toolpack_path)
+    return (
+        "\nConnect to MCP clients:\n"
+        "\n"
+        "  Generate a ready-to-paste MCP config snippet:\n"
+        f"    cask config --toolpack {tp}\n"
+        "\n"
+        "  Claude Desktop:\n"
+        "    Paste the emitted JSON into:\n"
+        "      ~/Library/Application Support/Claude/claude_desktop_config.json\n"
+        "    under \"mcpServers\", then restart Claude Desktop.\n"
+    )
+
+
 def build_mcp_config_snippet(*, toolpack_path: Path, server_name: str) -> str:
     """Return a ready-to-paste Claude Desktop MCP config snippet."""
     payload = build_mcp_config_payload(
@@ -280,6 +373,65 @@ def build_mcp_config_snippet(*, toolpack_path: Path, server_name: str) -> str:
         server_name=server_name,
     )
     return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def discover_webmcp_exchanges(
+    *,
+    start_url: str,
+    headless: bool,
+    verbose: bool,
+) -> list[HttpExchange]:
+    """Discover WebMCP tools on the target page and convert them to exchanges."""
+
+    async def _discover() -> list[HttpExchange]:
+        from playwright.async_api import async_playwright
+
+        from caskmcp.core.capture.webmcp_capture import (
+            discover_webmcp_tools,
+            webmcp_tools_to_exchanges,
+        )
+
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch(headless=headless)
+            context = await browser.new_context()
+            page = await context.new_page()
+            await page.goto(start_url, timeout=60000)
+            tools = await discover_webmcp_tools(page, start_url)
+            raw_exchanges = webmcp_tools_to_exchanges(tools, start_url)
+            await browser.close()
+
+        exchanges: list[HttpExchange] = []
+        for raw in raw_exchanges:
+            method_raw = str(raw.get("method", "GET")).upper()
+            try:
+                method = HTTPMethod(method_raw)
+            except ValueError:
+                method = HTTPMethod.GET
+            raw_notes = raw.get("notes")
+            notes: dict[str, object] = (
+                raw_notes if isinstance(raw_notes, dict) else {}
+            )
+            exchange = HttpExchange(
+                url=str(raw.get("url", start_url)),
+                method=method,
+                host=str(raw.get("host", "")),
+                path=str(raw.get("path", "/")),
+                request_headers={},
+                response_status=int(raw.get("response_status", 200)),
+                response_headers={},
+                response_body_json=raw.get("response_body_json"),
+                source=CaptureSource.WEBMCP,
+                notes=notes,
+            )
+            exchanges.append(exchange)
+        return exchanges
+
+    try:
+        return asyncio.run(_discover())
+    except Exception as exc:
+        if verbose:
+            click.echo(f"  WebMCP discovery skipped: {exc}")
+        return []
 
 
 def _build_runtime(

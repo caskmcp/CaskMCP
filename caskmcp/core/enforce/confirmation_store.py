@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
 import os
 import secrets
 import sqlite3
@@ -13,16 +17,27 @@ from typing import Any
 from caskmcp.models.decision import ReasonCode
 
 SCHEMA_VERSION = 1
+TOKEN_PREFIX = "cfrmv1"
 
 
 class ConfirmationStore:
     """SQLite-backed confirmation challenge store."""
 
-    def __init__(self, db_path: str | Path = ".caskmcp/confirmations.db") -> None:
+    def __init__(self, db_path: str | Path = ".caskmcp/state/confirmations.db") -> None:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._signing_key_path = self.db_path.parent / "confirmation_signing.key"
+        self._signing_key = self._load_or_create_signing_key()
         self._lock = threading.Lock()
         self._initialize()
+
+    def _load_or_create_signing_key(self) -> bytes:
+        if self._signing_key_path.exists():
+            return self._signing_key_path.read_bytes()
+        key = secrets.token_bytes(32)
+        self._signing_key_path.write_bytes(key)
+        os.chmod(self._signing_key_path, 0o600)
+        return key
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, timeout=30.0, isolation_level=None)
@@ -83,9 +98,18 @@ class ConfirmationStore:
         ttl_seconds: int,
     ) -> str:
         """Create a new pending challenge and return token id."""
-        token_id = f"cfrm_{secrets.token_hex(8)}"
         now = time.time()
         expires_at = now + max(1, ttl_seconds)
+        nonce = secrets.token_hex(12)
+        token_id = self._issue_token(
+            nonce=nonce,
+            tool_id=tool_id,
+            request_digest=request_digest,
+            toolset_name=toolset_name,
+            artifacts_digest=artifacts_digest,
+            lockfile_digest=lockfile_digest,
+            expires_at=expires_at,
+        )
 
         with self._lock, self._connect() as conn:
             conn.execute(
@@ -107,6 +131,55 @@ class ConfirmationStore:
                 ),
             )
         return token_id
+
+    def _issue_token(
+        self,
+        *,
+        nonce: str,
+        tool_id: str,
+        request_digest: str,
+        toolset_name: str | None,
+        artifacts_digest: str,
+        lockfile_digest: str | None,
+        expires_at: float,
+    ) -> str:
+        payload = {
+            "nonce": nonce,
+            "tool_id": tool_id,
+            "request_digest": request_digest,
+            "toolset_name": toolset_name,
+            "artifacts_digest": artifacts_digest,
+            "lockfile_digest": lockfile_digest,
+            "expires_at": int(expires_at),
+        }
+        serialized = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        encoded = base64.urlsafe_b64encode(serialized).decode("ascii").rstrip("=")
+        signature = hmac.new(self._signing_key, serialized, hashlib.sha256).hexdigest()
+        return f"{TOKEN_PREFIX}.{encoded}.{signature}"
+
+    def _decode_token(self, token_id: str) -> dict[str, object] | None:
+        # Backward compatibility for legacy random token IDs.
+        if not token_id.startswith(f"{TOKEN_PREFIX}."):
+            return None
+        parts = token_id.split(".")
+        if len(parts) != 3:
+            return None
+        _prefix, encoded, signature = parts
+        try:
+            padded = encoded + "=" * (-len(encoded) % 4)
+            serialized = base64.urlsafe_b64decode(padded.encode("ascii"))
+        except Exception:
+            return None
+        expected = hmac.new(self._signing_key, serialized, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, signature):
+            return None
+        try:
+            decoded = json.loads(serialized.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return None
+        if not isinstance(decoded, dict):
+            return None
+        return decoded
 
     def grant(self, token_id: str) -> bool:
         """Grant a pending challenge token."""
@@ -171,6 +244,26 @@ class ConfirmationStore:
         """Consume a granted token if all bindings match exactly."""
         now = time.time()
         with self._lock, self._connect() as conn:
+            decoded = self._decode_token(token_id)
+            if decoded is None and token_id.startswith(f"{TOKEN_PREFIX}."):
+                return False, ReasonCode.DENIED_CONFIRMATION_INVALID
+            if decoded is not None:
+                token_exp_raw = decoded.get("expires_at", 0)
+                if isinstance(token_exp_raw, int | float | str):
+                    token_exp = float(token_exp_raw)
+                else:
+                    return False, ReasonCode.DENIED_CONFIRMATION_INVALID
+                if token_exp <= now:
+                    return False, ReasonCode.DENIED_CONFIRMATION_EXPIRED
+                if (
+                    decoded.get("tool_id") != tool_id
+                    or decoded.get("request_digest") != request_digest
+                    or decoded.get("toolset_name") != toolset_name
+                    or decoded.get("artifacts_digest") != artifacts_digest
+                    or decoded.get("lockfile_digest") != lockfile_digest
+                ):
+                    return False, ReasonCode.DENIED_CONFIRMATION_INVALID
+
             row = conn.execute(
                 """
                 SELECT *

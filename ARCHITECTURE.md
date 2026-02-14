@@ -844,6 +844,12 @@ Rules:
 The prior spec spent a lot of surface area on agent-triggered discovery sessions. 
 This rewrite moves discovery to “human-led by default,” with a safe path for later.
 
+Current state clarification:
+
+* Draft proposal queue tooling (`cask propose ...`) is shipped for human review workflows.
+* Proposal bundle publication is shipped (`cask propose publish`) to convert reviewed proposal artifacts into runtime-ready tools/policy/toolsets and optional lockfile sync.
+* Fully autonomous draft expansion (agent-triggered capture/mint/verify orchestration) is still planned and intentionally out of scope for current runtime behavior.
+
 ### 10.1 vNext: human-led discovery only
 
 * humans run capture in sandbox

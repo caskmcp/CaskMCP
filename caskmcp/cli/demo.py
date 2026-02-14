@@ -155,6 +155,10 @@ def run_demo(*, output_root: str | None, verbose: bool) -> None:
     click.echo("  # Check for API drift against baseline:")
     click.echo(f"  cask drift --baseline {copied_baseline} --capture-path {capture_path}")
 
+    from caskmcp.cli.mint import build_mcp_integration_output
+
+    click.echo(build_mcp_integration_output(toolpack_path=toolpack_file))
+
 
 def _resolve_output_root(output_root: str | None) -> Path:
     if output_root:

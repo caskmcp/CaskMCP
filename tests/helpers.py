@@ -63,6 +63,8 @@ def write_demo_artifacts(artifact_dir: Path) -> dict[str, Path]:
     )
     baseline_path = artifact_dir / "baseline.json"
     baseline_path.write_text("{\"schema_version\": \"1.0\", \"endpoints\": []}")
+    contracts_path = artifact_dir / "contracts.yaml"
+    contracts_path.write_text("version: '1.0.0'\nkind: contracts\ncontracts: []\n")
     contract_yaml_path = artifact_dir / "contract.yaml"
     contract_yaml_path.write_text("openapi: 3.1.0\n")
     contract_json_path = artifact_dir / "contract.json"
@@ -72,6 +74,7 @@ def write_demo_artifacts(artifact_dir: Path) -> dict[str, Path]:
         "toolsets": toolsets_path,
         "policy": policy_path,
         "baseline": baseline_path,
+        "contracts": contracts_path,
         "contract_yaml": contract_yaml_path,
         "contract_json": contract_json_path,
     }
@@ -114,6 +117,7 @@ def write_demo_toolpack(tmp_path: Path) -> Path:
             toolsets=str(artifacts["toolsets"].relative_to(toolpack_dir)),
             policy=str(artifacts["policy"].relative_to(toolpack_dir)),
             baseline=str(artifacts["baseline"].relative_to(toolpack_dir)),
+            contracts=str(artifacts["contracts"].relative_to(toolpack_dir)),
             contract_yaml=str(artifacts["contract_yaml"].relative_to(toolpack_dir)),
             contract_json=str(artifacts["contract_json"].relative_to(toolpack_dir)),
             lockfiles=lockfiles,

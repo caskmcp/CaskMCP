@@ -231,6 +231,56 @@ class TestOpenAPIParser:
         with pytest.raises(ValueError, match="Missing 'openapi' version"):
             parser.parse_file(path)
 
+    def test_relative_server_uses_allowed_host_for_exchange(self, tmp_path: Path) -> None:
+        """When server URLs are relative, explicit allowed hosts should drive exchange host."""
+        spec = {
+            "openapi": "3.0.3",
+            "info": {"title": "Relative API", "version": "1.0.0"},
+            "servers": [{"url": "/api/v1"}],
+            "paths": {
+                "/users": {
+                    "get": {
+                        "operationId": "listUsers",
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                }
+            },
+        }
+        path = tmp_path / "relative.json"
+        path.write_text(json.dumps(spec), encoding="utf-8")
+
+        parser = OpenAPIParser(allowed_hosts=["shop.example.com"])
+        session = parser.parse_file(path)
+
+        assert session.allowed_hosts == ["shop.example.com"]
+        assert len(session.exchanges) == 1
+        assert session.exchanges[0].host == "shop.example.com"
+
+    def test_relative_server_defaults_allowed_hosts_to_synthetic_exchange_host(self, tmp_path: Path) -> None:
+        """Relative server specs without allowed hosts should still produce compile-safe first-party hosts."""
+        spec = {
+            "openapi": "3.0.3",
+            "info": {"title": "Relative API", "version": "1.0.0"},
+            "servers": [{"url": "/api/v1"}],
+            "paths": {
+                "/users": {
+                    "get": {
+                        "operationId": "listUsers",
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                }
+            },
+        }
+        path = tmp_path / "relative-defaults.json"
+        path.write_text(json.dumps(spec), encoding="utf-8")
+
+        parser = OpenAPIParser()
+        session = parser.parse_file(path)
+
+        assert len(session.exchanges) == 1
+        assert session.exchanges[0].host == "api.example.com"
+        assert session.allowed_hosts == ["api.example.com"]
+
 
 class TestSchemaToExample:
     """Tests for schema to example conversion."""

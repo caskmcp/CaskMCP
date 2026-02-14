@@ -288,6 +288,14 @@ class HARParser:
         self, url: str, method: str, content_type: str, entry: dict[str, Any]
     ) -> bool:
         """Determine if a request looks like an API call."""
+        from urllib.parse import urlparse
+
+        from caskmcp.core.capture.path_blocklist import is_blocked_path
+
+        path = urlparse(url).path
+        if is_blocked_path(path):
+            return False
+
         # Check resource type if available (Chrome DevTools includes this)
         resource_type = entry.get("_resourceType", "").lower()
         if resource_type in self.API_RESOURCE_TYPES:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any
 
@@ -10,6 +11,8 @@ from caskmcp.models.capture import CaptureSession, HttpExchange
 
 class Redactor:
     """Redact sensitive data from captured traffic."""
+
+    MAX_BODY_CHARS = 4096
 
     # Headers to always redact
     SENSITIVE_HEADERS = {
@@ -65,13 +68,15 @@ class Redactor:
         extra_headers: set[str] | None = None,
         extra_params: set[str] | None = None,
         extra_patterns: list[tuple[str, str]] | None = None,
+        profile: Any | None = None,
     ) -> None:
-        """Initialize redactor with optional extra patterns.
+        """Initialize redactor with optional extra patterns or a RedactionProfile.
 
         Args:
             extra_headers: Additional headers to redact
             extra_params: Additional query params to redact
             extra_patterns: Additional regex patterns to redact
+            profile: Optional RedactionProfile to apply (merges with defaults)
         """
         self.headers = self.SENSITIVE_HEADERS.copy()
         if extra_headers:
@@ -84,6 +89,16 @@ class Redactor:
         patterns = list(self.SENSITIVE_PATTERNS)
         if extra_patterns:
             patterns.extend(extra_patterns)
+
+        # Apply RedactionProfile if provided
+        if profile is not None:
+            self.headers.update(h.lower() for h in profile.redact_headers)
+            self.params.update(p.lower() for p in profile.redact_query_params)
+            for body_pattern in profile.redact_body_patterns:
+                # Body patterns from profiles use a generic replacement
+                patterns.append((body_pattern, "[REDACTED_PII]"))
+            if profile.max_body_chars != self.MAX_BODY_CHARS:
+                self.MAX_BODY_CHARS = profile.max_body_chars
 
         self._compiled_patterns = [
             (re.compile(p, re.IGNORECASE), r) for p, r in patterns
@@ -150,21 +165,50 @@ class Redactor:
         # Redact request body
         redacted_request_body = exchange.request_body
         redacted_request_body_json = exchange.request_body_json
+        request_schema_zeroed = False
+        notes = dict(exchange.notes)
         if exchange.request_body:
             redacted_request_body = self._redact_text(exchange.request_body)
             if redacted_request_body != exchange.request_body:
                 redacted_fields.append("request_body")
-        if exchange.request_body_json and isinstance(exchange.request_body_json, dict):
+            redacted_request_body, was_truncated, digest = self._truncate_with_digest(
+                redacted_request_body
+            )
+            notes["request_body_sha256"] = digest
+            notes["request_body_truncated"] = was_truncated
+            if was_truncated:
+                redacted_fields.append("request_body_truncated")
+                if exchange.request_body_json is not None:
+                    redacted_request_body_json = self._schema_zero(exchange.request_body_json)
+                    notes["schema_sample"] = True
+                    request_schema_zeroed = True
+                else:
+                    redacted_request_body_json = None
+        if not request_schema_zeroed and exchange.request_body_json and isinstance(exchange.request_body_json, dict):
             redacted_request_body_json = self._redact_dict(exchange.request_body_json)
 
         # Redact response body
         redacted_response_body = exchange.response_body
         redacted_response_body_json = exchange.response_body_json
+        response_schema_zeroed = False
         if exchange.response_body:
             redacted_response_body = self._redact_text(exchange.response_body)
             if redacted_response_body != exchange.response_body:
                 redacted_fields.append("response_body")
-        if exchange.response_body_json and isinstance(exchange.response_body_json, dict):
+            redacted_response_body, was_truncated, digest = self._truncate_with_digest(
+                redacted_response_body
+            )
+            notes["response_body_sha256"] = digest
+            notes["response_body_truncated"] = was_truncated
+            if was_truncated:
+                redacted_fields.append("response_body_truncated")
+                if exchange.response_body_json is not None:
+                    redacted_response_body_json = self._schema_zero(exchange.response_body_json)
+                    notes["schema_sample"] = True
+                    response_schema_zeroed = True
+                else:
+                    redacted_response_body_json = None
+        if not response_schema_zeroed and exchange.response_body_json and isinstance(exchange.response_body_json, dict):
             redacted_response_body_json = self._redact_dict(exchange.response_body_json)
 
         return HttpExchange(
@@ -185,7 +229,7 @@ class Redactor:
             duration_ms=exchange.duration_ms,
             source=exchange.source,
             redacted_fields=redacted_fields,
-            notes=exchange.notes,
+            notes=notes,
         )
 
     def _redact_headers(
@@ -277,3 +321,62 @@ class Redactor:
                 redacted[key] = value
 
         return redacted
+
+    def _schema_zero(self, obj: Any, _depth: int = 0) -> Any:
+        """Replace all leaf values with typed zero values for schema inference.
+
+        Returns a structure with the same shape but zero-content values:
+        str->"", int->0, float->0.0, bool->False, None->None.
+        Lists are sampled at indices [0, len//2, len-1] and merged into
+        a single-item list.
+        """
+        if _depth > 20:
+            if isinstance(obj, dict):
+                return {}
+            if isinstance(obj, list):
+                return []
+            return obj
+
+        if isinstance(obj, dict):
+            return {k: self._schema_zero(v, _depth + 1) for k, v in obj.items()}
+
+        if isinstance(obj, list):
+            if not obj:
+                return []
+            # Deterministic sampling: [0, len//2, len-1]
+            indices = sorted({0, len(obj) // 2, len(obj) - 1})
+            indices = [i for i in indices if i < len(obj)]
+            sampled = [obj[i] for i in indices]
+            # Merge dict items into one dict, non-dict items are zeroed directly
+            merged: dict[str, Any] = {}
+            has_dicts = False
+            for item in sampled:
+                if isinstance(item, dict):
+                    has_dicts = True
+                    for k, v in item.items():
+                        if k not in merged:
+                            merged[k] = self._schema_zero(v, _depth + 1)
+            if has_dicts:
+                return [merged]
+            # Non-dict list items: zero each sampled item
+            return [self._schema_zero(sampled[0], _depth + 1)]
+
+        if isinstance(obj, bool):
+            return False
+        if isinstance(obj, int):
+            return 0
+        if isinstance(obj, float):
+            return 0.0
+        if isinstance(obj, str):
+            return ""
+        return obj
+
+    def _truncate_with_digest(self, value: str | None) -> tuple[str | None, bool, str | None]:
+        """Return redacted excerpt with deterministic digest and truncation metadata."""
+        if value is None:
+            return None, False, None
+        digest = hashlib.sha256(value.encode("utf-8")).hexdigest()
+        if len(value) <= self.MAX_BODY_CHARS:
+            return value, False, digest
+        excerpt = value[: self.MAX_BODY_CHARS] + "...[TRUNCATED]"
+        return excerpt, True, digest

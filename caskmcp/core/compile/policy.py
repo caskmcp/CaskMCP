@@ -60,6 +60,12 @@ class PolicyGenerator:
                 r"bearer\s+[a-zA-Z0-9\-_.]+",
                 r"api[_-]?key[\"']?\s*[=:]\s*[\"']?[a-zA-Z0-9]+",
             ],
+            "redact_pattern_justifications": {
+                r"bearer\s+[a-zA-Z0-9\-_.]+": "Redact bearer tokens from logs and evidence.",
+                r"api[_-]?key[\"']?\s*[=:]\s*[\"']?[a-zA-Z0-9]+": (
+                    "Redact API keys from query strings, payloads, and headers."
+                ),
+            },
             "state_changing_overrides": [],
             "rules": rules,
         }
@@ -78,6 +84,34 @@ class PolicyGenerator:
         """Build policy rules from endpoints."""
         rules: list[dict[str, Any]] = []
         rule_priority = 100
+
+        # Rule: Allow GraphQL query tools in the readonly toolset without confirmation.
+        #
+        # At runtime we default to toolset=readonly when toolsets.yaml is present, so
+        # scope-aware rules remain safe. This avoids confirmation spam for POST-based
+        # GraphQL query actions while still requiring confirmation for write toolsets.
+        if any(ep.method.upper() == "POST" and "graphql" in ep.path.lower() for ep in endpoints):
+            rules.append(
+                {
+                    "id": "allow_graphql_readonly",
+                    "name": "Allow GraphQL queries in readonly toolset",
+                    "type": "allow",
+                    "priority": rule_priority + 10,
+                    "match": {
+                        "hosts": hosts,
+                        "methods": ["POST"],
+                        "path_pattern": ".*/graphql.*",
+                        "scopes": ["readonly"],
+                    },
+                    "settings": {
+                        "allow_without_confirmation": True,
+                        "justification": (
+                            "GraphQL queries are POST-based but should be usable by autonomous agents "
+                            "without out-of-band confirmation when restricted to the readonly toolset."
+                        ),
+                    },
+                }
+            )
 
         # Rule: Allow first-party GET requests
         rules.append({
@@ -154,6 +188,7 @@ class PolicyGenerator:
                 },
                 "settings": {
                     "message": "Admin endpoints require explicit allowlist",
+                    "justification": "Admin endpoints are high-risk and denied by default.",
                 },
             })
 
@@ -171,6 +206,7 @@ class PolicyGenerator:
                 "settings": {
                     "level": "detailed",
                     "include_body": False,
+                    "justification": "Authentication surfaces require heightened audit visibility.",
                 },
             })
             rule_priority -= 10
@@ -188,6 +224,7 @@ class PolicyGenerator:
                 },
                 "settings": {
                     "message": "This endpoint handles personal data. Confirm access?",
+                    "justification": "PII-linked endpoints require explicit human confirmation.",
                 },
             })
 

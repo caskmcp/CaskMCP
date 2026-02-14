@@ -22,5 +22,5 @@ workflows. Security reports are prioritized for:
 
 ## Supported Versions
 
-This project is currently pre-release alpha. Security fixes are applied to the
+This project is currently in beta (v0.2.0b1). Security fixes are applied to the
 latest release line on `main`.

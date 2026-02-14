@@ -364,6 +364,14 @@ class PlaywrightCapture:
 
     def _is_api_response(self, url: str, method: str, content_type: str) -> bool:
         """Check if response looks like an API response."""
+        from urllib.parse import urlparse
+
+        from caskmcp.core.capture.path_blocklist import is_blocked_path
+
+        path = urlparse(url).path
+        if is_blocked_path(path):
+            return False
+
         ct_lower = content_type.lower()
 
         # JSON/XML/GraphQL responses are APIs

@@ -7,8 +7,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from caskmcp.cli.enforce import EnforcementGateway
+from caskmcp.cli.enforce import EnforcementGateway, RuntimeBlockError
 from caskmcp.core.approval import LockfileManager
+from caskmcp.models.decision import ReasonCode
 
 
 def _align_lockfile_integrity(gateway: EnforcementGateway) -> None:
@@ -383,6 +384,159 @@ class TestEnforcementGatewayExecute:
         assert response["status_code"] == 200
         assert response["body"]["id"] == "123"
 
+    @pytest.mark.asyncio
+    async def test_execute_upstream_applies_fixed_graphql_operation(self, tmp_path):
+        """Proxy execution should enforce fixed GraphQL operationName for split tools."""
+        tools_manifest = {
+            "actions": [
+                {
+                    "name": "query_get_product",
+                    "description": "GraphQL GetProduct",
+                    "method": "POST",
+                    "path": "/api/graphql",
+                    "host": "api.example.com",
+                    "risk_tier": "medium",
+                    "fixed_body": {"operationName": "GetProduct"},
+                }
+            ]
+        }
+        tools_path = tmp_path / "tools.json"
+        policy_path = tmp_path / "policy.yaml"
+        tools_path.write_text(json.dumps(tools_manifest))
+        policy_path.write_text(
+            """
+name: test_policy
+rules:
+  - id: allow_post
+    name: Allow POST requests
+    type: allow
+    match:
+      methods: [POST]
+default_action: deny
+""".strip()
+        )
+
+        gateway = EnforcementGateway(
+            tools_path=str(tools_path),
+            policy_path=str(policy_path),
+            mode="proxy",
+            base_url="https://api.example.com",
+            unsafe_no_lockfile=True,
+        )
+
+        captured: dict[str, object] = {}
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"content-type": "application/json"}
+        mock_response.json = lambda: {"ok": True}
+
+        async def mock_get_client() -> AsyncMock:
+            client = AsyncMock()
+
+            async def request(method: str, url: str, **kwargs: object) -> AsyncMock:
+                captured["method"] = method
+                captured["url"] = url
+                captured["json"] = kwargs.get("json")
+                return mock_response
+
+            client.request = AsyncMock(side_effect=request)
+            return client
+
+        with (
+            patch.object(gateway, "_get_http_client", mock_get_client),
+            patch.object(gateway, "_validate_network_target"),
+        ):
+            await gateway._execute_upstream(
+                gateway.actions_by_name["query_get_product"],
+                {"operationName": "WrongOp", "query": "query { product { id } }"},
+            )
+
+        sent_body = captured["json"]
+        assert isinstance(sent_body, dict)
+        assert sent_body["operationName"] == "GetProduct"
+
+    @pytest.mark.asyncio
+    async def test_execute_upstream_resolves_nextjs_build_id_token(self, tmp_path):
+        """Proxy execution should auto-resolve Next.js buildId tokens when omitted."""
+        tools_manifest = {
+            "allowed_hosts": ["api.example.com"],
+            "actions": [
+                {
+                    "name": "get_next_data_search",
+                    "description": "Next.js data route",
+                    "method": "GET",
+                    "path": "/_next/data/{token}/en/search.json",
+                    "host": "api.example.com",
+                    "risk_tier": "low",
+                }
+            ],
+        }
+        tools_path = tmp_path / "tools.json"
+        policy_path = tmp_path / "policy.yaml"
+        tools_path.write_text(json.dumps(tools_manifest))
+        policy_path.write_text(
+            """
+name: test_policy
+rules:
+  - id: allow_get
+    name: Allow GET requests
+    type: allow
+    match:
+      methods: [GET]
+default_action: deny
+""".strip()
+        )
+
+        gateway = EnforcementGateway(
+            tools_path=str(tools_path),
+            policy_path=str(policy_path),
+            mode="proxy",
+            base_url="https://api.example.com",
+            unsafe_no_lockfile=True,
+        )
+
+        build_id = "build123"
+        html = (
+            '<html><head><script id="__NEXT_DATA__" type="application/json">'
+            + json.dumps({"buildId": build_id})
+            + "</script></head></html>"
+        )
+
+        captured_urls: list[str] = []
+        mock_html_response = AsyncMock()
+        mock_html_response.status_code = 200
+        mock_html_response.headers = {"content-type": "text/html"}
+        mock_html_response.text = html
+
+        mock_json_response = AsyncMock()
+        mock_json_response.status_code = 200
+        mock_json_response.headers = {"content-type": "application/json"}
+        mock_json_response.json = lambda: {"ok": True}
+
+        async def mock_get_client() -> AsyncMock:
+            client = AsyncMock()
+
+            async def request(_method: str, url: str, **_kwargs: object) -> AsyncMock:
+                captured_urls.append(url)
+                if "/_next/data/" in url:
+                    assert f"/_next/data/{build_id}/" in url
+                    return mock_json_response
+                return mock_html_response
+
+            client.request = AsyncMock(side_effect=request)
+            return client
+
+        with (
+            patch.object(gateway, "_get_http_client", mock_get_client),
+            patch.object(gateway, "_validate_network_target"),
+        ):
+            await gateway._execute_upstream(
+                gateway.actions_by_name["get_next_data_search"],
+                {"q": "jordan"},
+            )
+
+        assert any("/_next/data/" in url for url in captured_urls)
+
 
 class TestEnforcementGatewayConfirmation:
     """Tests for confirmation workflow."""
@@ -517,3 +671,165 @@ class TestEnforcementGatewayRuntimeApproval:
         result = gateway.evaluate_action("create_user", {"name": "John"})
         assert result["allowed"] is False
         assert "Unknown action" in result["error"]
+
+
+class TestEnforcementGatewayNetworkSafety:
+    """Tests for scheme and DNS/IP safety hardening."""
+
+    @pytest.mark.asyncio
+    async def test_execute_blocks_non_http_scheme(self, temp_files, approved_lockfile):
+        tools_path, policy_path = temp_files
+        gateway = EnforcementGateway(
+            tools_path=tools_path,
+            policy_path=policy_path,
+            mode="proxy",
+            base_url="ftp://api.example.com",
+            lockfile_path=approved_lockfile,
+        )
+        _align_lockfile_integrity(gateway)
+
+        with pytest.raises(RuntimeBlockError, match="Unsupported URL scheme"):
+            await gateway._execute_upstream(gateway.actions["get_user"], {"id": "123"})
+
+    def test_validate_network_target_blocks_metadata_ip(self, temp_files, approved_lockfile):
+        tools_path, policy_path = temp_files
+        gateway = EnforcementGateway(
+            tools_path=tools_path,
+            policy_path=policy_path,
+            mode="proxy",
+            lockfile_path=approved_lockfile,
+        )
+
+        with (
+            patch(
+                "socket.getaddrinfo",
+                return_value=[(None, None, None, None, ("169.254.169.254", 443))],
+            ),
+            pytest.raises(RuntimeBlockError, match="blocked address"),
+        ):
+            gateway._validate_network_target("api.example.com")
+
+    def test_idp_hosts_are_not_runtime_allowlisted(self, tmp_path: Path, approved_lockfile):
+        tools_path = tmp_path / "tools.json"
+        policy_path = tmp_path / "policy.yaml"
+        tools_path.write_text(
+            json.dumps(
+                {
+                    "allowed_hosts": {
+                        "app": ["api.example.com"],
+                        "idp": ["auth.example.com"],
+                    },
+                    "actions": [
+                        {
+                            "name": "get_user",
+                            "method": "GET",
+                            "path": "/api/users/{id}",
+                            "host": "api.example.com",
+                            "risk_tier": "low",
+                            "endpoint": {
+                                "method": "GET",
+                                "path": "/api/users/{id}",
+                                "host": "api.example.com",
+                            },
+                        }
+                    ],
+                }
+            )
+        )
+        policy_path.write_text(
+            """
+name: test_policy
+rules:
+  - id: allow_get
+    name: Allow GET requests
+    type: allow
+    match:
+      methods: [GET]
+default_action: deny
+""".strip()
+        )
+        gateway = EnforcementGateway(
+            tools_path=str(tools_path),
+            policy_path=str(policy_path),
+            mode="proxy",
+            lockfile_path=approved_lockfile,
+        )
+        gateway._validate_host_allowlist("api.example.com", "api.example.com")
+        with pytest.raises(RuntimeBlockError, match="not allowlisted"):
+            gateway._validate_host_allowlist("auth.example.com", "api.example.com")
+
+
+class TestDecisionTraceAudit:
+    """Tests for strict DecisionTrace audit emission."""
+
+    def test_evaluate_emits_decision_trace_with_required_fields(self, temp_files):
+        tools_path, policy_path = temp_files
+        with tempfile.TemporaryDirectory() as tmpdir:
+            audit_log = Path(tmpdir) / "audit.log.jsonl"
+            gateway = EnforcementGateway(
+                tools_path=tools_path,
+                policy_path=policy_path,
+                mode="evaluate",
+                audit_log=str(audit_log),
+            )
+            result = gateway.evaluate_action("get_user", {"id": "123"})
+            assert result["allowed"] is True
+
+            lines = audit_log.read_text(encoding="utf-8").strip().splitlines()
+            assert lines
+            event = json.loads(lines[-1])
+            required_keys = {
+                "timestamp",
+                "run_id",
+                "tool_id",
+                "scope_id",
+                "request_fingerprint",
+                "decision",
+                "reason_code",
+                "evidence_refs",
+                "lockfile_digest",
+                "policy_digest",
+                "confirmation_issuer",
+                "provenance_mode",
+            }
+            assert required_keys.issubset(event.keys())
+
+    def test_decision_trace_one_record_per_decision_with_stable_schema(self, temp_files):
+        tools_path, policy_path = temp_files
+        with tempfile.TemporaryDirectory() as tmpdir:
+            audit_log = Path(tmpdir) / "audit.log.jsonl"
+            gateway = EnforcementGateway(
+                tools_path=tools_path,
+                policy_path=policy_path,
+                mode="evaluate",
+                audit_log=str(audit_log),
+            )
+            allow_result = gateway.evaluate_action("get_user", {"id": "123"})
+            unknown_result = gateway.evaluate_action("missing_action", {})
+
+            assert allow_result["allowed"] is True
+            assert unknown_result["allowed"] is False
+
+            lines = [line for line in audit_log.read_text(encoding="utf-8").splitlines() if line]
+            assert len(lines) == 2
+
+            expected_keys = {
+                "confirmation_issuer",
+                "decision",
+                "evidence_refs",
+                "lockfile_digest",
+                "policy_digest",
+                "provenance_mode",
+                "reason",
+                "reason_code",
+                "request_fingerprint",
+                "run_id",
+                "scope_id",
+                "timestamp",
+                "tool_id",
+            }
+            valid_reason_codes = {reason.value for reason in ReasonCode}
+            for line in lines:
+                event = json.loads(line)
+                assert set(event.keys()) == expected_keys
+                assert event["reason_code"] in valid_reason_codes

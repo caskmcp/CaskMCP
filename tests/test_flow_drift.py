@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from caskmcp.core.drift.engine import DriftEngine
-from caskmcp.models.drift import DriftType
-from caskmcp.models.endpoint import Endpoint, Parameter, ParameterLocation
+from caskmcp.models.endpoint import Endpoint, Parameter
 from caskmcp.models.flow import FlowEdge, FlowGraph
 
 

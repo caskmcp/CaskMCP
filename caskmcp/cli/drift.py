@@ -20,10 +20,12 @@ def run_drift(
     to_capture: str | None,
     baseline: str | None,
     capture_id: str | None,
+    capture_path: str | None,
     output_dir: str,
     output_format: str,
     verbose: bool,
     deterministic: bool = True,
+    root_path: str = ".caskmcp",
 ) -> None:
     """Run the drift command.
 
@@ -37,7 +39,7 @@ def run_drift(
         verbose: Enable verbose output
         deterministic: Use deterministic report IDs and generated_at metadata
     """
-    storage = Storage()
+    storage = Storage(base_path=root_path)
     engine = DriftEngine()
 
     if from_capture and to_capture:
@@ -45,15 +47,26 @@ def run_drift(
         report = _compare_captures(
             storage, engine, from_capture, to_capture, verbose, deterministic
         )
-    elif baseline and capture_id:
+    elif baseline and (capture_id or capture_path):
+        if capture_id and capture_path:
+            click.echo(
+                "Error: Provide only one of --capture-id or --capture-path for baseline comparison",
+                err=True,
+            )
+            sys.exit(1)
         # Compare capture against baseline
         report = _compare_to_baseline(
-            storage, engine, baseline, capture_id, verbose, deterministic
+            storage,
+            engine,
+            baseline,
+            capture_id or capture_path or "",
+            verbose,
+            deterministic,
         )
     else:
         click.echo(
             "Error: Specify --from/--to for capture comparison "
-            "OR --baseline/--capture for baseline comparison",
+            "OR --baseline with --capture-id/--capture-path for baseline comparison",
             err=True,
         )
         sys.exit(1)

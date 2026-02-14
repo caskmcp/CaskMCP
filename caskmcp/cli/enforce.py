@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import ipaddress
 import json
+import re
 import socket
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlparse
+from uuid import uuid4
 
 import click
 import httpx
@@ -21,7 +24,13 @@ from caskmcp.core.approval import (
     compute_artifacts_digest_from_paths,
     compute_lockfile_digest,
 )
-from caskmcp.core.audit import AuditLogger, FileAuditBackend, MemoryAuditBackend
+from caskmcp.core.approval.signing import resolve_approval_root
+from caskmcp.core.audit import (
+    AuditLogger,
+    DecisionTraceEmitter,
+    FileAuditBackend,
+    MemoryAuditBackend,
+)
 from caskmcp.core.enforce import ConfirmationStore, DecisionEngine, PolicyEngine
 from caskmcp.models.decision import (
     DecisionContext,
@@ -32,6 +41,12 @@ from caskmcp.models.decision import (
     ReasonCode,
 )
 from caskmcp.utils.schema_version import resolve_schema_version
+
+_NEXTJS_DATA_PLACEHOLDER_RE = re.compile(r"/_next/data/\{([^}]+)\}/", re.IGNORECASE)
+_NEXTJS_NEXT_DATA_RE = re.compile(
+    r'<script[^>]+id="__NEXT_DATA__"[^>]*>(.*?)</script>',
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 class RuntimeBlockError(Exception):
@@ -83,6 +98,7 @@ class EnforcementGateway:
 
         # HTTP client for proxy mode (lazy initialized)
         self._http_client: httpx.AsyncClient | None = None
+        self._nextjs_build_id_cache: dict[str, str] = {}
 
         with open(tools_path) as f:
             self.tools_manifest = json.load(f)
@@ -109,6 +125,10 @@ class EnforcementGateway:
 
         backend = FileAuditBackend(audit_log) if audit_log else MemoryAuditBackend()
         self.audit_logger = AuditLogger(backend)
+        self.run_id = f"run_{uuid4().hex[:12]}"
+        self.policy_digest = hashlib.sha256(
+            Path(policy_path).read_bytes()
+        ).hexdigest()
 
         self.policy_engine = PolicyEngine.from_file(policy_path)
 
@@ -136,12 +156,28 @@ class EnforcementGateway:
             policy_path=policy_path,
         )
 
-        resolved_confirmation_store = (
-            confirmation_store_path
-            or str(Path(policy_path).parent / ".caskmcp" / "confirmations.db")
+        if confirmation_store_path:
+            resolved_confirmation_store = confirmation_store_path
+        elif lockfile_path:
+            resolved_confirmation_store = str(
+                Path(lockfile_path).resolve().parent / ".caskmcp" / "state" / "confirmations.db"
+            )
+        else:
+            resolved_confirmation_store = str(
+                Path(policy_path).parent / ".caskmcp" / "state" / "confirmations.db"
+            )
+        self.approval_root_path = resolve_approval_root(
+            lockfile_path=self.lockfile_path,
+            fallback_root=resolved_confirmation_store,
         )
         self.confirmation_store = ConfirmationStore(resolved_confirmation_store)
         self.decision_engine = DecisionEngine(self.confirmation_store)
+        self.decision_trace = DecisionTraceEmitter(
+            output_path=audit_log,
+            run_id=self.run_id,
+            lockfile_digest=self.lockfile_digest_current,
+            policy_digest=self.policy_digest,
+        )
 
         self.decision_context = DecisionContext(
             manifest_view=self.actions,
@@ -156,6 +192,8 @@ class EnforcementGateway:
             ),
             artifacts_digest_current=self.artifacts_digest_current,
             lockfile_digest_current=self.lockfile_digest_current,
+            approval_root_path=str(self.approval_root_path),
+            require_signed_approvals=True,
         )
 
         if verbose:
@@ -225,6 +263,20 @@ class EnforcementGateway:
 
         return str(method), str(path), str(host)
 
+    def _apply_fixed_body(
+        self,
+        action: dict[str, Any],
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Merge action-level fixed body fields into provided params."""
+        resolved = dict(params)
+        fixed_body = action.get("fixed_body")
+        if not isinstance(fixed_body, dict):
+            return resolved
+        for key, value in fixed_body.items():
+            resolved[str(key)] = value
+        return resolved
+
     def _decision_to_payload(self, result: DecisionResult) -> dict[str, Any]:
         budget_remaining = result.budget_effects.get("budget_remaining")
         budget_exceeded = bool(result.budget_effects.get("budget_exceeded", False))
@@ -264,6 +316,7 @@ class EnforcementGateway:
 
         method, path, host = self._resolve_action_endpoint(action)
         tool_id = str(action.get("tool_id") or action.get("signature_id") or action_name)
+        effective_params = self._apply_fixed_body(action, params or {})
 
         return DecisionRequest(
             tool_id=tool_id,
@@ -271,7 +324,7 @@ class EnforcementGateway:
             method=method,
             path=path,
             host=host,
-            params=params or {},
+            params=effective_params,
             toolset_name=self.toolset_name,
             confirmation_token_id=confirmation_token,
             source="enforce",
@@ -284,10 +337,20 @@ class EnforcementGateway:
         params: dict[str, Any] | None = None,
         confirmation_token: str | None = None,
         mode: str = "evaluate",
+        emit_trace: bool = True,
     ) -> dict[str, Any]:
         """Evaluate an action request using DecisionEngine."""
         request = self._build_decision_request(action_name, params, confirmation_token, mode=mode)
         if request is None:
+            if emit_trace:
+                self.decision_trace.emit(
+                    tool_id=action_name,
+                    scope_id=self.toolset_name,
+                    request_fingerprint=None,
+                    decision=DecisionType.DENY.value,
+                    reason_code=ReasonCode.DENIED_UNKNOWN_ACTION.value,
+                    extra={"reason": f"Unknown action: {action_name}"},
+                )
             return {
                 "decision": DecisionType.DENY.value,
                 "allowed": False,
@@ -303,6 +366,17 @@ class EnforcementGateway:
                 f"[caskmcp] Confirmation required for {action_name}. "
                 f"Run: caskmcp confirm grant {result.confirmation_token_id}",
                 err=True,
+            )
+
+        if emit_trace:
+            self._emit_decision_trace(
+                request=request,
+                request_fingerprint=str(result.audit_fields.get("request_digest"))
+                if result.audit_fields.get("request_digest")
+                else None,
+                decision=result.decision.value,
+                reason_code=result.reason_code.value,
+                reason=result.reason_message,
             )
 
         return payload
@@ -350,32 +424,71 @@ class EnforcementGateway:
             params=params,
             confirmation_token=confirmation_token,
             mode="execute",
+            emit_trace=False,
+        )
+        audit_fields = eval_result.get("audit_fields", {})
+        request_fingerprint = (
+            str(audit_fields.get("request_digest"))
+            if isinstance(audit_fields, dict) and audit_fields.get("request_digest")
+            else None
         )
 
         if not eval_result.get("allowed", False):
+            self._emit_decision_trace(
+                tool_id=action_name,
+                request_fingerprint=request_fingerprint,
+                decision=str(eval_result.get("decision", DecisionType.DENY.value)),
+                reason_code=str(
+                    eval_result.get("reason_code", ReasonCode.DENIED_POLICY.value)
+                ),
+                reason=eval_result.get("reason"),
+            )
             return eval_result
 
         action = self.actions_by_name.get(action_name)
         if not action:
+            self._emit_decision_trace(
+                tool_id=action_name,
+                decision=DecisionType.DENY.value,
+                reason_code=ReasonCode.DENIED_UNKNOWN_ACTION.value,
+                reason=f"Unknown action: {action_name}",
+            )
             return {
                 "decision": DecisionType.DENY.value,
                 "allowed": False,
                 "error": f"Unknown action: {action_name}",
                 "reason_code": ReasonCode.DENIED_UNKNOWN_ACTION.value,
             }
+        effective_params = self._apply_fixed_body(action, params or {})
 
         if self.dry_run:
+            self._emit_decision_trace(
+                tool_id=action_name,
+                scope_id=self.toolset_name,
+                request_fingerprint=request_fingerprint,
+                decision=DecisionType.ALLOW.value,
+                reason_code=ReasonCode.ALLOWED_POLICY.value,
+                reason="Dry run execution",
+            )
             return {
                 "decision": DecisionType.ALLOW.value,
                 "allowed": True,
                 "dry_run": True,
                 "action": action_name,
                 "message": "Request would be sent (dry run mode)",
-                "params": params,
+                "params": effective_params,
             }
 
         try:
-            response = asyncio.run(self._execute_upstream(action, params or {}))
+            response = asyncio.run(self._execute_upstream(action, effective_params))
+            self._emit_decision_trace(
+                tool_id=action_name,
+                scope_id=self.toolset_name,
+                request_fingerprint=request_fingerprint,
+                decision=DecisionType.ALLOW.value,
+                reason_code=ReasonCode.ALLOWED_POLICY.value,
+                reason="Execution allowed",
+            )
             return {
                 "decision": DecisionType.ALLOW.value,
                 "allowed": True,
@@ -385,6 +498,14 @@ class EnforcementGateway:
                 "reason_code": ReasonCode.ALLOWED_POLICY.value,
             }
         except RuntimeBlockError as blocked:
+            self._emit_decision_trace(
+                tool_id=action_name,
+                scope_id=self.toolset_name,
+                request_fingerprint=request_fingerprint,
+                decision=DecisionType.DENY.value,
+                reason_code=blocked.reason_code.value,
+                reason=blocked.message,
+            )
             return {
                 "decision": DecisionType.DENY.value,
                 "allowed": False,
@@ -394,6 +515,14 @@ class EnforcementGateway:
                 "reason": blocked.message,
             }
         except Exception as e:
+            self._emit_decision_trace(
+                tool_id=action_name,
+                scope_id=self.toolset_name,
+                request_fingerprint=request_fingerprint,
+                decision=DecisionType.DENY.value,
+                reason_code=ReasonCode.ERROR_INTERNAL.value,
+                reason=str(e),
+            )
             return {
                 "decision": DecisionType.DENY.value,
                 "allowed": False,
@@ -403,11 +532,150 @@ class EnforcementGateway:
                 "error": str(e),
             }
 
+    def _emit_decision_trace(
+        self,
+        *,
+        request: DecisionRequest | None = None,
+        tool_id: str | None = None,
+        scope_id: str | None = None,
+        request_fingerprint: str | None = None,
+        decision: str,
+        reason_code: str,
+        reason: str | None = None,
+        confirmation_issuer: str | None = None,
+    ) -> None:
+        resolved_tool_id = request.tool_id if request else tool_id
+        resolved_scope_id = request.toolset_name if request else scope_id
+        resolved_fingerprint = request_fingerprint
+        if request is not None and request_fingerprint is None:
+            resolved_fingerprint = None
+
+        self.decision_trace.emit(
+            tool_id=resolved_tool_id,
+            scope_id=resolved_scope_id,
+            request_fingerprint=resolved_fingerprint,
+            decision=decision,
+            reason_code=reason_code,
+            confirmation_issuer=confirmation_issuer,
+            provenance_mode="runtime",
+            extra={"reason": reason} if reason else None,
+        )
+
     async def _get_http_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
         if self._http_client is None:
             self._http_client = httpx.AsyncClient(timeout=30.0)
         return self._http_client
+
+    async def _resolve_nextjs_build_id(
+        self,
+        *,
+        action_host: str,
+        path_template: str,
+        params: dict[str, Any],
+    ) -> str:
+        cached = self._nextjs_build_id_cache.get(action_host)
+        if cached:
+            return cached
+
+        probe_path = self._nextjs_probe_path(path_template, params)
+        base = (self.base_url or f"https://{action_host}").rstrip("/") + "/"
+        probe_url = urljoin(base, probe_path.lstrip("/"))
+
+        headers: dict[str, str] = {"User-Agent": "CaskMCP-Proxy/0.1"}
+        if self.auth_header:
+            headers["Authorization"] = self.auth_header
+
+        client = await self._get_http_client()
+        current_url = probe_url
+        for _ in range(2):
+            self._validate_url_scheme(current_url)
+            parsed = urlparse(current_url)
+            target_host = parsed.hostname or action_host
+            self._validate_host_allowlist(target_host, action_host)
+            self._validate_network_target(target_host)
+
+            response = await client.request(
+                "GET",
+                current_url,
+                headers=headers,
+                follow_redirects=False,
+            )
+            if response.status_code in {301, 302, 303, 307, 308}:
+                location = response.headers.get("location")
+                if not location:
+                    break
+                next_url = urljoin(current_url, location)
+                next_host = urlparse(next_url).hostname
+                if not next_host:
+                    break
+                self._validate_host_allowlist(next_host, action_host)
+                self._validate_network_target(next_host)
+                current_url = next_url
+                continue
+
+            html = response.text or ""
+            match = _NEXTJS_NEXT_DATA_RE.search(html)
+            if not match:
+                raise RuntimeBlockError(
+                    ReasonCode.DENIED_PARAM_VALIDATION,
+                    f"Failed to resolve Next.js build ID from {current_url}: __NEXT_DATA__ not found",
+                )
+
+            raw = match.group(1).strip()
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                raise RuntimeBlockError(
+                    ReasonCode.DENIED_PARAM_VALIDATION,
+                    f"Failed to parse __NEXT_DATA__ JSON from {current_url}: {exc}",
+                ) from exc
+
+            build_id = payload.get("buildId")
+            if not isinstance(build_id, str) or not build_id.strip():
+                raise RuntimeBlockError(
+                    ReasonCode.DENIED_PARAM_VALIDATION,
+                    f"Failed to resolve Next.js build ID from {current_url}: buildId missing",
+                )
+
+            resolved = build_id.strip()
+            self._nextjs_build_id_cache[action_host] = resolved
+            return resolved
+
+        raise RuntimeBlockError(
+            ReasonCode.DENIED_PARAM_VALIDATION,
+            f"Failed to resolve Next.js build ID for host '{action_host}'",
+        )
+
+    @staticmethod
+    def _nextjs_probe_path(path_template: str, params: dict[str, Any]) -> str:
+        """Pick a lightweight HTML page path for extracting __NEXT_DATA__ buildId."""
+        segments = [s for s in (path_template or "").split("/") if s]
+        try:
+            idx = next(
+                i
+                for i in range(len(segments) - 2)
+                if segments[i].lower() == "_next" and segments[i + 1].lower() == "data"
+            )
+        except StopIteration:
+            return "/"
+
+        tail = segments[idx + 3 :]  # skip `_next/data/{token}`
+        if not tail:
+            return "/"
+
+        last = tail[-1]
+        if last.lower().endswith(".json"):
+            tail[-1] = last[:-5]
+
+        page_path = "/" + "/".join(tail)
+        for key, value in params.items():
+            page_path = page_path.replace(f"{{{key}}}", str(value))
+
+        parts = [p for p in page_path.split("/") if p]
+        if parts and re.fullmatch(r"[a-z]{2}", parts[0].lower()):
+            return "/" + parts[0]
+        return "/"
 
     def _resolved_ips(self, host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
         try:
@@ -447,16 +715,50 @@ class EnforcementGateway:
                     f"Resolved host '{host}' to blocked address {ip}",
                 )
 
+    def _validate_url_scheme(self, url: str) -> None:
+        parsed = urlparse(url)
+        scheme = (parsed.scheme or "").lower()
+        if scheme not in {"http", "https"}:
+            raise RuntimeBlockError(
+                ReasonCode.DENIED_SCHEME_NOT_ALLOWED,
+                f"Unsupported URL scheme '{scheme or '<empty>'}' for runtime request",
+            )
+
     def _validate_host_allowlist(self, target_host: str, action_host: str) -> None:
-        allowed_hosts = {str(h).lower() for h in self.tools_manifest.get("allowed_hosts", [])}
-        if target_host.lower() == action_host.lower():
+        allowed_hosts = self._allowed_app_hosts()
+        target_host_l = target_host.lower()
+        if self._host_matches_allowlist(target_host_l, allowed_hosts):
             return
-        if target_host.lower() in allowed_hosts:
+        if not allowed_hosts and target_host_l == action_host.lower():
             return
         raise RuntimeBlockError(
             ReasonCode.DENIED_REDIRECT_NOT_ALLOWLISTED,
             f"Host '{target_host}' is not allowlisted for action host '{action_host}'",
         )
+
+    def _host_matches_allowlist(self, host: str, allowed_hosts: set[str]) -> bool:
+        for pattern in allowed_hosts:
+            if pattern.startswith("*."):
+                suffix = pattern[2:]
+                if not suffix:
+                    continue
+                if host.endswith(f".{suffix}") and host.count(".") == suffix.count(".") + 1:
+                    return True
+                continue
+            if host == pattern:
+                return True
+        return False
+
+    def _allowed_app_hosts(self) -> set[str]:
+        raw_allowed = self.tools_manifest.get("allowed_hosts", [])
+        if isinstance(raw_allowed, dict):
+            app_hosts = raw_allowed.get("app", [])
+            if not isinstance(app_hosts, list):
+                return set()
+            return {str(host).lower() for host in app_hosts}
+        if isinstance(raw_allowed, list):
+            return {str(host).lower() for host in raw_allowed}
+        return set()
 
     async def _execute_upstream(
         self,
@@ -464,7 +766,22 @@ class EnforcementGateway:
         params: dict[str, Any],
     ) -> dict[str, Any]:
         """Execute the upstream HTTP request."""
+        params = self._apply_fixed_body(action, params)
         method, path, action_host = self._resolve_action_endpoint(action)
+
+        # Derived runtime parameters (e.g., Next.js buildId) are resolved on demand.
+        match = _NEXTJS_DATA_PLACEHOLDER_RE.search(path)
+        if match:
+            token_name = match.group(1)
+            if token_name and token_name not in params and token_name.lower() in {"token", "build_id", "buildid"}:
+                resolved = await self._resolve_nextjs_build_id(
+                    action_host=action_host,
+                    path_template=path,
+                    params=params,
+                )
+                params = dict(params)
+                params[token_name] = resolved
+
         url = urljoin(self.base_url, path) if self.base_url else f"https://{action_host}{path}"
 
         for param_name, param_value in params.items():
@@ -498,6 +815,7 @@ class EnforcementGateway:
         max_redirects = 3
 
         for _ in range(max_redirects + 1):
+            self._validate_url_scheme(current_url)
             parsed = urlparse(current_url)
             target_host = parsed.hostname or action_host
             self._validate_host_allowlist(target_host, action_host)
@@ -514,6 +832,7 @@ class EnforcementGateway:
                         f"Redirect blocked for {current_url} -> {location}",
                     )
                 next_url = urljoin(current_url, location)
+                self._validate_url_scheme(next_url)
                 next_host = urlparse(next_url).hostname
                 if not next_host:
                     raise RuntimeBlockError(
@@ -677,7 +996,7 @@ def run_enforce(
     base_url: str | None = None,
     auth_header: str | None = None,
     lockfile_path: str | None = None,
-    confirmation_store_path: str = ".caskmcp/confirmations.db",
+    confirmation_store_path: str = ".caskmcp/state/confirmations.db",
     allow_private_cidrs: list[str] | None = None,
     allow_redirects: bool = False,
     unsafe_no_lockfile: bool = False,

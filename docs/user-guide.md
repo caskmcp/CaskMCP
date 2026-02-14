@@ -26,6 +26,28 @@ pip install "caskmcp[playwright,mcp]"
 python -m playwright install chromium
 ```
 
+## Connect to MCP clients (Claude Desktop, Cursor, etc.)
+
+Generate a ready-to-paste MCP client config snippet:
+
+```bash
+cask config --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
+```
+
+Codex app config (TOML):
+
+```bash
+cask config --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml --format codex
+```
+
+Claude Desktop:
+
+- Paste the emitted JSON into `~/Library/Application Support/Claude/claude_desktop_config.json` under `mcpServers`
+- Restart Claude Desktop
+
+macOS note: If your `caskmcp` binary or toolpack lives under `~/Documents`, `~/Desktop`, or `~/Downloads`, macOS may deny access to the spawned MCP process. If you see:
+`PermissionError: [Errno 1] Operation not permitted ... pyvenv.cfg`, relocate the toolpack + install outside those folders (recommended), or grant the relevant Claude app/helper processes access.
+
 ## Day-one flow
 
 ```bash
@@ -38,7 +60,7 @@ caskmcp mint https://app.example.com -a api.example.com --scope agent_safe_reado
 # Diff
 caskmcp diff --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml --format github-md
 
-# Gate
+# Gate (once all tools are approved, this will also materialize an approved lockfile)
 caskmcp gate allow --all --toolset readonly \
   --lockfile .caskmcp/toolpacks/<toolpack-id>/lockfile/caskmcp.lock.pending.yaml
 
@@ -88,6 +110,19 @@ Canonical root layout:
 
 Captures traffic, compiles artifacts, creates toolpack, and writes pending lockfile.
 
+### `capture` (advanced)
+
+Low-level capture adapters for import/record workflows.
+
+- HAR import:
+  - `cask capture import traffic.har -a api.example.com`
+- OTEL import:
+  - `cask capture import traces.json --input-format otel -a api.example.com`
+- Playwright record:
+  - `cask capture record https://example.com -a api.example.com`
+
+OTEL support is file-import only in this release (JSON/NDJSON export input).
+
 ### `diff` / `plan`
 
 Deterministic capability diff report.
@@ -100,6 +135,7 @@ Governance workflow.
 
 - Golden path: `gate allow --all --toolset readonly`
 - Advanced: `gate sync`, `gate status`, `gate block`, `gate check`, `gate snapshot`
+- `gate sync` keeps removed tools in the lockfile by default (audit-friendly). If you want to remove tools that no longer exist in the published artifacts (for example after a compiler generalization from one-off listing paths to `{slug}` templates), use `gate sync --prune-removed`.
 
 ### `run`, `mcp serve`, `serve`
 
@@ -107,7 +143,9 @@ Runtime execution with policy and lockfile enforcement.
 
 - Requires approved lockfile by default.
 - Pending lockfiles are rejected for runtime.
+- For minted toolpacks, approvals are tracked in `lockfile/caskmcp.lock.pending.yaml`. Once all tools are approved, CaskMCP promotes an approved copy to `lockfile/caskmcp.lock.yaml` and updates `toolpack.yaml` to reference it.
 - `--unsafe-no-lockfile` is explicit non-default escape hatch.
+- Some hostile/anti-bot sites will return challenge pages or `403` when executed outside a real browser context. In those cases, treat runtime execution as best-effort; CaskMCP still supports capture/compile/gate, and you can still use manual browser-assisted capture/execution flows.
 
 ### `drift`
 
@@ -142,9 +180,51 @@ Read-only control-plane introspection for operator/CI workflows.
 
 Scope ownership model:
 
-- `scopes.suggested.yaml` is generated.
+- `scopes.suggested.yaml` is generated (draft-style `drafts:` payload from compile).
 - `scopes.yaml` is user-owned and authoritative.
-- Merge proposes diffs and never silently overwrites.
+- Merge accepts both draft-style and map-style suggestions, proposes diffs, and never silently overwrites.
+
+### `propose from-capture`
+
+Generates abstraction planning artifacts from a capture before lockfile publication:
+
+- `endpoint_catalog.yaml` (templated endpoint families + parameter variability)
+- `tools.proposed.yaml` (parameterized proposed tools)
+- `questions.yaml` (follow-up capture prompts for low-confidence areas)
+
+Example:
+
+```bash
+cask propose from-capture <capture-id> --scope first_party_only
+```
+
+This command is intentionally pre-approval. It curates candidate capabilities and does not modify runtime-approved lockfiles.
+
+### `propose publish`
+
+Promotes `tools.proposed.yaml` into runtime-ready artifacts with explicit confidence/risk filters:
+
+- `tools.json` (action manifest)
+- `toolsets.yaml` (readonly/write/operator slices)
+- `policy.yaml` (default deny + budget/confirmation rules)
+- `publish_report.json` (selected/excluded proposals and reasons)
+
+Example:
+
+```bash
+cask propose publish .caskmcp/proposals/<proposal-id> \
+  --min-confidence 0.70 \
+  --max-risk high \
+  --include-review-required
+```
+
+Optional lockfile sync from published artifacts:
+
+```bash
+cask propose publish .caskmcp/proposals/<proposal-id> \
+  --sync-lockfile \
+  --lockfile .caskmcp/lockfile/caskmcp.lock.pending.yaml
+```
 
 ### `lint`
 
@@ -201,5 +281,6 @@ Status rules:
 - `docs/evidence-redaction-spec.md`
 - `docs/ci-gate-policy.md`
 - `docs/compatibility-matrix.md`
+- `docs/capture-otel.md`
 - `docs/known-limitations.md`
 - `docs/threat-model-boundaries.md`

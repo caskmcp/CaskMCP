@@ -52,13 +52,13 @@ _PATH_DOMAIN_MAP: dict[str, set[str]] = {
 # Domain -> response/request field patterns
 _FIELD_DOMAIN_MAP: dict[str, set[str]] = {
     "commerce": {
-        "price", "quantity", "sku", "total", "subtotal", "tax",
+        "price", "quantity", "sku", "subtotal", "tax",
         "discount", "currency", "amount", "cost", "unit_price",
         "line_items", "cart_id", "order_id", "product_id",
         "shipping_address", "billing_address", "payment_method",
     },
     "users": {
-        "email", "phone", "name", "first_name", "last_name",
+        "email", "phone", "first_name", "last_name",
         "full_name", "username", "avatar", "bio", "date_of_birth",
         "address", "role", "permissions",
     },
@@ -67,6 +67,12 @@ _FIELD_DOMAIN_MAP: dict[str, set[str]] = {
         "expires_at", "expires_in", "scope", "grant_type",
         "client_id", "client_secret", "id_token",
     },
+}
+
+# Fields that are too ambiguous to trigger a domain tag on their own.
+# They only count if a strong field from the same domain is also present.
+_AMBIGUOUS_FIELDS: dict[str, set[str]] = {
+    "users": {"name"},
 }
 
 # Path segments to skip when extracting domain signals
@@ -125,7 +131,12 @@ class AutoTagger:
         return tags
 
     def _tags_from_fields(self, schema: dict[str, Any] | None) -> list[str]:
-        """Extract domain tags from schema field names."""
+        """Extract domain tags from schema field names.
+
+        For domains with ambiguous fields (e.g., 'name' for users),
+        the ambiguous field alone is not enough -- at least one strong
+        (non-ambiguous) field must also be present.
+        """
         if not schema or not isinstance(schema, dict):
             return []
 
@@ -133,10 +144,16 @@ class AutoTagger:
         tags: list[str] = []
 
         for domain, patterns in _FIELD_DOMAIN_MAP.items():
-            # Require at least 1 matching field for a tag
-            matches = field_names & patterns
-            if matches:
+            strong_matches = field_names & patterns
+            if strong_matches:
                 tags.append(domain)
+                continue
+
+            # Check ambiguous fields: only count if a strong field is present
+            ambiguous = _AMBIGUOUS_FIELDS.get(domain, set())
+            if ambiguous and (field_names & ambiguous):
+                # Ambiguous field found but no strong field -> skip
+                pass
 
         return tags
 

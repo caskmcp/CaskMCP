@@ -26,9 +26,11 @@ class CaptureSource(StrEnum):
     """Source of captured traffic."""
 
     HAR = "har"
+    OTEL = "otel"
     PLAYWRIGHT = "playwright"
     PROXY = "proxy"
     MANUAL = "manual"
+    WEBMCP = "webmcp"
 
 
 class HttpExchange(BaseModel):

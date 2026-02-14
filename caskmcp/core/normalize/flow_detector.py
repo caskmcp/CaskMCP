@@ -34,12 +34,14 @@ class FlowDetector:
         edges: list[FlowEdge] = []
 
         for source in endpoints:
+            source_id = source.signature_id or source.tool_id or source.stable_id or source.id
             response_fields = self._extract_response_fields(source)
             if not response_fields:
                 continue
 
             for target in endpoints:
-                if source.signature_id == target.signature_id:
+                target_id = target.signature_id or target.tool_id or target.stable_id or target.id
+                if source_id == target_id:
                     continue
 
                 target_params = self._extract_target_params(target)
@@ -53,8 +55,8 @@ class FlowDetector:
                     # Exact match
                     if field_name in target_params:
                         edges.append(FlowEdge(
-                            source_id=source.signature_id,
-                            target_id=target.signature_id,
+                            source_id=source_id,
+                            target_id=target_id,
                             linking_field=field_name,
                             confidence=0.9,
                         ))
@@ -67,8 +69,8 @@ class FlowDetector:
                             field_name, param_name, source.path
                         ):
                             edges.append(FlowEdge(
-                                source_id=source.signature_id,
-                                target_id=target.signature_id,
+                                source_id=source_id,
+                                target_id=target_id,
                                 linking_field=param_name,
                                 confidence=0.6,
                             ))
@@ -102,15 +104,35 @@ class FlowDetector:
         if not schema or not isinstance(schema, dict) or depth > 5:
             return set()
 
+        # Root array responses like [{"id": 1, ...}, ...] should contribute item fields.
+        if schema.get("type") == "array":
+            items = schema.get("items", {})
+            if isinstance(items, dict):
+                return self._collect_fields(items, depth + 1)
+            return set()
+
+        # Mixed-root schemas (object vs array) should still yield usable field names.
+        oneof = schema.get("oneOf")
+        if isinstance(oneof, list):
+            merged: set[str] = set()
+            for sub in oneof:
+                if isinstance(sub, dict):
+                    merged |= self._collect_fields(sub, depth + 1)
+            return merged
+
         fields: set[str] = set()
         props = schema.get("properties", {})
+        if not isinstance(props, dict):
+            return fields
+
         for key, value in props.items():
             fields.add(key)
-            if isinstance(value, dict):
-                # Recurse into array items
-                items = value.get("items", {})
-                if isinstance(items, dict):
-                    fields |= self._collect_fields(items, depth + 1)
+            if not isinstance(value, dict):
+                continue
+            # Recurse into array items
+            items = value.get("items", {})
+            if isinstance(items, dict):
+                fields |= self._collect_fields(items, depth + 1)
 
         return fields
 

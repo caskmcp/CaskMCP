@@ -22,11 +22,22 @@ class PathNormalizer:
     # MongoDB ObjectId pattern (24 hex chars)
     OBJECTID_PATTERN = re.compile(r"^[0-9a-f]{24}$", re.IGNORECASE)
 
+    # Prefixed ID pattern: short alpha prefix + separator + alphanumeric suffix
+    # Matches: usr_123, prod_001, cus_test123abc, pi_abc123, ord-abc123, item_7f3a
+    # Also matches: U12345678 (single uppercase letter + digits, like Slack IDs)
+    PREFIXED_ID_PATTERN = re.compile(
+        # Require at least one digit in the suffix so stable snake_case route
+        # keys like `content_types` don't get normalized as IDs.
+        r"^(?:[a-zA-Z]{1,10}[_-][a-zA-Z0-9]*\d[a-zA-Z0-9]*|[A-Z][0-9]{4,})$"
+    )
+
     # Base64-like tokens (long alphanumeric strings, typically > 20 chars)
     TOKEN_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{20,}$")
 
     # Email-like pattern
     EMAIL_PATTERN = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
+
+    _PLACEHOLDER_RE = re.compile(r"\{([^}]+)\}")
 
     def __init__(
         self,
@@ -119,6 +130,10 @@ class PathNormalizer:
         if self.NUMERIC_ID_PATTERN.match(segment):
             return self.id_placeholder
 
+        # Prefixed ID (usr_123, cus_abc, pi_xyz, U12345678)
+        if self.PREFIXED_ID_PATTERN.match(segment):
+            return self.id_placeholder
+
         # Email
         if self.EMAIL_PATTERN.match(segment):
             return self.email_placeholder
@@ -127,8 +142,33 @@ class PathNormalizer:
         if self.TOKEN_PATTERN.match(segment):
             return self.token_placeholder
 
+        # Long slug-like json files (e.g., product listings) from a single observation
+        if self._is_slug_json_file(segment):
+            # Preserve the `.json` suffix so the resulting template remains a valid route.
+            return f"{self.slug_placeholder}.json"
+
         # Keep the original segment
         return segment
+
+    @staticmethod
+    def _is_slug_json_file(segment: str) -> bool:
+        """Heuristic for dynamic listing-like JSON paths (single-observation safe)."""
+        if not segment or not segment.lower().endswith(".json"):
+            return False
+
+        stem = segment[:-5]  # trim ".json"
+        if len(stem) < 16:
+            return False
+
+        parts = [p for p in stem.split("-") if p]
+        if len(parts) < 3:
+            return False
+
+        if not all(re.fullmatch(r"[A-Za-z0-9]+", part) is not None for part in parts):
+            return False
+
+        # Stable route keys (search, index, manifest) should stay concrete.
+        return stem.lower() not in {"search", "index", "manifest"}
 
     def extract_parameters(
         self, template: str, path: str
@@ -151,11 +191,35 @@ class PathNormalizer:
         params: dict[str, str] = {}
 
         for template_seg, path_seg in zip(template_segments, path_segments, strict=False):
-            if template_seg.startswith("{") and template_seg.endswith("}"):
-                param_name = template_seg[1:-1]
-                params[param_name] = path_seg
-            elif template_seg != path_seg:
+            if not template_seg:
+                if template_seg != path_seg:
+                    return None
+                continue
+
+            placeholders = list(self._PLACEHOLDER_RE.finditer(template_seg))
+            if not placeholders:
+                if template_seg != path_seg:
+                    return None
+                continue
+
+            # Support placeholders embedded within a segment (e.g., `{slug}.json`).
+            pattern = []
+            cursor = 0
+            for match in placeholders:
+                literal = template_seg[cursor:match.start()]
+                pattern.append(re.escape(literal))
+                name = match.group(1)
+                pattern.append(rf"(?P<{name}>[^/]+)")
+                cursor = match.end()
+            pattern.append(re.escape(template_seg[cursor:]))
+
+            segment_re = re.compile("^" + "".join(pattern) + "$")
+            matched = segment_re.match(path_seg)
+            if not matched:
                 return None
+
+            for name, value in matched.groupdict().items():
+                params[name] = value
 
         return params
 
@@ -239,14 +303,32 @@ class VarianceNormalizer:
         self, method: str, segments: list[str]
     ) -> dict[str, Any] | None:
         """Find a template that matches the given segments."""
+        exact_match: dict[str, Any] | None = None
+        best_compatible: dict[str, Any] | None = None
+        best_compatible_score = -1
+
         for template in self.templates:
-            if (
-                template["method"] == method
-                and template["length"] == len(segments)
-                and self._segments_match(template, segments)
-            ):
-                return template
-        return None
+            if template["method"] != method or template["length"] != len(segments):
+                continue
+
+            if self._segments_match(template, segments):
+                exact_match = template
+                break
+
+            if not self._segments_compatible_for_variance(template, segments):
+                continue
+
+            # Prefer the most specific compatible template to reduce accidental merges.
+            score = sum(
+                1
+                for i, is_fixed in enumerate(template["fixed"])
+                if is_fixed and i < len(template["segments"]) and template["segments"][i] == segments[i]
+            )
+            if score > best_compatible_score:
+                best_compatible = template
+                best_compatible_score = score
+
+        return exact_match or best_compatible
 
     def _select_template(
         self, method: str, segments: list[str]
@@ -274,3 +356,77 @@ class VarianceNormalizer:
             if template["fixed"][i] and template["segments"][i] != segment:
                 return False
         return True
+
+    def _segments_compatible_for_variance(
+        self,
+        template: dict[str, Any],
+        segments: list[str],
+    ) -> bool:
+        """Return True when a path is close enough to update an existing template.
+
+        Compatibility is conservative by design:
+        - method/length must already match (enforced by caller)
+        - existing variable segments always match
+        - fixed mismatches are allowed only for slug-like segment pairs
+        """
+        mismatches = 0
+
+        for i, segment in enumerate(segments):
+            if i >= len(template["fixed"]):
+                return False
+
+            if not template["fixed"][i]:
+                # Existing variable placeholder segment.
+                continue
+
+            template_segment = template["segments"][i]
+            if template_segment == segment:
+                continue
+
+            if not self._is_slug_like_pair(template_segment, segment):
+                return False
+
+            mismatches += 1
+
+        return mismatches > 0
+
+    @staticmethod
+    def _is_slug_like_pair(left: str, right: str) -> bool:
+        """Check whether two differing segments look like variable slugs/files."""
+        return VarianceNormalizer._is_slug_like(left) and VarianceNormalizer._is_slug_like(right)
+
+    @staticmethod
+    def _is_slug_like(value: str) -> bool:
+        """Heuristic for user/content slugs (intentionally conservative)."""
+        if not value:
+            return False
+
+        # Existing placeholders are always variable.
+        if value.startswith("{") and value.endswith("}"):
+            return True
+
+        stem = value
+        has_extension = "." in value
+        if has_extension:
+            stem = value.rsplit(".", 1)[0]
+
+        # Require at least three slug tokens to avoid merging stable resource roots.
+        parts = [p for p in re.split(r"[-_]", stem) if p]
+        if len(parts) < 3:
+            return False
+
+        if not all(re.fullmatch(r"[A-Za-z0-9]+", part) is not None for part in parts):
+            return False
+
+        has_hyphen = "-" in stem
+        has_underscore = "_" in stem
+        has_digit = any(any(ch.isdigit() for ch in part) for part in parts)
+
+        # API route keys commonly use underscored words (e.g., iron_footer_next).
+        # Treat underscore-only alphabetic segments as stable unless there is
+        # additional variability evidence (extension or digits).
+        if has_underscore and not has_hyphen and not has_extension and not has_digit:
+            return False
+
+        # Three plain words without numbers/extensions are often static route names.
+        return not (len(parts) == 3 and not has_extension and not has_digit)
