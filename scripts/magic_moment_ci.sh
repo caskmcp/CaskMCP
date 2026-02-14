@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AF_BIN=${CASKMCP_BIN:-${MCPMINT_BIN:-caskmcp}}
+AF_BIN=${CASKMCP_BIN:-caskmcp}
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/caskmcp-magic-XXXXXX")"
-AF_PYTHON=${CASKMCP_PYTHON:-${MCPMINT_PYTHON:-}}
+AF_PYTHON=${CASKMCP_PYTHON:-}
 
 if [[ -z "$AF_PYTHON" ]]; then
   AF_BIN_RESOLVED="$(command -v "$AF_BIN" 2>/dev/null || true)"

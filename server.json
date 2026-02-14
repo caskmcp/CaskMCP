@@ -1,14 +1,14 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.tomallicino/caskmcp",
+  "name": "io.github.caskmcp/caskmcp",
   "title": "CaskMCP",
   "description": "Capture-first compiler for minimal, governed MCP tool surfaces.",
-  "version": "0.1.0-alpha.4",
+  "version": "0.2.0-beta.1",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "caskmcp",
-      "version": "0.1.0a4",
+      "version": "0.2.0b1",
       "transport": {
         "type": "stdio"
       },
@@ -41,8 +41,8 @@
     }
   ],
   "repository": {
-    "url": "https://github.com/tomallicino/CaskMCP",
+    "url": "https://github.com/caskmcp/CaskMCP",
     "source": "github"
   },
-  "websiteUrl": "https://github.com/tomallicino/CaskMCP"
+  "websiteUrl": "https://github.com/caskmcp/CaskMCP"
 }

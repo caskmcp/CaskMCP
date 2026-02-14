@@ -1,0 +1,116 @@
+name: "CaskMCP Gate"
+description: "Run CaskMCP diff + approval gate checks in CI."
+branding:
+  icon: "check-circle"
+  color: "green"
+
+inputs:
+  toolpack:
+    description: "Path to toolpack.yaml"
+    required: true
+  lockfile:
+    description: "Path to lockfile (optional; resolved from toolpack when omitted)"
+    required: false
+  baseline:
+    description: "Baseline path for caskmcp diff (optional)"
+    required: false
+  toolset:
+    description: "Toolset name for scoped approval checks (optional)"
+    required: false
+  python-version:
+    description: "Python version to use"
+    required: false
+    default: "3.11"
+  caskmcp-version:
+    description: "Package spec to install (e.g. caskmcp or caskmcp==0.1.0)"
+    required: false
+    default: "caskmcp"
+
+outputs:
+  passed:
+    description: "Whether all gate checks passed"
+    value: ${{ steps.gate.outputs.passed }}
+  diff-report-path:
+    description: "Path to generated GitHub markdown diff report"
+    value: ${{ steps.diff.outputs.diff-report-path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install CaskMCP
+      shell: bash
+      run: pip install "${{ inputs.caskmcp-version }}"
+
+    - name: Resolve lockfile
+      id: resolve
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -n "${{ inputs.lockfile }}" ]; then
+          echo "lockfile=${{ inputs.lockfile }}" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        TOOLPACK_PATH="${{ inputs.toolpack }}"
+        TOOLPACK_PATH="$TOOLPACK_PATH" python - <<'PY'
+        import os
+        from pathlib import Path
+        import yaml
+
+        toolpack_path = Path(os.environ["TOOLPACK_PATH"])
+        payload = yaml.safe_load(toolpack_path.read_text()) or {}
+        lockfiles = (((payload.get("paths") or {}).get("lockfiles")) or {})
+        candidate = lockfiles.get("approved") or lockfiles.get("pending")
+        if not candidate:
+            raise SystemExit("Could not resolve lockfile from toolpack paths.lockfiles")
+        resolved = (toolpack_path.parent / candidate).resolve()
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"lockfile={resolved}\n")
+        PY
+
+    - name: Generate diff report (GitHub markdown)
+      id: diff
+      shell: bash
+      run: |
+        set -euo pipefail
+        REPORT_DIR="$(mktemp -d)"
+        ARGS=(--toolpack "${{ inputs.toolpack }}" --output "$REPORT_DIR" --format github-md)
+        if [ -n "${{ inputs.baseline }}" ]; then
+          ARGS+=(--baseline "${{ inputs.baseline }}")
+        fi
+        caskmcp diff "${ARGS[@]}"
+        echo "diff-report-path=$REPORT_DIR/diff.github.md" >> "$GITHUB_OUTPUT"
+        echo "report-dir=$REPORT_DIR" >> "$GITHUB_OUTPUT"
+
+    - name: Gate approval status
+      id: gate
+      shell: bash
+      run: |
+        set +e
+        ARGS=(--lockfile "${{ steps.resolve.outputs.lockfile }}")
+        if [ -n "${{ inputs.toolset }}" ]; then
+          ARGS+=(--toolset "${{ inputs.toolset }}")
+        fi
+        caskmcp gate check "${ARGS[@]}"
+        EXIT_CODE=$?
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+          echo "CaskMCP gate passed."
+          exit 0
+        fi
+        echo "passed=false" >> "$GITHUB_OUTPUT"
+        echo "::error::CaskMCP gate failed. Review lockfile approvals."
+        exit 1
+
+    - name: Upload gate report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: caskmcp-gate-report
+        path: ${{ steps.diff.outputs.report-dir }}
+        retention-days: 30
