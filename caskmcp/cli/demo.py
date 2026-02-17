@@ -12,6 +12,7 @@ from pathlib import Path
 
 import click
 
+from caskmcp.branding import CLI_PRIMARY_COMMAND
 from caskmcp.cli.approve import sync_lockfile
 from caskmcp.cli.compile import compile_capture_session
 from caskmcp.core.capture.har_parser import HARParser
@@ -147,13 +148,15 @@ def run_demo(*, output_root: str | None, verbose: bool) -> None:
     click.echo("Next steps:")
     click.echo()
     click.echo("  # Approve all tools:")
-    click.echo(f"  cask gate allow --all --lockfile {pending_lockfile}")
+    click.echo(f"  {CLI_PRIMARY_COMMAND} gate allow --all --lockfile {pending_lockfile}")
     click.echo()
     click.echo("  # Run under lockfile enforcement:")
-    click.echo(f"  cask run --toolpack {toolpack_file}")
+    click.echo(f"  {CLI_PRIMARY_COMMAND} run --toolpack {toolpack_file}")
     click.echo()
     click.echo("  # Check for API drift against baseline:")
-    click.echo(f"  cask drift --baseline {copied_baseline} --capture-path {capture_path}")
+    click.echo(
+        f"  {CLI_PRIMARY_COMMAND} drift --baseline {copied_baseline} --capture-path {capture_path}"
+    )
 
     from caskmcp.cli.mint import build_mcp_integration_output
 

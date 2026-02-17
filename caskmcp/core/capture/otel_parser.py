@@ -131,7 +131,7 @@ class OTELParser:
 
         try:
             loaded = json.loads(raw_text)
-            if isinstance(loaded, (dict, list)):
+            if isinstance(loaded, dict | list):
                 return loaded
             self.warnings.append("Unsupported OTEL payload structure (expected JSON object/list)")
             return None
@@ -167,7 +167,7 @@ class OTELParser:
 
         if isinstance(payload, list):
             for item in payload:
-                if isinstance(item, (dict, list)):
+                if isinstance(item, dict | list):
                     records.extend(self._extract_spans(item, resource_attrs))
             return records
 
@@ -402,7 +402,7 @@ class OTELParser:
                 if stripped:
                     return stripped
                 continue
-            if isinstance(value, (int, float)):
+            if isinstance(value, int | float):
                 return str(value)
         return None
 
@@ -460,6 +460,6 @@ class OTELParser:
             return None
         with contextlib.suppress(json.JSONDecodeError, TypeError):
             parsed = json.loads(text)
-            if isinstance(parsed, (dict, list)):
+            if isinstance(parsed, dict | list):
                 return parsed
         return None

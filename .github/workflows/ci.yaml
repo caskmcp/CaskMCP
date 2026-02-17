@@ -93,10 +93,11 @@ jobs:
           /tmp/caskmcp-wheel-smoke/bin/cask --version
           /tmp/caskmcp-wheel-smoke/bin/caskmcp --help
           /tmp/caskmcp-wheel-smoke/bin/cask --help
-          /tmp/caskmcp-wheel-smoke/bin/cask demo --root /tmp/caskmcp-wheel-smoke-root
-          /tmp/caskmcp-wheel-smoke/bin/caskmcp verify --help
-          TOOLPACK_PATH="$(find /tmp/caskmcp-wheel-smoke-root/toolpacks -name toolpack.yaml | head -n1)"
-          /tmp/caskmcp-wheel-smoke/bin/cask diff --toolpack "$TOOLPACK_PATH" --format github-md --output /tmp/caskmcp-wheel-smoke-report
+          /tmp/caskmcp-wheel-smoke/bin/caskmcp wow --out /tmp/caskmcp-wheel-smoke-wow
+          test -f /tmp/caskmcp-wheel-smoke-wow/prove_twice_report.md
+          test -f /tmp/caskmcp-wheel-smoke-wow/prove_twice_diff.json
+          test -f /tmp/caskmcp-wheel-smoke-wow/prove_summary.json
+          python -c "import json; from pathlib import Path; summary=json.loads(Path('/tmp/caskmcp-wheel-smoke-wow/prove_summary.json').read_text()); assert summary['schema_version']=='1.0.0'; assert summary['govern_enforced'] is True; assert summary['parity_ok'] is True; assert summary['run_a_ok'] is True; assert summary['run_b_ok'] is True"
 
   magic-moment:
     runs-on: ubuntu-latest

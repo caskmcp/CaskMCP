@@ -377,6 +377,56 @@ class TestMCPRuntimeSafety:
         with pytest.raises(RuntimeBlockError, match="not allowlisted"):
             server._validate_host_allowlist("auth.example.com", "api.example.com")
 
+    def test_host_allowlist_with_port_allows_matching_hostname(self, tmp_path: Path) -> None:
+        manifest = {
+            "version": "1.0.0",
+            "schema_version": "1.0",
+            "allowed_hosts": ["127.0.0.1:8443"],
+            "actions": [
+                {
+                    "name": "get_products",
+                    "method": "GET",
+                    "path": "/api/products",
+                    "host": "127.0.0.1:8443",
+                    "risk_tier": "low",
+                }
+            ],
+        }
+        tools_path = tmp_path / "tools.json"
+        tools_path.write_text(json.dumps(manifest), encoding="utf-8")
+        server = CaskMCPMCPServer(tools_path=tools_path)
+
+        server._validate_host_allowlist("127.0.0.1", "127.0.0.1:8443")
+        with pytest.raises(RuntimeBlockError, match="not allowlisted"):
+            server._validate_host_allowlist("192.168.1.10", "127.0.0.1:8443")
+
+    def test_validate_network_target_allows_loopback_when_cidr_allowlisted(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        manifest = {
+            "version": "1.0.0",
+            "schema_version": "1.0",
+            "allowed_hosts": ["127.0.0.1:8443"],
+            "actions": [
+                {
+                    "name": "get_products",
+                    "method": "GET",
+                    "path": "/api/products",
+                    "host": "127.0.0.1:8443",
+                    "risk_tier": "low",
+                }
+            ],
+        }
+        tools_path = tmp_path / "tools.json"
+        tools_path.write_text(json.dumps(manifest), encoding="utf-8")
+        server = CaskMCPMCPServer(
+            tools_path=tools_path,
+            allow_private_cidrs=["127.0.0.0/8"],
+        )
+
+        server._validate_network_target("127.0.0.1")
+
     @pytest.mark.asyncio
     async def test_execute_request_applies_fixed_graphql_operation(self, tmp_path: Path) -> None:
         """Runtime should enforce fixed GraphQL operationName for split actions."""

@@ -6,6 +6,40 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0-beta.3] - 2026-02-17
+
+### Added
+
+- Unified flagship experience commands:
+  - `caskmcp wow`
+  - `caskmcp govern ...`
+  - `caskmcp prove ...`
+- Browser-optional wow flow:
+  - default offline fixture path with no Playwright dependency
+  - optional live path via `caskmcp wow --live`
+- `prove_summary.json` machine contract with stable schema marker (`1.0.0`).
+- CI workflow for live wow validation:
+  - `.github/workflows/wow-live.yaml` (nightly + label-triggered PR runs).
+- Docs smoke tests for onboarding and path hygiene:
+  - `tests/test_docs_smoke.py`
+
+### Changed
+
+- Default top-level help now centers flagship groups (`wow`, `govern`, `prove`);
+  legacy top-level governance verbs remain available via compatibility paths and `--help-all`.
+- Packaging smoke lane now validates wheel install + offline `caskmcp wow` contract artifacts.
+- Public docs now default to `caskmcp` command examples instead of `cask`.
+- README install path updated for first PyPI publish (`pip install caskmcp`).
+- Optional dependency layout updated:
+  - added `prove` extra
+  - `all` extra now focuses on runtime extras (`mcp`, `playwright`) rather than dev toolchain.
+
+### Removed
+
+- Repository-scaffolding docs not intended for public distribution:
+  - `AGENTS.md`
+  - `CLAUDE.md`
+
 ## [0.2.0-beta.2] - 2026-02-14
 
 ### Added

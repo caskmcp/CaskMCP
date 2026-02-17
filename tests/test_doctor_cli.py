@@ -22,6 +22,8 @@ def test_doctor_outputs_to_stderr_only(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert result.stdout == ""
+    assert "Doctor check passed." in result.stderr
+    assert f"Next: caskmcp run --toolpack {toolpack_file}" in result.stderr
 
 
 def test_doctor_reports_missing_artifacts(tmp_path: Path) -> None:
@@ -37,6 +39,8 @@ def test_doctor_reports_missing_artifacts(tmp_path: Path) -> None:
 
     assert result.exit_code != 0
     assert "tools.json missing" in result.stderr
+    assert "Doctor failed." in result.stderr
+    assert "Next: fix the errors above and re-run" in result.stderr
 
 
 def test_doctor_container_requires_docker(tmp_path: Path, monkeypatch) -> None:
@@ -93,10 +97,8 @@ def test_doctor_handles_mcp_spec_error(tmp_path: Path, monkeypatch) -> None:
 
     assert result.exit_code != 0
     assert result.stdout == ""
-    assert (
-        result.stderr
-        == 'Error: mcp not installed. Install with: pip install "caskmcp[mcp]"\n'
-    )
+    assert 'Error: mcp not installed. Install with: pip install "caskmcp[mcp]"' in result.stderr
+    assert "Doctor failed." in result.stderr
 
 
 def test_doctor_local_missing_mcp_exact_error(tmp_path: Path, monkeypatch) -> None:
@@ -111,10 +113,8 @@ def test_doctor_local_missing_mcp_exact_error(tmp_path: Path, monkeypatch) -> No
 
     assert result.exit_code != 0
     assert result.stdout == ""
-    assert (
-        result.stderr
-        == 'Error: mcp not installed. Install with: pip install "caskmcp[mcp]"\n'
-    )
+    assert 'Error: mcp not installed. Install with: pip install "caskmcp[mcp]"' in result.stderr
+    assert "Doctor failed." in result.stderr
 
 
 def test_doctor_auto_does_not_require_mcp(tmp_path: Path, monkeypatch) -> None:
@@ -129,4 +129,4 @@ def test_doctor_auto_does_not_require_mcp(tmp_path: Path, monkeypatch) -> None:
 
     assert result.exit_code == 0
     assert result.stdout == ""
-    assert result.stderr == ""
+    assert "Doctor check passed." in result.stderr

@@ -15,14 +15,15 @@ from caskmcp.core.approval import LockfileManager
 from tests.helpers import write_demo_toolpack
 
 
-def test_cli_surfaces_diff_gate_and_mcp_inspect() -> None:
+def test_cli_surfaces_flagship_groups() -> None:
     runner = CliRunner()
     top_help = runner.invoke(cli, ["--help"])
     assert top_help.exit_code == 0
-    assert "diff" in top_help.stdout
-    assert "gate" in top_help.stdout
+    assert "govern" in top_help.stdout
+    assert "prove" in top_help.stdout
+    assert "wow" in top_help.stdout
 
-    mcp_help = runner.invoke(cli, ["mcp", "--help"])
+    mcp_help = runner.invoke(cli, ["govern", "mcp", "--help"])
     assert mcp_help.exit_code == 0
     assert "inspect" in mcp_help.stdout
 
@@ -33,13 +34,34 @@ def test_default_help_hides_advanced_commands_but_help_all_shows_them() -> None:
     default_help = runner.invoke(cli, ["--help"])
     assert default_help.exit_code == 0
     default_lines = default_help.stdout.splitlines()
-    assert any(line.strip().startswith("mint") for line in default_lines)
+    assert any(line.strip().startswith("govern") for line in default_lines)
+    assert any(line.strip().startswith("prove") for line in default_lines)
+    assert any(line.strip().startswith("wow") for line in default_lines)
+    assert not any(line.strip().startswith("mint") for line in default_lines)
+    assert not any(line.strip().startswith("diff") for line in default_lines)
+    assert not any(line.strip().startswith("gate") for line in default_lines)
+    assert not any(line.strip().startswith("run") for line in default_lines)
+    assert not any(line.strip().startswith("drift") for line in default_lines)
+    assert not any(line.strip().startswith("verify") for line in default_lines)
+    assert not any(line.strip().startswith("mcp") for line in default_lines)
+    assert not any(line.strip().startswith("plan") for line in default_lines)
+    assert not any(line.strip().startswith("approve") for line in default_lines)
+    assert not any(line.strip().startswith("serve") for line in default_lines)
     assert not any(line.strip().startswith("approve") for line in default_lines)
     assert not any(line.strip().startswith("capture") for line in default_lines)
     assert not any(line.strip().startswith("compile") for line in default_lines)
 
     help_all = runner.invoke(cli, ["--help-all"])
     assert help_all.exit_code == 0
+    assert "mint" in help_all.stdout
+    assert "diff" in help_all.stdout
+    assert "gate" in help_all.stdout
+    assert "run" in help_all.stdout
+    assert "drift" in help_all.stdout
+    assert "verify" in help_all.stdout
+    assert "mcp" in help_all.stdout
+    assert "plan" in help_all.stdout
+    assert "serve" in help_all.stdout
     assert "approve" in help_all.stdout
     assert "capture" in help_all.stdout
     assert "compile" in help_all.stdout

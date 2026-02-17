@@ -307,7 +307,7 @@ class ProposalCompiler:
             raw = sample.get(key)
             if raw is None:
                 continue
-            if isinstance(raw, (dict, list)):
+            if isinstance(raw, dict | list):
                 values.add(f"<{type(raw).__name__}>")
             else:
                 values.add(str(raw))

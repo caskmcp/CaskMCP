@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Callable
+from copy import copy
 from pathlib import Path
 
 import click
@@ -13,10 +14,24 @@ from caskmcp.branding import (
     CLI_PRIMARY_COMMAND,
     PRODUCT_NAME,
 )
+from caskmcp.cli.commands_approval import register_approval_commands
+from caskmcp.cli.commands_mcp import register_mcp_commands
 from caskmcp.utils.locks import RootLockError, clear_root_lock, root_command_lock
 from caskmcp.utils.state import confirmation_store_path, resolve_root
 
 ADVANCED_TOP_LEVEL_COMMANDS = {
+    # Legacy top-level command aliases kept for compatibility.
+    "approve",
+    "diff",
+    "drift",
+    "gate",
+    "mcp",
+    "mint",
+    "plan",
+    "run",
+    "serve",
+    "verify",
+    # Advanced command families.
     "capture",
     "openapi",
     "compile",
@@ -1169,893 +1184,152 @@ def enforce(
     )
 
 
-@cli.command()
-@click.option(
-    "--tools", "-t",
-    type=click.Path(),
-    help="Path to tools.json manifest",
-)
-@click.option(
-    "--toolpack",
-    type=click.Path(exists=True),
-    help="Path to toolpack.yaml (resolves manifest/policy/toolsets paths)",
-)
-@click.option(
-    "--toolsets",
-    type=click.Path(),
-    help="Path to toolsets.yaml (defaults to sibling of --tools if present)",
-)
-@click.option(
-    "--toolset",
-    help="Named toolset to expose (defaults to readonly when toolsets.yaml exists)",
-)
-@click.option(
-    "--policy", "-p",
-    type=click.Path(),
-    help="Path to policy.yaml (optional)",
-)
-@click.option(
-    "--lockfile", "-l",
-    type=click.Path(),
-    help="Path to approved lockfile (required by default unless --unsafe-no-lockfile)",
-)
-@click.option(
-    "--base-url",
-    help="Base URL for upstream API (overrides manifest hosts)",
-)
-@click.option(
-    "--auth",
-    "auth_header",
-    help="Authorization header value for upstream requests",
-)
-@click.option(
-    "--audit-log",
-    type=click.Path(),
-    help="Path for audit log file",
-)
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    help="Evaluate policy but don't execute upstream calls",
-)
-@click.option(
-    "--confirm-store",
-    type=click.Path(),
-    help="Path to local out-of-band confirmation store",
-)
-@click.option(
-    "--allow-private-cidr",
-    "allow_private_cidrs",
-    multiple=True,
-    help="Allow private CIDR targets (repeatable; default denies private ranges)",
-)
-@click.option(
-    "--allow-redirects",
-    is_flag=True,
-    help="Allow redirects (each hop is re-validated against allowlists)",
-)
-@click.option(
-    "--unsafe-no-lockfile",
-    is_flag=True,
-    help="Allow runtime without approved lockfile (unsafe escape hatch)",
-)
-@click.pass_context
-def serve(
-    ctx: click.Context,
-    tools: str | None,
-    toolpack: str | None,
-    toolsets: str | None,
-    toolset: str | None,
-    policy: str | None,
-    lockfile: str | None,
-    base_url: str | None,
-    auth_header: str | None,
-    audit_log: str | None,
-    dry_run: bool,
-    confirm_store: str | None,
-    allow_private_cidrs: tuple[str, ...],
-    allow_redirects: bool,
-    unsafe_no_lockfile: bool,
-) -> None:
-    """Alias for `caskmcp mcp serve`.
-
-    This command exists for convenience and forwards to MCP server runtime.
-    """
-    click.echo(
-        "Notice: `caskmcp serve` is an alias for `caskmcp mcp serve`.",
-        err=True,
-    )
-
-    resolved_confirm_store = confirm_store or str(
-        confirmation_store_path(ctx.obj.get("root", resolve_root()))
-    )
-
-    from caskmcp.cli.mcp import run_mcp_serve
-
-    lock_id = None
-    if toolpack:
-        lock_id = f"toolpack:{Path(toolpack).resolve()}"
-    elif tools:
-        lock_id = f"tools:{Path(tools).resolve()}"
-
-    _run_with_lock(
-        ctx,
-        "serve",
-        lambda: run_mcp_serve(
-            tools_path=tools,
-            toolpack_path=toolpack,
-            toolsets_path=toolsets,
-            toolset_name=toolset,
-            policy_path=policy,
-            lockfile_path=lockfile,
-            base_url=base_url,
-            auth_header=auth_header,
-            audit_log=audit_log,
-            dry_run=dry_run,
-            confirmation_store_path=resolved_confirm_store,
-            allow_private_cidrs=list(allow_private_cidrs),
-            allow_redirects=allow_redirects,
-            unsafe_no_lockfile=unsafe_no_lockfile,
-            verbose=ctx.obj.get("verbose", False),
-        ),
-        lock_id=lock_id,
-    )
+register_mcp_commands(cli=cli, run_with_lock=_run_with_lock)
+register_approval_commands(cli=cli, run_with_lock=_run_with_lock)
 
 
 @cli.group()
-def mcp() -> None:
-    """MCP server commands for exposing tools to AI agents.
-
-    The MCP (Model Context Protocol) server exposes your compiled tools
-    as callable actions that AI agents like Claude can use safely.
-    """
-    pass
+def prove() -> None:
+    """Prove replayable behavior and parity with governed capabilities."""
 
 
-@mcp.command("serve")
+@prove.command("twice")
 @click.option(
-    "--tools", "-t",
-    type=click.Path(),
-    help="Path to tools.json manifest",
+    "--out",
+    type=click.Path(file_okay=False),
+    help="Output directory for prove artifacts (defaults to a temporary directory)",
 )
 @click.option(
-    "--toolpack",
-    type=click.Path(exists=True),
-    help="Path to toolpack.yaml (resolves manifest/policy/toolsets paths)",
-)
-@click.option(
-    "--toolsets",
-    type=click.Path(),
-    help="Path to toolsets.yaml (defaults to sibling of --tools if present)",
-)
-@click.option(
-    "--toolset",
-    help="Named toolset to expose (defaults to readonly when toolsets.yaml exists)",
-)
-@click.option(
-    "--policy", "-p",
-    type=click.Path(),
-    help="Path to policy.yaml (optional)",
-)
-@click.option(
-    "--lockfile", "-l",
-    type=click.Path(),
-    help="Path to approved lockfile (required by default unless --unsafe-no-lockfile)",
-)
-@click.option(
-    "--base-url",
-    help="Base URL for upstream API (overrides manifest hosts)",
-)
-@click.option(
-    "--auth",
-    "auth_header",
-    help="Authorization header value for upstream requests",
-)
-@click.option(
-    "--audit-log",
-    type=click.Path(),
-    help="Path for audit log file",
-)
-@click.option(
-    "--dry-run",
+    "--live",
     is_flag=True,
-    help="Evaluate policy but don't execute upstream calls",
+    help="Run live/browser prove-twice orchestration (requires extra dependencies)",
 )
 @click.option(
-    "--confirm-store",
-    type=click.Path(),
-    help="Path to local out-of-band confirmation store",
-)
-@click.option(
-    "--allow-private-cidr",
-    "allow_private_cidrs",
-    multiple=True,
-    help="Allow private CIDR targets (repeatable; default denies private ranges)",
-)
-@click.option(
-    "--allow-redirects",
-    is_flag=True,
-    help="Allow redirects (each hop is re-validated against allowlists)",
-)
-@click.option(
-    "--unsafe-no-lockfile",
-    is_flag=True,
-    help="Allow runtime without approved lockfile (unsafe escape hatch)",
-)
-@click.pass_context
-def mcp_serve(
-    ctx: click.Context,
-    tools: str | None,
-    toolpack: str | None,
-    toolsets: str | None,
-    toolset: str | None,
-    policy: str | None,
-    lockfile: str | None,
-    base_url: str | None,
-    auth_header: str | None,
-    audit_log: str | None,
-    dry_run: bool,
-    confirm_store: str | None,
-    allow_private_cidrs: tuple[str, ...],
-    allow_redirects: bool,
-    unsafe_no_lockfile: bool,
-) -> None:
-    """Start an MCP server exposing tools from a compiled manifest.
-
-    The server runs on stdio transport, suitable for use with Claude Desktop
-    or other MCP clients. Tools are exposed with policy enforcement,
-    confirmation requirements, and audit logging.
-
-    \b
-    Examples:
-      # Basic usage
-      caskmcp mcp serve --tools .caskmcp/artifacts/*/tools.json
-
-      # Resolve all paths from a toolpack
-      caskmcp mcp serve --toolpack .caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
-
-      # Expose a specific curated toolset
-      caskmcp mcp serve --tools tools.json --toolsets toolsets.yaml --toolset readonly
-
-      # With policy enforcement
-      caskmcp mcp serve --tools tools.json --policy policy.yaml
-
-      # With lockfile approval enforcement
-      caskmcp mcp serve --tools tools.json --lockfile caskmcp.lock.yaml
-
-      # With upstream API configuration
-      caskmcp mcp serve --tools tools.json --base-url https://api.example.com --auth "Bearer token123"
-
-      # Dry run mode (no actual API calls)
-      caskmcp mcp serve --tools tools.json --dry-run
-
-    \b
-    Claude Desktop configuration (~/.claude/claude_desktop_config.json):
-      {
-        "mcpServers": {
-          "my-api": {
-            "command": "caskmcp",
-            "args": ["mcp", "serve", "--toolpack", "/path/to/toolpack.yaml"]
-          }
-        }
-      }
-    """
-    resolved_confirm_store = confirm_store or str(
-        confirmation_store_path(ctx.obj.get("root", resolve_root()))
-    )
-
-    from caskmcp.cli.mcp import run_mcp_serve
-
-    lock_id = None
-    if toolpack:
-        lock_id = f"toolpack:{Path(toolpack).resolve()}"
-    elif tools:
-        lock_id = f"tools:{Path(tools).resolve()}"
-
-    _run_with_lock(
-        ctx,
-        "mcp serve",
-        lambda: run_mcp_serve(
-            tools_path=tools,
-            toolpack_path=toolpack,
-            toolsets_path=toolsets,
-            toolset_name=toolset,
-            policy_path=policy,
-            lockfile_path=lockfile,
-            base_url=base_url,
-            auth_header=auth_header,
-            audit_log=audit_log,
-            dry_run=dry_run,
-            confirmation_store_path=resolved_confirm_store,
-            allow_private_cidrs=list(allow_private_cidrs),
-            allow_redirects=allow_redirects,
-            unsafe_no_lockfile=unsafe_no_lockfile,
-            verbose=ctx.obj.get("verbose", False),
-        ),
-        lock_id=lock_id,
-    )
-
-
-@mcp.command("inspect")
-@click.option(
-    "--artifacts", "-a",
-    type=click.Path(exists=True),
-    help="Path to artifacts directory",
-)
-@click.option(
-    "--tools", "-t",
-    type=click.Path(exists=True),
-    help="Path to tools.json (overrides --artifacts)",
-)
-@click.option(
-    "--policy", "-p",
-    type=click.Path(exists=True),
-    help="Path to policy.yaml (overrides --artifacts)",
-)
-@click.option(
-    "--lockfile", "-l",
-    type=click.Path(),
-    help="Path to lockfile (default: ./caskmcp.lock.yaml)",
-)
-@click.pass_context
-def mcp_meta(
-    ctx: click.Context,  # noqa: ARG001
-    artifacts: str | None,
-    tools: str | None,
-    policy: str | None,
-    lockfile: str | None,
-) -> None:
-    """Start an inspect MCP server exposing read-only governance introspection.
-
-    This server allows operators and CI tools to inspect CaskMCP capability state:
-    - List and inspect available actions
-    - Check if actions would be allowed by policy
-    - View approval status of tools
-    - Get risk summaries
-
-    This server is read-only and does not expose approval mutation APIs.
-
-    \b
-    Examples:
-      # With artifacts directory
-      caskmcp mcp inspect --artifacts .caskmcp/artifacts/*/
-
-      # With explicit paths
-      caskmcp mcp inspect --tools tools.json --policy policy.yaml
-
-    \b
-    Available tools exposed:
-      - caskmcp_list_actions: List all actions with filtering
-      - caskmcp_check_policy: Check if action allowed by policy
-      - caskmcp_get_approval_status: Get approval status
-      - caskmcp_list_pending_approvals: List pending approvals
-      - caskmcp_get_action_details: Get detailed action info
-      - caskmcp_risk_summary: Get risk tier breakdown
-
-    \b
-    Claude Desktop configuration:
-      {
-        "mcpServers": {
-          "caskmcp": {
-            "command": "caskmcp",
-            "args": ["mcp", "inspect", "--tools", "/path/to/tools.json"]
-          }
-        }
-      }
-    """
-    from caskmcp.utils.deps import require_mcp_dependency
-
-    require_mcp_dependency()
-
-    from caskmcp.mcp.meta_server import run_meta_server
-
-    run_meta_server(
-        artifacts_dir=artifacts,
-        tools_path=tools,
-        policy_path=policy,
-        lockfile_path=lockfile,
-    )
-
-
-@mcp.command("meta")
-@click.option(
-    "--artifacts", "-a",
-    type=click.Path(exists=True),
-    help="Path to artifacts directory",
-)
-@click.option(
-    "--tools", "-t",
-    type=click.Path(exists=True),
-    help="Path to tools.json (overrides --artifacts)",
-)
-@click.option(
-    "--policy", "-p",
-    type=click.Path(exists=True),
-    help="Path to policy.yaml (overrides --artifacts)",
-)
-@click.option(
-    "--lockfile", "-l",
-    type=click.Path(),
-    help="Path to lockfile (default: ./caskmcp.lock.yaml)",
-)
-@click.pass_context
-def mcp_meta_alias(
-    ctx: click.Context,
-    artifacts: str | None,
-    tools: str | None,
-    policy: str | None,
-    lockfile: str | None,
-) -> None:
-    """Alias for `caskmcp mcp inspect`."""
-    ctx.invoke(
-        mcp_meta,
-        artifacts=artifacts,
-        tools=tools,
-        policy=policy,
-        lockfile=lockfile,
-    )
-
-
-@cli.group(hidden=True)
-def approve() -> None:
-    """Alias group for `gate` (compatibility)."""
-    pass
-
-
-@approve.command("sync")
-@click.option(
-    "--tools", "-t",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to tools.json manifest",
-)
-@click.option(
-    "--policy",
-    type=click.Path(exists=True),
-    help="Path to policy.yaml artifact (defaults to sibling of --tools if present)",
-)
-@click.option(
-    "--toolsets",
-    type=click.Path(exists=True),
-    help="Path to toolsets.yaml artifact (optional)",
-)
-@click.option(
-    "--lockfile", "-l",
-    type=click.Path(),
-    help="Path to lockfile (default: ./caskmcp.lock.yaml)",
-)
-@click.option(
-    "--capture-id",
-    help="Capture ID to associate with this sync",
-)
-@click.option(
-    "--scope",
-    help="Scope name to associate with this sync",
-)
-@click.option(
-    "--deterministic/--volatile-metadata",
-    default=True,
+    "--scenario",
+    type=click.Choice(["basic_products", "auth_refresh"]),
+    default="basic_products",
     show_default=True,
-    help="Deterministic lockfile metadata by default; use --volatile-metadata for ephemeral timestamps",
+    help="Live scenario to execute when --live is enabled",
 )
 @click.option(
-    "--prune-removed/--keep-removed",
-    default=False,
-    show_default=True,
-    help="Remove tools no longer present in the manifest from the lockfile",
+    "--keep",
+    is_flag=True,
+    help="Keep existing output directory contents",
 )
 @click.pass_context
-def approve_sync(
+def prove_twice(
     ctx: click.Context,
-    tools: str,
-    policy: str | None,
-    toolsets: str | None,
-    lockfile: str | None,
-    capture_id: str | None,
-    scope: str | None,
-    deterministic: bool,
-    prune_removed: bool,
+    out: str | None,
+    live: bool,
+    scenario: str,
+    keep: bool,
 ) -> None:
-    """Sync lockfile with a tools manifest.
+    """Run the flagship prove-twice flow (offline by default)."""
+    from caskmcp.cli.wow import run_wow
 
-    Compares the manifest against the lockfile and tracks changes:
-    - New tools are added as pending approval
-    - Modified tools require re-approval
-    - Removed tools are tracked but not deleted
-
-    \b
-    Examples:
-      caskmcp approve sync --tools tools.json
-      caskmcp approve sync --tools tools.json --lockfile custom.lock.yaml
-    """
-    from caskmcp.cli.approve import run_approve_sync
-
-    _run_with_lock(
-        ctx,
-        "approve sync",
-        lambda: run_approve_sync(
-            tools_path=tools,
-            policy_path=policy,
-            toolsets_path=toolsets,
-            lockfile_path=lockfile,
-            capture_id=capture_id,
-            scope=scope,
-            verbose=ctx.obj.get("verbose", False),
-            prune_removed=prune_removed,
-            deterministic=deterministic,
-        ),
-    )
-
-
-@approve.command("list")
-@click.option(
-    "--lockfile", "-l",
-    type=click.Path(),
-    help="Path to lockfile (default: ./caskmcp.lock.yaml)",
-)
-@click.option(
-    "--status", "-s",
-    type=click.Choice(["pending", "approved", "rejected"]),
-    help="Filter by approval status",
-)
-@click.pass_context
-def approve_list(
-    ctx: click.Context,
-    lockfile: str | None,
-    status: str | None,
-) -> None:
-    """List tool approvals from the lockfile.
-
-    \b
-    Examples:
-      caskmcp approve list
-      caskmcp approve list --status pending
-      caskmcp approve list --status approved -v
-    """
-    from caskmcp.cli.approve import run_approve_list
-
-    run_approve_list(
-        lockfile_path=lockfile,
-        status_filter=status,
+    exit_code = run_wow(
+        out_dir=out,
+        live=live,
+        scenario=scenario,
+        keep=keep,
         verbose=ctx.obj.get("verbose", False),
     )
+    if exit_code != 0:
+        sys.exit(exit_code)
 
 
-@approve.command("tool")
-@click.argument("tool_ids", nargs=-1)
+@prove.command("smoke")
 @click.option(
-    "--lockfile", "-l",
-    type=click.Path(),
-    help="Path to lockfile (default: ./caskmcp.lock.yaml)",
+    "--out",
+    type=click.Path(file_okay=False),
+    help="Output directory for smoke artifacts (defaults to a temporary directory)",
 )
 @click.option(
-    "--all", "all_pending",
+    "--live",
     is_flag=True,
-    help="Approve all pending tools",
+    help="Run live/browser scenarios (requires extra dependencies)",
 )
 @click.option(
-    "--toolset",
-    help="Approve tools within a specific toolset",
+    "--scenarios",
+    default="offline_fixture",
+    show_default=True,
+    help="Comma-separated scenarios",
 )
 @click.option(
-    "--by",
-    "approved_by",
-    help="Who is approving (default: $USER)",
-)
-@click.option(
-    "--reason",
-    help="Approval reason (recorded in lockfile signature metadata)",
+    "--keep",
+    is_flag=True,
+    help="Keep existing output directory contents",
 )
 @click.pass_context
-def approve_tool(
+def prove_smoke(
     ctx: click.Context,
-    tool_ids: tuple[str, ...],
-    lockfile: str | None,
-    all_pending: bool,
-    toolset: str | None,
-    approved_by: str | None,
-    reason: str | None,
+    out: str | None,
+    live: bool,
+    scenarios: str,
+    keep: bool,
 ) -> None:
-    """Approve one or more tools.
+    """Run prove scenarios in a small smoke matrix."""
+    from caskmcp.cli.wow import run_prove_smoke
 
-    \b
-    Examples:
-      caskmcp approve tool get_users create_user
-      caskmcp approve tool --all
-      caskmcp approve tool get_users --by security@example.com
-    """
-    from caskmcp.cli.approve import run_approve_tool
-
-    _run_with_lock(
-        ctx,
-        "approve tool",
-        lambda: run_approve_tool(
-            tool_ids=tool_ids,
-            lockfile_path=lockfile,
-            all_pending=all_pending,
-            toolset=toolset,
-            approved_by=approved_by,
-            reason=reason,
-            root_path=str(ctx.obj.get("root", resolve_root())),
-            verbose=ctx.obj.get("verbose", False),
-        ),
-    )
-
-
-@approve.command("reject")
-@click.argument("tool_ids", nargs=-1, required=True)
-@click.option(
-    "--lockfile", "-l",
-    type=click.Path(),
-    help="Path to lockfile (default: ./caskmcp.lock.yaml)",
-)
-@click.option(
-    "--reason", "-r",
-    help="Reason for rejection",
-)
-@click.pass_context
-def approve_reject(
-    ctx: click.Context,
-    tool_ids: tuple[str, ...],
-    lockfile: str | None,
-    reason: str | None,
-) -> None:
-    """Reject one or more tools.
-
-    Rejected tools will cause CI checks to fail.
-
-    \b
-    Examples:
-      caskmcp approve reject delete_all_users --reason "Too dangerous"
-      caskmcp approve reject tool1 tool2
-    """
-    from caskmcp.cli.approve import run_approve_reject
-
-    _run_with_lock(
-        ctx,
-        "approve reject",
-        lambda: run_approve_reject(
-            tool_ids=tool_ids,
-            lockfile_path=lockfile,
-            reason=reason,
-            verbose=ctx.obj.get("verbose", False),
-        ),
-    )
-
-
-@approve.command("check")
-@click.option(
-    "--lockfile", "-l",
-    type=click.Path(),
-    help="Path to lockfile (default: ./caskmcp.lock.yaml)",
-)
-@click.option(
-    "--toolset",
-    help="Check approval status for a specific toolset only",
-)
-@click.pass_context
-def approve_check(
-    ctx: click.Context,
-    lockfile: str | None,
-    toolset: str | None,
-) -> None:
-    """Check if all tools are approved (for CI).
-
-    Exit codes:
-      0 - All tools approved
-      1 - Pending or rejected tools exist
-      2 - No lockfile found
-
-    \b
-    Examples:
-      caskmcp approve check
-      caskmcp approve check --lockfile custom.lock.yaml
-    """
-    from caskmcp.cli.approve import run_approve_check
-
-    run_approve_check(
-        lockfile_path=lockfile,
-        toolset=toolset,
+    exit_code = run_prove_smoke(
+        out_dir=out,
+        live=live,
+        scenarios=scenarios,
+        keep=keep,
         verbose=ctx.obj.get("verbose", False),
     )
+    if exit_code != 0:
+        sys.exit(exit_code)
 
 
-@approve.command("snapshot")
+@cli.command("wow")
 @click.option(
-    "--lockfile", "-l",
-    type=click.Path(),
-    help="Path to lockfile (default: ./caskmcp.lock.yaml)",
+    "--out",
+    type=click.Path(file_okay=False),
+    help="Output directory for wow artifacts (defaults to a temporary directory)",
+)
+@click.option(
+    "--live",
+    is_flag=True,
+    help="Run live/browser orchestration (requires extra dependencies)",
+)
+@click.option(
+    "--scenario",
+    type=click.Choice(["basic_products", "auth_refresh"]),
+    default="basic_products",
+    show_default=True,
+    help="Live scenario to execute when --live is enabled",
+)
+@click.option(
+    "--keep",
+    is_flag=True,
+    help="Keep existing output directory contents",
 )
 @click.pass_context
-def approve_snapshot(ctx: click.Context, lockfile: str | None) -> None:
-    """Materialize a baseline snapshot for an approved lockfile."""
-    from caskmcp.cli.approve import run_approve_snapshot
+def wow(
+    ctx: click.Context,
+    out: str | None,
+    live: bool,
+    scenario: str,
+    keep: bool,
+) -> None:
+    """Run the one-command wow flow with governed replay proof."""
+    from caskmcp.cli.wow import run_wow
 
-    _run_with_lock(
-        ctx,
-        "approve snapshot",
-        lambda: run_approve_snapshot(
-            lockfile_path=lockfile,
-            root_path=str(ctx.obj.get("root", resolve_root())),
-            verbose=ctx.obj.get("verbose", False),
-        ),
+    exit_code = run_wow(
+        out_dir=out,
+        live=live,
+        scenario=scenario,
+        keep=keep,
+        verbose=ctx.obj.get("verbose", False),
     )
-
-
-@approve.command("resign")
-@click.option(
-    "--lockfile", "-l",
-    type=click.Path(),
-    help="Path to lockfile (default: ./caskmcp.lock.yaml)",
-)
-@click.option("--toolset", help="Re-sign approvals for tools within a specific toolset only")
-@click.pass_context
-def approve_resign(ctx: click.Context, lockfile: str | None, toolset: str | None) -> None:
-    """Re-sign existing approval signatures (migration / repair helper)."""
-    from caskmcp.cli.approve import run_approve_resign
-
-    _run_with_lock(
-        ctx,
-        "approve resign",
-        lambda: run_approve_resign(
-            lockfile_path=lockfile,
-            toolset=toolset,
-            root_path=str(ctx.obj.get("root", resolve_root())),
-            verbose=ctx.obj.get("verbose", False),
-        ),
-    )
+    if exit_code != 0:
+        sys.exit(exit_code)
 
 
 @cli.group()
-def gate() -> None:
-    """Human approval workflow (canonical governance commands)."""
-    pass
-
-
-@gate.command("sync")
-@click.option(
-    "--tools", "-t",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to tools.json manifest",
-)
-@click.option("--policy", type=click.Path(exists=True), help="Path to policy.yaml artifact")
-@click.option("--toolsets", type=click.Path(exists=True), help="Path to toolsets.yaml artifact")
-@click.option("--lockfile", "-l", type=click.Path(), help="Path to lockfile")
-@click.option("--capture-id", help="Capture ID to associate with this sync")
-@click.option("--scope", help="Scope name to associate with this sync")
-@click.option(
-    "--deterministic/--volatile-metadata",
-    default=True,
-    show_default=True,
-    help="Deterministic lockfile metadata by default",
-)
-@click.option(
-    "--prune-removed/--keep-removed",
-    default=False,
-    show_default=True,
-    help="Remove tools no longer present in the manifest from the lockfile",
-)
-@click.pass_context
-def gate_sync(
-    ctx: click.Context,
-    tools: str,
-    policy: str | None,
-    toolsets: str | None,
-    lockfile: str | None,
-    capture_id: str | None,
-    scope: str | None,
-    deterministic: bool,
-    prune_removed: bool,
-) -> None:
-    """Alias for `caskmcp approve sync`."""
-    ctx.invoke(
-        approve_sync,
-        tools=tools,
-        policy=policy,
-        toolsets=toolsets,
-        lockfile=lockfile,
-        capture_id=capture_id,
-        scope=scope,
-        deterministic=deterministic,
-        prune_removed=prune_removed,
-    )
-
-
-@gate.command("status")
-@click.option("--lockfile", "-l", type=click.Path(), help="Path to lockfile")
-@click.option(
-    "--status",
-    "status_filter",
-    type=click.Choice(["pending", "approved", "rejected"]),
-    help="Filter by approval status",
-)
-@click.pass_context
-def gate_status(
-    ctx: click.Context,
-    lockfile: str | None,
-    status_filter: str | None,
-) -> None:
-    """Alias for `caskmcp approve list`."""
-    ctx.invoke(approve_list, lockfile=lockfile, status=status_filter)
-
-
-@gate.command("allow")
-@click.argument("tool_ids", nargs=-1)
-@click.option("--lockfile", "-l", type=click.Path(), help="Path to lockfile")
-@click.option("--all", "all_pending", is_flag=True, help="Approve all pending tools")
-@click.option("--toolset", help="Approve tools within a specific toolset")
-@click.option("--by", "approved_by", help="Who is approving")
-@click.option("--reason", help="Approval reason")
-@click.pass_context
-def gate_allow(
-    ctx: click.Context,
-    tool_ids: tuple[str, ...],
-    lockfile: str | None,
-    all_pending: bool,
-    toolset: str | None,
-    approved_by: str | None,
-    reason: str | None,
-) -> None:
-    """Alias for `caskmcp approve tool`."""
-    ctx.invoke(
-        approve_tool,
-        tool_ids=tool_ids,
-        lockfile=lockfile,
-        all_pending=all_pending,
-        toolset=toolset,
-        approved_by=approved_by,
-        reason=reason,
-    )
-
-
-@gate.command("block")
-@click.argument("tool_ids", nargs=-1, required=True)
-@click.option("--lockfile", "-l", type=click.Path(), help="Path to lockfile")
-@click.option("--reason", "-r", help="Reason for rejection")
-@click.pass_context
-def gate_block(
-    ctx: click.Context,
-    tool_ids: tuple[str, ...],
-    lockfile: str | None,
-    reason: str | None,
-) -> None:
-    """Alias for `caskmcp approve reject`."""
-    ctx.invoke(approve_reject, tool_ids=tool_ids, lockfile=lockfile, reason=reason)
-
-
-@gate.command("check")
-@click.option("--lockfile", "-l", type=click.Path(), help="Path to lockfile")
-@click.option("--toolset", help="Check approval status for a specific toolset")
-@click.pass_context
-def gate_check(
-    ctx: click.Context,
-    lockfile: str | None,
-    toolset: str | None,
-) -> None:
-    """Alias for `caskmcp approve check`."""
-    ctx.invoke(approve_check, lockfile=lockfile, toolset=toolset)
-
-
-@gate.command("snapshot")
-@click.option("--lockfile", "-l", type=click.Path(), help="Path to lockfile")
-@click.pass_context
-def gate_snapshot(ctx: click.Context, lockfile: str | None) -> None:
-    """Alias for `caskmcp approve snapshot`."""
-    ctx.invoke(approve_snapshot, lockfile=lockfile)
-
-
-@gate.command("resign")
-@click.option("--lockfile", "-l", type=click.Path(), help="Path to lockfile")
-@click.option("--toolset", help="Re-sign approvals for tools within a specific toolset only")
-@click.pass_context
-def gate_resign(
-    ctx: click.Context,
-    lockfile: str | None,
-    toolset: str | None,
-) -> None:
-    """Alias for `caskmcp approve resign`."""
-    ctx.invoke(approve_resign, lockfile=lockfile, toolset=toolset)
+def govern() -> None:
+    """Govern capabilities with approvals, lockfiles, drift gates, and runtime policy."""
 
 
 @cli.group()
@@ -2540,8 +1814,24 @@ def auth_list_cmd(ctx: click.Context, root: str | None) -> None:
     ctx.invoke(_do_list, root=resolved_root)
 
 
+def _register_govern_aliases() -> None:
+    """Expose flagship governance commands under `caskmcp govern`."""
+    for command_name in ("mint", "diff", "gate", "run", "drift", "verify", "mcp"):
+        command = cli.commands.get(command_name)
+        if command is None:
+            continue
+        if command_name in govern.commands:
+            continue
+        govern_command = copy(command)
+        govern_command.hidden = False
+        govern.add_command(govern_command, name=command_name)
+
+
+_register_govern_aliases()
+
+
 def _hide_advanced_commands() -> None:
-    """Hide non-flagship commands from default top-level help."""
+    """Hide advanced and compatibility commands from default top-level help."""
     for name in ADVANCED_TOP_LEVEL_COMMANDS:
         command = cli.commands.get(name)
         if command is not None:

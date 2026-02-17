@@ -535,7 +535,7 @@ class LockfileManager:
             return False
 
         tool = self.lockfile.tools[resolved_tool_id]
-        actor = approved_by or os.environ.get("USER", "unknown")
+        actor = approved_by if approved_by is not None else (os.environ.get("USER") or "unknown")
         approval_time = approved_at or datetime.now(UTC)
 
         if toolset:

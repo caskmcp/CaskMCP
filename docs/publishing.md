@@ -5,6 +5,11 @@
 This repository includes `.github/workflows/publish-pypi.yaml` to publish from tags
 using PyPI Trusted Publishing.
 
+Install-doc truth gate:
+
+- README install section must match the currently published path (`pip install caskmcp`).
+- Keep command snippets defaulted to `caskmcp` (not `cask`).
+
 ### One-time setup
 
 1. Create/register the `caskmcp` project on PyPI.

@@ -707,7 +707,9 @@ class CaskMCPMCPServer:
         return ips
 
     def _is_ip_allowed(self, ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-        if ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_unspecified:
+        if ip.is_loopback:
+            return any(ip in network for network in self.allow_private_networks)
+        if ip.is_link_local or ip.is_multicast or ip.is_unspecified:
             return False
         if ip.is_private:
             return any(ip in network for network in self.allow_private_networks)
@@ -745,17 +747,45 @@ class CaskMCPMCPServer:
         return set()
 
     def _host_matches_allowlist(self, host: str, allowed_hosts: set[str]) -> bool:
+        normalized_host = self._normalize_host_for_allowlist(host)
         for pattern in allowed_hosts:
+            normalized_pattern = self._normalize_host_for_allowlist(pattern)
+            if not normalized_pattern:
+                continue
+
+            pattern = normalized_pattern
             if pattern.startswith("*."):
                 suffix = pattern[2:]
                 if not suffix:
                     continue
-                if host.endswith(f".{suffix}") and host.count(".") == suffix.count(".") + 1:
+                if (
+                    normalized_host.endswith(f".{suffix}")
+                    and normalized_host.count(".") == suffix.count(".") + 1
+                ):
                     return True
                 continue
-            if host == pattern:
+            if normalized_host == pattern:
                 return True
         return False
+
+    def _normalize_host_for_allowlist(self, value: str) -> str:
+        raw = value.strip().lower()
+        if not raw:
+            return ""
+
+        # Bracketed IPv6 literal, optionally with port (e.g. [::1]:8443).
+        if raw.startswith("["):
+            closing = raw.find("]")
+            if closing > 0:
+                return raw[1:closing]
+            return raw
+
+        if raw.count(":") == 1:
+            host, port = raw.rsplit(":", 1)
+            if port.isdigit():
+                return host
+
+        return raw
 
     def _validate_url_scheme(self, url: str) -> None:
         parsed = urlparse(url)

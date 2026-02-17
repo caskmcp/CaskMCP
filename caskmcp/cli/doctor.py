@@ -94,11 +94,20 @@ def run_doctor(
     if errors:
         for error in errors:
             click.echo(f"Error: {error}", err=True)
+        click.echo("Doctor failed.", err=True)
+        click.echo("Next: fix the errors above and re-run `caskmcp doctor --toolpack <path>`.", err=True)
         sys.exit(1)
 
     if warnings:
         for warning in warnings:
             click.echo(f"Warning: {warning}", err=True)
 
+    click.echo("Doctor check passed.", err=True)
+    click.echo(f"Next: caskmcp run --toolpack {toolpack_path}", err=True)
+    click.echo(
+        f"      caskmcp run --toolpack {toolpack_path} --print-config-and-exit",
+        err=True,
+    )
+
     if verbose:
-        click.echo("Doctor check passed.", err=True)
+        click.echo(f"Runtime mode: {mode}", err=True)

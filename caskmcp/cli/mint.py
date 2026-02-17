@@ -350,14 +350,14 @@ def run_mint(
 def build_mcp_integration_output(toolpack_path: str | Path) -> str:
     """Return ready-to-paste MCP integration instructions.
 
-    Primary: guide users to generate a config snippet via `cask config`.
+    Primary: guide users to generate a config snippet via `caskmcp config`.
     """
     tp = str(toolpack_path)
     return (
         "\nConnect to MCP clients:\n"
         "\n"
         "  Generate a ready-to-paste MCP config snippet:\n"
-        f"    cask config --toolpack {tp}\n"
+        f"    caskmcp config --toolpack {tp}\n"
         "\n"
         "  Claude Desktop:\n"
         "    Paste the emitted JSON into:\n"

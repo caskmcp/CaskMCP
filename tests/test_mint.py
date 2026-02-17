@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -247,10 +248,13 @@ class TestMint:
             toolpack_path=tmp_path / "toolpack.yaml",
             server_name="demo",
         )
-        assert '"command": "caskmcp"' in snippet
-        assert '"mcp"' in snippet
-        assert '"serve"' in snippet
-        assert '"--toolpack"' in snippet
+        payload = json.loads(snippet)
+        server = payload["mcpServers"]["demo"]
+        assert isinstance(server["command"], str)
+        assert server["command"]
+        assert "mcp" in server["args"]
+        assert "serve" in server["args"]
+        assert "--toolpack" in server["args"]
 
     def test_mint_cli_wires_arguments(self) -> None:
         runner = CliRunner()

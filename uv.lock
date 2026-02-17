@@ -49,7 +49,7 @@ wheels = [
 
 [[package]]
 name = "caskmcp"
-version = "0.2.0b2"
+version = "0.2.0b3"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -62,15 +62,8 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
-    { name = "build" },
     { name = "mcp" },
-    { name = "mypy" },
     { name = "playwright" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-    { name = "types-pyyaml" },
 ]
 dev = [
     { name = "build" },
@@ -98,7 +91,7 @@ playwright = [
 requires-dist = [
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.2.0" },
     { name = "build", marker = "extra == 'packaging-test'", specifier = ">=1.2.0" },
-    { name = "caskmcp", extras = ["dev", "mcp", "playwright"], marker = "extra == 'all'" },
+    { name = "caskmcp", extras = ["mcp", "playwright"], marker = "extra == 'all'" },
     { name = "click", specifier = ">=8.1.0" },
     { name = "cryptography", specifier = ">=43.0.0" },
     { name = "hatchling", marker = "extra == 'packaging-test'", specifier = ">=1.25.0" },
@@ -117,7 +110,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
 ]
-provides-extras = ["dev", "packaging-test", "mcp", "playwright", "all"]
+provides-extras = ["dev", "packaging-test", "prove", "mcp", "playwright", "all"]
 
 [[package]]
 name = "certifi"

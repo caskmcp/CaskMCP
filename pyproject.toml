@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "caskmcp"
-version = "0.2.0b2"
+version = "0.2.0b3"
 description = "Action surface compiler: turn observed web traffic into safe, versioned, agent-ready tools"
 readme = "README.md"
 license = "MIT"
@@ -63,6 +63,7 @@ packaging-test = [
     "build>=1.2.0",
     "hatchling>=1.25.0",
 ]
+prove = []
 mcp = [
     "mcp>=1.0.0",
 ]
@@ -70,7 +71,7 @@ playwright = [
     "playwright>=1.40.0",
 ]
 all = [
-    "caskmcp[dev,mcp,playwright]",
+    "caskmcp[mcp,playwright]",
 ]
 
 [project.scripts]

@@ -10,7 +10,7 @@ This is intentionally an **adapter** into the existing capture pipeline:
 
 ## Supported input
 
-- File import via `cask capture import ... --input-format otel`
+- File import via `caskmcp capture import ... --input-format otel`
 - JSON exports containing `resourceSpans` / `scopeSpans` / `spans`
 - NDJSON exports (one JSON object per line)
 
@@ -20,11 +20,11 @@ Live OTLP collector ingestion is not part of this release.
 
 ```bash
 # Import OTEL trace export into captures/
-cask capture import traces.json --input-format otel -a api.example.com
+caskmcp capture import traces.json --input-format otel -a api.example.com
 
 # Continue normal workflow
-cask compile --capture-path .caskmcp/captures/<capture-id>
-cask diff --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml --format github-md
+caskmcp compile --capture-path .caskmcp/captures/<capture-id>
+caskmcp diff --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml --format github-md
 ```
 
 ## Attribute mapping

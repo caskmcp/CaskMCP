@@ -8,16 +8,24 @@ This is the execution lock for v1.
 
 Ship the deterministic governance wedge end-to-end:
 
-`mint -> diff -> gate -> run -> drift -> verify`
+`wow -> govern -> prove`
+
+Under the hood, `wow` executes governed prove-twice checks and enforces:
+- fail-closed governance (`no lockfile => no run`)
+- replayability from fixed inputs
+- parity checks across prove-once/prove-again runs
 
 ## Public command surface
 
 Flagship:
 
-- `mint`, `diff`, `gate`, `run`, `drift`, `verify`, `mcp serve`, `mcp inspect`
+- `wow`
+- `govern ...` (`mint`, `diff`, `gate`, `run`, `drift`, `verify`, `mcp`)
+- `prove ...` (`twice`, `smoke`)
 
 Compatibility aliases:
 
+- legacy top-level governance verbs remain available but are hidden from default help
 - `plan -> diff`
 - `approve -> gate`
 - `mcp meta -> mcp inspect`

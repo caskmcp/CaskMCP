@@ -160,7 +160,7 @@ def _resolve_field_path(path: str, data: Any) -> Any:
                 current = current[part]
             else:
                 return _MISSING
-        elif isinstance(current, (list, tuple)):
+        elif isinstance(current, list | tuple):
             try:
                 idx = int(part)
                 current = current[idx]
@@ -182,7 +182,7 @@ def _check_op(op: AssertionOp, actual: Any, expected: Any) -> bool:
     if op == AssertionOp.CONTAINS:
         if isinstance(actual, str) and isinstance(expected, str):
             return expected in actual
-        if isinstance(actual, (list, tuple)):
+        if isinstance(actual, list | tuple):
             return expected in actual
         return False
 
