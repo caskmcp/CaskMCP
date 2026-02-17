@@ -24,16 +24,16 @@ def test_public_docs_do_not_leak_absolute_local_paths() -> None:
 
 def test_docs_onboarding_snippets_smoke(tmp_path: Path) -> None:
     runner = CliRunner()
-    out_dir = tmp_path / "wow_docs_smoke"
+    out_dir = tmp_path / "demo_docs_smoke"
 
-    wow_result = runner.invoke(cli, ["wow", "--out", str(out_dir)])
-    assert wow_result.exit_code == 0
+    demo_result = runner.invoke(cli, ["demo", "--out", str(out_dir)])
+    assert demo_result.exit_code == 0
 
-    govern_help = runner.invoke(cli, ["govern", "--help"])
-    assert govern_help.exit_code == 0
+    top_help = runner.invoke(cli, ["--help"])
+    assert top_help.exit_code == 0
 
-    prove_help = runner.invoke(cli, ["prove", "--help"])
-    assert prove_help.exit_code == 0
+    gate_help = runner.invoke(cli, ["gate", "--help"])
+    assert gate_help.exit_code == 0
 
     summary = json.loads((out_dir / "prove_summary.json").read_text(encoding="utf-8"))
     assert summary["schema_version"] == "1.0.0"

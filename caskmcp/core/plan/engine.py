@@ -46,7 +46,7 @@ def build_plan(
 
     lockfile_path = resolved.approved_lockfile_path or resolved.pending_lockfile_path
     if lockfile_path is None or not lockfile_path.exists():
-        raise ValueError("lockfile missing; run caskmcp approve sync")
+        raise ValueError("lockfile missing; run cask gate sync")
 
     manager = LockfileManager(lockfile_path)
     lockfile = manager.load()
@@ -324,15 +324,15 @@ def _resolve_baseline(
         return bundle, snapshot_dir_str, snapshot_digest
 
     if not lockfile_snapshot_dir or not lockfile_snapshot_digest:
-        raise ValueError("baseline snapshot missing; run caskmcp approve snapshot")
+        raise ValueError("baseline snapshot missing; run cask gate snapshot")
 
     snapshot_dir_path = toolpack_root / lockfile_snapshot_dir
     if not snapshot_dir_path.exists():
-        raise ValueError("baseline snapshot missing; run caskmcp approve snapshot")
+        raise ValueError("baseline snapshot missing; run cask gate snapshot")
 
     digest = load_snapshot_digest(snapshot_dir_path)
     if digest != lockfile_snapshot_digest:
-        raise ValueError("baseline snapshot digest mismatch; re-run caskmcp approve snapshot")
+        raise ValueError("baseline snapshot digest mismatch; re-run cask gate snapshot")
 
     bundle = ArtifactBundle(
         tools=snapshot_dir_path / "tools.json",
@@ -361,7 +361,7 @@ def _resolve_baseline_from_path(
         manager = LockfileManager(lockfile_path)
         lockfile = manager.load()
         if not lockfile.baseline_snapshot_dir or not lockfile.baseline_snapshot_digest:
-            raise ValueError("baseline snapshot missing; run caskmcp approve snapshot")
+            raise ValueError("baseline snapshot missing; run cask gate snapshot")
         snapshot_dir = baseline_path.parent / lockfile.baseline_snapshot_dir
         digest = load_snapshot_digest(snapshot_dir)
         if digest != lockfile.baseline_snapshot_digest:

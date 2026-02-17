@@ -66,7 +66,7 @@ def run_capture(
             sys.exit(1)
         if not source:
             click.echo("Error: URL is required for 'record' subcommand", err=True)
-            click.echo("Usage: caskmcp capture record <URL> --allowed-hosts <host>", err=True)
+            click.echo("Usage: cask capture record <URL> --allowed-hosts <host>", err=True)
             sys.exit(1)
         _record_playwright(
             start_url=source,

@@ -75,8 +75,8 @@ all = [
 ]
 
 [project.scripts]
-caskmcp = "caskmcp.cli.main:cli"
 cask = "caskmcp.cli.main:cli"
+caskmcp = "caskmcp.cli.main:cli"
 
 [project.urls]
 Homepage = "https://github.com/caskmcp/CaskMCP"

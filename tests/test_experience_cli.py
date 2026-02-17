@@ -1,4 +1,4 @@
-"""Tests for the unified experience command surface (`wow`, `prove`, `govern`)."""
+"""Tests for the unified experience command surface (`demo`, core commands)."""
 
 from __future__ import annotations
 
@@ -10,32 +10,24 @@ from click.testing import CliRunner
 from caskmcp.cli.main import cli
 
 
-def test_top_help_includes_wow_prove_and_govern() -> None:
+def test_top_help_includes_core_commands() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["--help"])
     assert result.exit_code == 0
-    assert "wow" in result.stdout
-    assert "prove" in result.stdout
-    assert "govern" in result.stdout
-
-
-def test_govern_help_exposes_flagship_subcommands() -> None:
-    runner = CliRunner()
-    result = runner.invoke(cli, ["govern", "--help"])
-    assert result.exit_code == 0
+    assert "demo" in result.stdout
+    assert "init" in result.stdout
     assert "mint" in result.stdout
-    assert "diff" in result.stdout
     assert "gate" in result.stdout
+    assert "serve" in result.stdout
     assert "run" in result.stdout
     assert "drift" in result.stdout
     assert "verify" in result.stdout
-    assert "mcp" in result.stdout
 
 
-def test_wow_offline_emits_required_artifacts(tmp_path: Path) -> None:
+def test_demo_offline_emits_required_artifacts(tmp_path: Path) -> None:
     runner = CliRunner()
-    out_dir = tmp_path / "wow_offline"
-    result = runner.invoke(cli, ["wow", "--out", str(out_dir)])
+    out_dir = tmp_path / "demo_offline"
+    result = runner.invoke(cli, ["demo", "--out", str(out_dir)])
 
     assert result.exit_code == 0
     report = out_dir / "prove_twice_report.md"
@@ -67,7 +59,7 @@ def test_wow_offline_emits_required_artifacts(tmp_path: Path) -> None:
     }
 
 
-def test_wow_fails_when_governance_check_fails(
+def test_demo_fails_when_governance_check_fails(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -76,17 +68,17 @@ def test_wow_fails_when_governance_check_fails(
         lambda **_kwargs: False,
     )
     runner = CliRunner()
-    out_dir = tmp_path / "wow_govern_fail"
-    result = runner.invoke(cli, ["wow", "--out", str(out_dir)])
+    out_dir = tmp_path / "demo_govern_fail"
+    result = runner.invoke(cli, ["demo", "--out", str(out_dir)])
     assert result.exit_code == 1
 
 
-def test_wow_fails_when_parity_breaks(tmp_path: Path, monkeypatch) -> None:
+def test_demo_fails_when_parity_breaks(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(
         "caskmcp.cli.wow._results_are_parity_equivalent",
         lambda _run_a, _run_b: False,
     )
     runner = CliRunner()
-    out_dir = tmp_path / "wow_parity_fail"
-    result = runner.invoke(cli, ["wow", "--out", str(out_dir)])
+    out_dir = tmp_path / "demo_parity_fail"
+    result = runner.invoke(cli, ["demo", "--out", str(out_dir)])
     assert result.exit_code == 1

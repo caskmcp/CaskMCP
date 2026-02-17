@@ -63,8 +63,8 @@ def test_approve_resign_rewrites_invalid_signatures(tmp_path: Path) -> None:
         [
             "--root",
             str(root_path),
-            "approve",
-            "resign",
+            "gate",
+            "reseal",
             "--lockfile",
             str(lockfile_path),
         ],

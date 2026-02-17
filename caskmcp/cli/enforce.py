@@ -363,8 +363,8 @@ class EnforcementGateway:
 
         if result.decision == DecisionType.CONFIRM and result.confirmation_token_id:
             click.echo(
-                f"[caskmcp] Confirmation required for {action_name}. "
-                f"Run: caskmcp confirm grant {result.confirmation_token_id}",
+                f"[cask] Confirmation required for {action_name}. "
+                f"Run: cask confirm grant {result.confirmation_token_id}",
                 err=True,
             )
 
@@ -968,7 +968,7 @@ def create_handler(gateway: EnforcementGateway) -> type[BaseHTTPRequestHandler]:
                 self._send_json(
                     {
                         "error": "In-band confirmation is disabled. "
-                                 "Use local CLI: caskmcp confirm grant|deny <token_id>",
+                                 "Use local CLI: cask confirm grant|deny <token_id>",
                     },
                     410,
                 )

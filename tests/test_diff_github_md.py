@@ -53,7 +53,7 @@ def test_diff_writes_github_md_snapshot(tmp_path: Path) -> None:
     runner = CliRunner()
     snapshot_result = runner.invoke(
         cli,
-        ["approve", "snapshot", "--lockfile", str(lockfile_path)],
+        ["gate", "snapshot", "--lockfile", str(lockfile_path)],
     )
     assert snapshot_result.exit_code == 0
 

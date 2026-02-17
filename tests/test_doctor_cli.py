@@ -23,7 +23,7 @@ def test_doctor_outputs_to_stderr_only(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert result.stdout == ""
     assert "Doctor check passed." in result.stderr
-    assert f"Next: caskmcp run --toolpack {toolpack_file}" in result.stderr
+    assert f"Next: cask run --toolpack {toolpack_file}" in result.stderr
 
 
 def test_doctor_reports_missing_artifacts(tmp_path: Path) -> None:

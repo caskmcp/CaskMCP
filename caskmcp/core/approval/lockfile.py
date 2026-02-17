@@ -743,7 +743,7 @@ class LockfileManager:
         assert self.lockfile is not None
 
         if not self.lockfile.baseline_snapshot_dir or not self.lockfile.baseline_snapshot_digest:
-            return False, "baseline snapshot missing; run caskmcp approve snapshot"
+            return False, "baseline snapshot missing; run cask gate snapshot"
 
         from caskmcp.core.approval.snapshot import (
             load_snapshot_digest,
@@ -759,9 +759,9 @@ class LockfileManager:
         try:
             digest = load_snapshot_digest(snapshot_dir)
         except Exception:
-            return False, "baseline snapshot missing; run caskmcp approve snapshot"
+            return False, "baseline snapshot missing; run cask gate snapshot"
         if digest != self.lockfile.baseline_snapshot_digest:
-            return False, "baseline snapshot digest mismatch; re-run caskmcp approve snapshot"
+            return False, "baseline snapshot digest mismatch; re-run cask gate snapshot"
 
         toolpack_file = toolpack_root / "toolpack.yaml"
         try:

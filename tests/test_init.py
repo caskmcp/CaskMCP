@@ -144,7 +144,7 @@ def test_gitignore_entries() -> None:
 def test_suggestions_with_api_spec(tmp_path: Path) -> None:
     (tmp_path / "openapi.yaml").write_text("openapi: 3.1.0\n")
     result = detect_project(tmp_path)
-    assert any("caskmcp openapi <spec>" in s for s in result.suggestions)
+    assert any("cask capture import" in s for s in result.suggestions)
 
 
 def test_suggestions_for_unknown_project(tmp_path: Path) -> None:
@@ -159,9 +159,9 @@ def test_init_next_steps_use_openapi_command(tmp_path: Path) -> None:
     result = runner.invoke(cli, ["init", "--directory", str(tmp_path)])
 
     assert result.exit_code == 0
-    assert "caskmcp openapi openapi.yaml -a <api-host>" in result.output
+    assert "cask capture import openapi.yaml -a <api-host>" in result.output
     assert "mint --openapi" not in result.output
-    assert "caskmcp run --toolpack <path>" in result.output
+    assert "cask run --toolpack <path>" in result.output
     assert "--tools <tools.json>" not in result.output
     assert "--policy <policy.yaml>" not in result.output
 

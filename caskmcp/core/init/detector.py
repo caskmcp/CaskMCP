@@ -119,7 +119,7 @@ def detect_project(directory: Path) -> ProjectDetection:
     if result.api_specs:
         result.suggestions.append(
             f"Found API spec(s): {', '.join(result.api_specs)}. "
-            "Consider running: caskmcp openapi <spec>"
+            "Consider running: cask capture import <spec>"
         )
     if not result.has_existing_caskmcp:
         result.suggestions.append("Will create .caskmcp/ directory with starter config")

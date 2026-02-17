@@ -12,17 +12,14 @@ from typing import Any
 import yaml
 
 
-def _resolve_caskmcp_command() -> str:
-    """Return an absolute `caskmcp` command path when possible.
+def _resolve_cask_command() -> str:
+    """Return an absolute ``cask`` command path when possible.
 
     Claude Desktop often does not inherit a shell PATH (especially virtualenv PATH),
     so emitting an absolute path improves "paste-and-go" reliability.
     """
     argv0 = Path(sys.argv[0])
-    if argv0.name in {"caskmcp", "cask"}:
-        # Prefer the currently-running entrypoint when it is an absolute, existing path.
-        # This avoids accidentally emitting a different caskmcp found on PATH (for example,
-        # a repo venv vs a standalone install).
+    if argv0.name in {"cask", "caskmcp"}:
         if argv0.exists():
             return str(argv0.resolve())
 
@@ -30,11 +27,13 @@ def _resolve_caskmcp_command() -> str:
         if discovered_self:
             return discovered_self
 
-    discovered = shutil.which("caskmcp")
-    if discovered:
-        return discovered
+    # Prefer `cask` on PATH; fall back to `caskmcp` for compat.
+    for name in ("cask", "caskmcp"):
+        discovered = shutil.which(name)
+        if discovered:
+            return discovered
 
-    return "caskmcp"
+    return "cask"
 
 
 def build_mcp_config_payload(*, toolpack_path: Path, server_name: str) -> dict[str, Any]:
@@ -47,11 +46,10 @@ def build_mcp_config_payload(*, toolpack_path: Path, server_name: str) -> dict[s
     return {
         "mcpServers": {
             server_name: {
-                "command": _resolve_caskmcp_command(),
+                "command": _resolve_cask_command(),
                 "args": [
                     "--root",
                     str(state_root),
-                    "mcp",
                     "serve",
                     "--toolpack",
                     str(toolpack_abs),

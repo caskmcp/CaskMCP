@@ -1,10 +1,9 @@
-"""Main CLI entry point for CaskMCP."""
+"""Main CLI entry point for Cask."""
 
 from __future__ import annotations
 
 import sys
 from collections.abc import Callable
-from copy import copy
 from pathlib import Path
 
 import click
@@ -16,37 +15,82 @@ from caskmcp.branding import (
 )
 from caskmcp.cli.commands_approval import register_approval_commands
 from caskmcp.cli.commands_mcp import register_mcp_commands
+from caskmcp.cli.commands_workflow import register_workflow_commands
 from caskmcp.utils.locks import RootLockError, clear_root_lock, root_command_lock
 from caskmcp.utils.state import confirmation_store_path, resolve_root
 
-ADVANCED_TOP_LEVEL_COMMANDS = {
-    # Legacy top-level command aliases kept for compatibility.
-    "approve",
-    "diff",
-    "drift",
-    "gate",
-    "mcp",
-    "mint",
-    "plan",
-    "run",
-    "serve",
-    "verify",
-    # Advanced command families.
-    "capture",
-    "openapi",
+# Commands visible only with --help-all.
+ADVANCED_COMMANDS = {
     "compile",
-    "demo",
-    "config",
-    "migrate",
-    "lint",
-    "enforce",
-    "confirm",
     "bundle",
+    "lint",
     "doctor",
+    "config",
+    "enforce",
+    "migrate",
+    "inspect",
+    "confirm",
+    "propose",
+    "scope",
     "compliance",
-    "scopes",
     "state",
 }
+
+# Commands shown in the "More" section of default help.
+MORE_COMMANDS = {
+    "capture",
+    "workflow",
+    "auth",
+}
+
+# Core commands shown prominently in default help (everything else).
+CORE_COMMANDS = {
+    "init",
+    "mint",
+    "diff",
+    "gate",
+    "serve",
+    "run",
+    "drift",
+    "verify",
+    "demo",
+}
+
+
+class CaskGroup(click.Group):
+    """Custom group with sectioned help output."""
+
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        """Write command sections: Core, More."""
+        commands = []
+        for subcommand in self.list_commands(ctx):
+            cmd = self.commands.get(subcommand)
+            if cmd is None or cmd.hidden:
+                continue
+            help_text = cmd.get_short_help_str(limit=150)
+            commands.append((subcommand, help_text))
+
+        if not commands:
+            return
+
+        core = [(n, h) for n, h in commands if n in CORE_COMMANDS]
+        more = [(n, h) for n, h in commands if n in MORE_COMMANDS]
+
+        # Sort core commands in workflow order.
+        core_order = list(CORE_COMMANDS)
+        core.sort(key=lambda x: core_order.index(x[0]) if x[0] in core_order else 99)
+        more.sort()
+
+        if core:
+            with formatter.section("Core Commands"):
+                formatter.write_dl(core)
+        if more:
+            with formatter.section("More"):
+                formatter.write_dl(more)
+
+        formatter.write("\n")
+        formatter.write("  Use 'cask <command> --help' for details on any command.\n")
+        formatter.write("  Use 'cask --help-all' to see all commands including advanced.\n")
 
 
 def _render_help_all(ctx: click.Context) -> str:
@@ -81,7 +125,7 @@ def _show_help_all(
     ctx.exit()
 
 
-@click.group()
+@click.group(cls=CaskGroup)
 @click.version_option(version=__version__, prog_name=CLI_PRIMARY_COMMAND)
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
 @click.option(
@@ -101,7 +145,7 @@ def _show_help_all(
 )
 @click.pass_context
 def cli(ctx: click.Context, verbose: bool, root: Path) -> None:
-    """Turn observed web/API traffic into a safe-by-default MCP server."""
+    """Turn observed web/API traffic into safe, versioned, agent-ready MCP tools."""
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
     ctx.obj["root"] = root
@@ -123,6 +167,7 @@ def _run_with_lock(
     *,
     lock_id: str | None = None,
 ) -> None:
+
     try:
         with root_command_lock(
             ctx.obj.get("root", resolve_root()),
@@ -133,6 +178,33 @@ def _run_with_lock(
     except RootLockError as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Core Commands
+# ---------------------------------------------------------------------------
+
+
+@cli.command("init")
+@click.option(
+    "--directory", "-d",
+    default=".",
+    help="Project directory to initialize (default: current directory)",
+)
+@click.option("--non-interactive", is_flag=True, help="Use defaults without prompting")
+@click.pass_context
+def init_cmd(ctx: click.Context, directory: str, non_interactive: bool) -> None:
+    """Initialize cask in a project directory.
+
+    Auto-detects project type, generates config, and prints next steps.
+    """
+    from caskmcp.cli.init import run_init
+
+    run_init(
+        directory=directory,
+        non_interactive=non_interactive,
+        verbose=ctx.obj.get("verbose", False) if ctx.obj else False,
+    )
 
 
 @cli.command()
@@ -154,10 +226,10 @@ def _run_with_lock(
 )
 @click.option(
     "--input-format",
-    type=click.Choice(["har", "otel"]),
+    type=click.Choice(["har", "otel", "openapi"]),
     default="har",
     show_default=True,
-    help="Input format for import mode",
+    help="Input format for import mode (auto-detected for OpenAPI specs)",
 )
 @click.option("--no-redact", is_flag=True, help="Disable redaction (not recommended)")
 @click.option(
@@ -204,32 +276,52 @@ def capture(
     load_storage_state: str | None,
     save_storage_state: str | None,
 ) -> None:
-    """Import traffic from HAR files or capture with Playwright.
+    """Import traffic from HAR/OTEL/OpenAPI files or capture with Playwright.
 
-    For 'import': SOURCE is the path to a HAR file.
+    For 'import': SOURCE is the path to a HAR, OTEL, or OpenAPI file.
     For 'record': SOURCE is the starting URL for browser capture.
 
     \b
     Examples:
       # Import a HAR file
-      caskmcp capture import traffic.har --allowed-hosts api.example.com
+      cask capture import traffic.har -a api.example.com
 
-      # Import OpenTelemetry traces (OTLP JSON/NDJSON export)
-      caskmcp capture import traces.json --input-format otel --allowed-hosts api.example.com
+      # Import an OpenAPI spec
+      cask capture import openapi.yaml -a api.example.com
+
+      # Import OpenTelemetry traces
+      cask capture import traces.json --input-format otel -a api.example.com
 
       # Record traffic interactively with Playwright
-      caskmcp capture record https://example.com --allowed-hosts api.example.com
+      cask capture record https://example.com -a api.example.com
 
-      # Record with pre-authenticated session
-      caskmcp capture record https://example.com -a api.example.com \\
-        --load-storage-state auth-state.json
-
-    Record mode supports interactive (`--no-headless`), timed headless
-    capture (`--headless --duration`), and scripted automation (`--script`).
+    Record mode supports interactive, timed headless, and scripted automation.
     """
-    from caskmcp.cli.capture import run_capture
-
     resolved_output = output or str(_default_root_path(ctx, "captures"))
+
+    # Auto-detect OpenAPI for import subcommand.
+    effective_format = input_format
+    if subcommand == "import" and source and input_format == "har":
+        effective_format = _detect_openapi_format(source, input_format)
+
+    if effective_format == "openapi":
+        from caskmcp.cli.capture import run_capture_openapi
+
+        _run_with_lock(
+            ctx,
+            "capture",
+            lambda: run_capture_openapi(
+                source=source or "",
+                allowed_hosts=list(allowed_hosts) if allowed_hosts else None,
+                name=name,
+                output=resolved_output,
+                verbose=ctx.obj.get("verbose", False),
+                root_path=str(ctx.obj.get("root", resolve_root())),
+            ),
+        )
+        return
+
+    from caskmcp.cli.capture import run_capture
 
     _run_with_lock(
         ctx,
@@ -237,7 +329,7 @@ def capture(
         lambda: run_capture(
             subcommand=subcommand,
             source=source,
-            input_format=input_format,
+            input_format=effective_format,
             allowed_hosts=list(allowed_hosts),
             name=name,
             output=resolved_output,
@@ -251,6 +343,30 @@ def capture(
             root_path=str(ctx.obj.get("root", resolve_root())),
         ),
     )
+
+
+def _detect_openapi_format(source: str, default: str) -> str:
+    """Detect if a source file is an OpenAPI spec."""
+    import json as _json
+
+    import yaml as _yaml
+
+    source_path = Path(source)
+    if not source_path.exists():
+        return default
+    try:
+        text = source_path.read_text(encoding="utf-8")
+        if source_path.suffix in {".yaml", ".yml"}:
+            data = _yaml.safe_load(text)
+        elif source_path.suffix == ".json":
+            data = _json.loads(text)
+        else:
+            return default
+        if isinstance(data, dict) and "openapi" in data:
+            return "openapi"
+    except Exception:
+        pass
+    return default
 
 
 @cli.command()
@@ -318,7 +434,7 @@ def capture(
 )
 @click.option(
     "--runtime-version-pin",
-    help="Exact requirement line for caskmcp runtime when --runtime=container",
+    help="Exact requirement line for cask runtime when --runtime=container",
 )
 @click.option(
     "--print-mcp-config",
@@ -363,22 +479,18 @@ def mint(
     webmcp: bool,
     redaction_profile: str | None,
 ) -> None:
-    """Capture traffic and mint a first-class toolpack for MCP serving.
+    """Capture traffic and compile a governed toolpack.
 
     \b
     Example:
-      caskmcp mint https://example.com -a api.example.com --print-mcp-config
-      caskmcp mint https://app.example.com -a api.example.com --auth-profile myapp
-      caskmcp mint https://app.example.com --webmcp -a api.example.com
+      cask mint https://example.com -a api.example.com --print-mcp-config
+      cask mint https://app.example.com -a api.example.com --auth-profile myapp
+      cask mint https://app.example.com --webmcp -a api.example.com
     """
     from click.core import ParameterSource
 
     from caskmcp.cli.mint import run_mint
 
-    # When --allowed-hosts is explicitly provided but --scope is not,
-    # default to first_party_only (includes POST/PUT/DELETE).
-    # agent_safe_readonly excludes writes, which is unhelpful when the
-    # user has explicitly allowed a host.
     effective_scope = scope
     scope_source = ctx.get_parameter_source("scope")
     if scope_source != ParameterSource.COMMANDLINE and allowed_hosts:
@@ -412,28 +524,7 @@ def mint(
     )
 
 
-@cli.command()
-@click.option(
-    "--out",
-    type=click.Path(file_okay=False),
-    help="Output root directory (defaults to a temporary directory)",
-)
-@click.pass_context
-def demo(ctx: click.Context, out: str | None) -> None:
-    """Generate a deterministic offline demo toolpack from bundled fixture traffic."""
-    from caskmcp.cli.demo import run_demo
-
-    _run_with_lock(
-        ctx,
-        "demo",
-        lambda: run_demo(
-            output_root=out or str(ctx.obj.get("root", resolve_root())),
-            verbose=ctx.obj.get("verbose", False),
-        ),
-    )
-
-
-@cli.command()
+@cli.command("diff")
 @click.option(
     "--toolpack",
     required=True,
@@ -441,55 +532,42 @@ def demo(ctx: click.Context, out: str | None) -> None:
     help="Path to toolpack.yaml",
 )
 @click.option(
-    "--name",
-    help="Override the MCP server name (defaults to toolpack_id)",
+    "--baseline",
+    type=click.Path(),
+    help="Baseline toolpack.yaml or snapshot directory",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    help="Output directory for diff artifacts",
 )
 @click.option(
     "--format",
     "output_format",
-    type=click.Choice(["json", "yaml", "codex"]),
-    default="json",
+    type=click.Choice(["json", "markdown", "github-md", "both"]),
+    default="both",
     show_default=True,
-    help="Output format for config snippet",
-)
-def config(toolpack: str, name: str | None, output_format: str) -> None:
-    """Print a ready-to-paste MCP client config snippet."""
-    from caskmcp.cli.config import run_config
-
-    run_config(toolpack_path=toolpack, fmt=output_format, name_override=name)
-
-
-@cli.command()
-@click.option(
-    "--toolpack",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to toolpack.yaml",
-)
-@click.option(
-    "--runtime",
-    type=click.Choice(["auto", "local", "container"]),
-    default="auto",
-    show_default=True,
-    help="Runtime to validate",
+    help="Diff output format",
 )
 @click.pass_context
-def doctor(ctx: click.Context, toolpack: str, runtime: str) -> None:
-    """Validate toolpack readiness for execution."""
-    from click.core import ParameterSource
+def diff(
+    ctx: click.Context,
+    toolpack: str,
+    baseline: str | None,
+    output: str | None,
+    output_format: str,
+) -> None:
+    """Generate a risk-classified change report."""
+    from caskmcp.cli.plan import run_plan
 
-    from caskmcp.cli.doctor import run_doctor
-
-    runtime_source = ctx.get_parameter_source("runtime")
-    require_local_mcp = (
-        runtime == "local" and runtime_source == ParameterSource.COMMANDLINE
-    )
-
-    run_doctor(
+    run_plan(
         toolpack_path=toolpack,
-        runtime=runtime,
+        baseline=baseline,
+        output_dir=output,
+        output_format=output_format,
+        root_path=str(ctx.obj.get("root", resolve_root())),
         verbose=ctx.obj.get("verbose", False),
-        require_local_mcp=require_local_mcp,
     )
 
 
@@ -578,7 +656,7 @@ def run(
     allow_redirects: bool,
     unsafe_no_lockfile: bool,
 ) -> None:
-    """Run a toolpack locally or in a container runtime."""
+    """Execute a toolpack with policy enforcement."""
     from caskmcp.cli.run import run_run
 
     resolved_confirm_store = confirm_store or str(
@@ -605,260 +683,6 @@ def run(
             verbose=ctx.obj.get("verbose", False),
         ),
         lock_id=str(Path(toolpack).resolve()),
-    )
-
-
-def _run_diff_report(
-    *,
-    toolpack: str,
-    baseline: str | None,
-    output: str | None,
-    output_format: str,
-    root_path: str,
-    verbose: bool,
-) -> None:
-    from caskmcp.cli.plan import run_plan
-
-    run_plan(
-        toolpack_path=toolpack,
-        baseline=baseline,
-        output_dir=output,
-        output_format=output_format,
-        root_path=root_path,
-        verbose=verbose,
-    )
-
-
-@cli.command("diff")
-@click.option(
-    "--toolpack",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to toolpack.yaml",
-)
-@click.option(
-    "--baseline",
-    type=click.Path(),
-    help="Baseline toolpack.yaml or snapshot directory",
-)
-@click.option(
-    "--output",
-    "-o",
-    type=click.Path(),
-    help="Output directory for diff artifacts",
-)
-@click.option(
-    "--format",
-    "output_format",
-    type=click.Choice(["json", "markdown", "github-md", "both"]),
-    default="both",
-    show_default=True,
-    help="Diff output format",
-)
-@click.pass_context
-def diff(
-    ctx: click.Context,
-    toolpack: str,
-    baseline: str | None,
-    output: str | None,
-    output_format: str,
-) -> None:
-    """Generate a deterministic diff report."""
-    _run_diff_report(
-        toolpack=toolpack,
-        baseline=baseline,
-        output=output,
-        output_format=output_format,
-        root_path=str(ctx.obj.get("root", resolve_root())),
-        verbose=ctx.obj.get("verbose", False),
-    )
-
-
-@cli.command("plan")
-@click.option(
-    "--toolpack",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to toolpack.yaml",
-)
-@click.option(
-    "--baseline",
-    type=click.Path(),
-    help="Baseline toolpack.yaml or snapshot directory",
-)
-@click.option(
-    "--output",
-    "-o",
-    type=click.Path(),
-    help="Output directory for plan artifacts",
-)
-@click.option(
-    "--format",
-    "output_format",
-    type=click.Choice(["json", "markdown", "github-md", "both"]),
-    default="both",
-    show_default=True,
-    help="Plan output format",
-)
-@click.pass_context
-def plan(
-    ctx: click.Context,
-    toolpack: str,
-    baseline: str | None,
-    output: str | None,
-    output_format: str,
-) -> None:
-    """Alias for `caskmcp diff`."""
-    _run_diff_report(
-        toolpack=toolpack,
-        baseline=baseline,
-        output=output,
-        output_format=output_format,
-        root_path=str(ctx.obj.get("root", resolve_root())),
-        verbose=ctx.obj.get("verbose", False),
-    )
-
-
-@cli.command()
-@click.option(
-    "--toolpack",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to toolpack.yaml",
-)
-@click.option(
-    "--out",
-    "output",
-    required=True,
-    type=click.Path(),
-    help="Output bundle zip path",
-)
-@click.pass_context
-def bundle(ctx: click.Context, toolpack: str, output: str) -> None:
-    """Create a deterministic toolpack bundle."""
-    from caskmcp.cli.bundle import run_bundle
-
-    run_bundle(
-        toolpack_path=toolpack,
-        output_path=output,
-        verbose=ctx.obj.get("verbose", False),
-    )
-
-
-@cli.command("openapi")
-@click.argument("source", type=click.Path(exists=True))
-@click.option(
-    "--allowed-hosts",
-    "-a",
-    multiple=True,
-    help="Hosts to include (optional - defaults to spec servers)",
-)
-@click.option("--name", "-n", help="Name for the capture session")
-@click.option(
-    "--output",
-    "-o",
-    type=click.Path(),
-    help="Output directory (defaults to <root>/captures)",
-)
-@click.pass_context
-def openapi_import(
-    ctx: click.Context,
-    source: str,
-    allowed_hosts: tuple[str, ...],
-    name: str | None,
-    output: str | None,
-) -> None:
-    """Import an OpenAPI specification as a capture.
-
-    This creates a capture session from an existing OpenAPI 3.x spec,
-    allowing you to bootstrap tools from documented APIs.
-
-    \b
-    Examples:
-      caskmcp openapi api-spec.yaml
-      caskmcp openapi openapi.json --name "My API"
-      caskmcp openapi spec.yaml --allowed-hosts api.example.com
-    """
-    from caskmcp.cli.capture import run_capture_openapi
-
-    resolved_output = output or str(_default_root_path(ctx, "captures"))
-    _run_with_lock(
-        ctx,
-        "openapi",
-        lambda: run_capture_openapi(
-            source=source,
-            allowed_hosts=list(allowed_hosts) if allowed_hosts else None,
-            name=name,
-            output=resolved_output,
-            verbose=ctx.obj.get("verbose", False),
-            root_path=str(ctx.obj.get("root", resolve_root())),
-        ),
-    )
-
-
-@cli.command()
-@click.option("--capture", "-c", required=True, help="Capture session ID or path")
-@click.option(
-    "--scope",
-    "-s",
-    default="first_party_only",
-    help="Scope to apply (default: first_party_only)",
-)
-@click.option("--scope-file", type=click.Path(exists=True), help="Path to custom scope YAML")
-@click.option(
-    "--format",
-    "-f",
-    "output_format",
-    type=click.Choice(["manifest", "openapi", "all"]),
-    default="all",
-    help="Output format",
-)
-@click.option(
-    "--output",
-    "-o",
-    type=click.Path(),
-    help="Output directory (defaults to <root>/artifacts)",
-)
-@click.option(
-    "--deterministic/--volatile-metadata",
-    default=True,
-    show_default=True,
-    help="Deterministic artifacts by default; use --volatile-metadata for ephemeral IDs/timestamps",
-)
-@click.pass_context
-def compile(
-    ctx: click.Context,
-    capture: str,
-    scope: str,
-    scope_file: str | None,
-    output_format: str,
-    output: str | None,
-    deterministic: bool,
-) -> None:
-    """Compile captured traffic into contracts, tools, and policies.
-
-    \b
-    Examples:
-      caskmcp compile --capture cap_20240204_abc123 --scope agent_safe_readonly
-      caskmcp compile --capture ./captures/session.json --format manifest
-    """
-    from caskmcp.cli.compile import run_compile
-
-    resolved_output = output or str(_default_root_path(ctx, "artifacts"))
-
-    _run_with_lock(
-        ctx,
-        "compile",
-        lambda: run_compile(
-            capture_id=capture,
-            scope_name=scope,
-            scope_file=scope_file,
-            output_format=output_format,
-            output_dir=resolved_output,
-            verbose=ctx.obj.get("verbose", False),
-            deterministic=deterministic,
-            root_path=str(ctx.obj.get("root", resolve_root())),
-        ),
     )
 
 
@@ -911,9 +735,8 @@ def drift(
 
     \b
     Examples:
-      caskmcp drift --from cap_old --to cap_new
-      caskmcp drift --from cap_old --to cap_new --volatile-metadata
-      caskmcp drift --baseline baseline.json --capture cap_new
+      cask drift --from cap_old --to cap_new
+      cask drift --baseline baseline.json --capture-id cap_new
     """
     from caskmcp.cli.drift import run_drift
 
@@ -998,7 +821,7 @@ def verify(
     min_confidence: float,
     unknown_budget: float,
 ) -> None:
-    """Run verification (contracts/replay/outcomes/provenance)."""
+    """Run verification contracts (replay, outcomes, provenance)."""
     from caskmcp.cli.verify import run_verify
 
     resolved_output = output or str(_default_root_path(ctx, "reports"))
@@ -1018,6 +841,268 @@ def verify(
 
 
 @cli.command()
+@click.option(
+    "--out",
+    type=click.Path(file_okay=False),
+    help="Output directory for demo artifacts (defaults to a temporary directory)",
+)
+@click.option(
+    "--live",
+    is_flag=True,
+    help="Run live/browser orchestration (requires extra dependencies)",
+)
+@click.option(
+    "--scenario",
+    type=click.Choice(["basic_products", "auth_refresh"]),
+    default="basic_products",
+    show_default=True,
+    help="Live scenario to execute when --live is enabled",
+)
+@click.option(
+    "--keep",
+    is_flag=True,
+    help="Keep existing output directory contents",
+)
+@click.option(
+    "--smoke",
+    is_flag=True,
+    help="Run smoke test matrix across multiple scenarios",
+)
+@click.option(
+    "--smoke-scenarios",
+    default="offline_fixture",
+    show_default=True,
+    help="Comma-separated scenarios for --smoke mode",
+)
+@click.option(
+    "--generate-only",
+    is_flag=True,
+    help="Generate a fixture toolpack without running the prove flow",
+)
+@click.pass_context
+def demo(
+    ctx: click.Context,
+    out: str | None,
+    live: bool,
+    scenario: str,
+    keep: bool,
+    smoke: bool,
+    smoke_scenarios: str,
+    generate_only: bool,
+) -> None:
+    """One-command proof of governance enforcement.
+
+    Proves that governance is enforced, replays are deterministic, and parity
+    passes. Runs offline by default (no credentials or browser needed).
+
+    \b
+    Examples:
+      cask demo                          # Offline proof flow
+      cask demo --live                   # Live browser proof
+      cask demo --smoke                  # Smoke test matrix
+      cask demo --generate-only          # Generate fixture toolpack only
+    """
+    if generate_only:
+        from caskmcp.cli.demo import run_demo
+
+        _run_with_lock(
+            ctx,
+            "demo",
+            lambda: run_demo(
+                output_root=out or str(ctx.obj.get("root", resolve_root())),
+                verbose=ctx.obj.get("verbose", False),
+            ),
+        )
+        return
+
+    if smoke:
+        from caskmcp.cli.wow import run_prove_smoke
+
+        exit_code = run_prove_smoke(
+            out_dir=out,
+            live=live,
+            scenarios=smoke_scenarios,
+            keep=keep,
+            verbose=ctx.obj.get("verbose", False),
+        )
+        if exit_code != 0:
+            sys.exit(exit_code)
+        return
+
+    from caskmcp.cli.wow import run_wow
+
+    exit_code = run_wow(
+        out_dir=out,
+        live=live,
+        scenario=scenario,
+        keep=keep,
+        verbose=ctx.obj.get("verbose", False),
+    )
+    if exit_code != 0:
+        sys.exit(exit_code)
+
+
+# ---------------------------------------------------------------------------
+# Register serve, inspect, gate from external modules
+# ---------------------------------------------------------------------------
+
+register_mcp_commands(cli=cli, run_with_lock=_run_with_lock)
+register_approval_commands(cli=cli, run_with_lock=_run_with_lock)
+register_workflow_commands(cli=cli)
+
+
+# ---------------------------------------------------------------------------
+# Advanced / Hidden Commands
+# ---------------------------------------------------------------------------
+
+
+@cli.command(hidden=True)
+@click.option(
+    "--toolpack",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to toolpack.yaml",
+)
+@click.option(
+    "--name",
+    help="Override the MCP server name (defaults to toolpack_id)",
+)
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["json", "yaml", "codex"]),
+    default="json",
+    show_default=True,
+    help="Output format for config snippet",
+)
+def config(toolpack: str, name: str | None, output_format: str) -> None:
+    """Print a ready-to-paste MCP client config snippet."""
+    from caskmcp.cli.config import run_config
+
+    run_config(toolpack_path=toolpack, fmt=output_format, name_override=name)
+
+
+@cli.command(hidden=True)
+@click.option(
+    "--toolpack",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to toolpack.yaml",
+)
+@click.option(
+    "--runtime",
+    type=click.Choice(["auto", "local", "container"]),
+    default="auto",
+    show_default=True,
+    help="Runtime to validate",
+)
+@click.pass_context
+def doctor(ctx: click.Context, toolpack: str, runtime: str) -> None:
+    """Validate toolpack readiness for execution."""
+    from click.core import ParameterSource
+
+    from caskmcp.cli.doctor import run_doctor
+
+    runtime_source = ctx.get_parameter_source("runtime")
+    require_local_mcp = (
+        runtime == "local" and runtime_source == ParameterSource.COMMANDLINE
+    )
+
+    run_doctor(
+        toolpack_path=toolpack,
+        runtime=runtime,
+        verbose=ctx.obj.get("verbose", False),
+        require_local_mcp=require_local_mcp,
+    )
+
+
+@cli.command(hidden=True)
+@click.option("--capture", "-c", required=True, help="Capture session ID or path")
+@click.option(
+    "--scope",
+    "-s",
+    default="first_party_only",
+    help="Scope to apply (default: first_party_only)",
+)
+@click.option("--scope-file", type=click.Path(exists=True), help="Path to custom scope YAML")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["manifest", "openapi", "all"]),
+    default="all",
+    help="Output format",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    help="Output directory (defaults to <root>/artifacts)",
+)
+@click.option(
+    "--deterministic/--volatile-metadata",
+    default=True,
+    show_default=True,
+    help="Deterministic artifacts by default; use --volatile-metadata for ephemeral IDs/timestamps",
+)
+@click.pass_context
+def compile(
+    ctx: click.Context,
+    capture: str,
+    scope: str,
+    scope_file: str | None,
+    output_format: str,
+    output: str | None,
+    deterministic: bool,
+) -> None:
+    """Compile captured traffic into contracts, tools, and policies."""
+    from caskmcp.cli.compile import run_compile
+
+    resolved_output = output or str(_default_root_path(ctx, "artifacts"))
+
+    _run_with_lock(
+        ctx,
+        "compile",
+        lambda: run_compile(
+            capture_id=capture,
+            scope_name=scope,
+            scope_file=scope_file,
+            output_format=output_format,
+            output_dir=resolved_output,
+            verbose=ctx.obj.get("verbose", False),
+            deterministic=deterministic,
+            root_path=str(ctx.obj.get("root", resolve_root())),
+        ),
+    )
+
+
+@cli.command(hidden=True)
+@click.option(
+    "--toolpack",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to toolpack.yaml",
+)
+@click.option(
+    "--out",
+    "output",
+    required=True,
+    type=click.Path(),
+    help="Output bundle zip path",
+)
+@click.pass_context
+def bundle(ctx: click.Context, toolpack: str, output: str) -> None:
+    """Create a deterministic toolpack bundle."""
+    from caskmcp.cli.bundle import run_bundle
+
+    run_bundle(
+        toolpack_path=toolpack,
+        output_path=output,
+        verbose=ctx.obj.get("verbose", False),
+    )
+
+
+@cli.command(hidden=True)
 @click.option(
     "--toolpack",
     type=click.Path(exists=True),
@@ -1053,7 +1138,7 @@ def lint(
     )
 
 
-@cli.command()
+@cli.command(hidden=True)
 @click.option("--tools", "-t", required=True, type=click.Path(exists=True), help="Tool manifest")
 @click.option(
     "--toolsets",
@@ -1128,32 +1213,7 @@ def enforce(
     allow_redirects: bool,
     unsafe_no_lockfile: bool,
 ) -> None:
-    """Run as a gateway for tool calls with policy enforcement.
-
-    In 'evaluate' mode (default), the gateway evaluates policy and returns
-    allow/deny decisions without making upstream requests.
-
-    In 'proxy' mode, the gateway evaluates policy AND forwards allowed
-    requests to the upstream API, returning real responses.
-
-    \b
-    Examples:
-      # Evaluate mode (policy decisions only)
-      caskmcp enforce --tools tools.json --policy policy.yaml
-
-      # Enforce using a curated toolset
-      caskmcp enforce --tools tools.json --toolsets toolsets.yaml --toolset readonly --policy policy.yaml
-
-      # Proxy mode (forward to upstream, lockfile required by default)
-      caskmcp enforce --tools tools.json --policy policy.yaml \\
-        --mode=proxy --base-url https://api.example.com --auth "Bearer token" \\
-        --lockfile caskmcp.lock.yaml
-
-      # Proxy mode with dry run (evaluate but don't execute)
-      caskmcp enforce --tools tools.json --policy policy.yaml \\
-        --mode=proxy --base-url https://api.example.com --dry-run \\
-        --lockfile caskmcp.lock.yaml
-    """
+    """Run the policy enforcement gateway."""
     from caskmcp.cli.enforce import run_enforce
 
     resolved_confirm_store = confirm_store or str(
@@ -1184,161 +1244,47 @@ def enforce(
     )
 
 
-register_mcp_commands(cli=cli, run_with_lock=_run_with_lock)
-register_approval_commands(cli=cli, run_with_lock=_run_with_lock)
-
-
-@cli.group()
-def prove() -> None:
-    """Prove replayable behavior and parity with governed capabilities."""
-
-
-@prove.command("twice")
+@cli.command(hidden=True)
 @click.option(
-    "--out",
-    type=click.Path(file_okay=False),
-    help="Output directory for prove artifacts (defaults to a temporary directory)",
+    "--toolpack",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to toolpack.yaml",
 )
 @click.option(
-    "--live",
-    is_flag=True,
-    help="Run live/browser prove-twice orchestration (requires extra dependencies)",
-)
-@click.option(
-    "--scenario",
-    type=click.Choice(["basic_products", "auth_refresh"]),
-    default="basic_products",
+    "--apply/--dry-run",
+    "apply_changes",
+    default=False,
     show_default=True,
-    help="Live scenario to execute when --live is enabled",
-)
-@click.option(
-    "--keep",
-    is_flag=True,
-    help="Keep existing output directory contents",
+    help="Apply migrations or print planned changes",
 )
 @click.pass_context
-def prove_twice(
-    ctx: click.Context,
-    out: str | None,
-    live: bool,
-    scenario: str,
-    keep: bool,
-) -> None:
-    """Run the flagship prove-twice flow (offline by default)."""
-    from caskmcp.cli.wow import run_wow
+def migrate(ctx: click.Context, toolpack: str, apply_changes: bool) -> None:
+    """Migrate legacy toolpack/artifact layouts to current schema contracts."""
+    from caskmcp.cli.migrate import run_migrate
 
-    exit_code = run_wow(
-        out_dir=out,
-        live=live,
-        scenario=scenario,
-        keep=keep,
-        verbose=ctx.obj.get("verbose", False),
+    _run_with_lock(
+        ctx,
+        "migrate",
+        lambda: run_migrate(
+            toolpack_path=toolpack,
+            apply_changes=apply_changes,
+            verbose=ctx.obj.get("verbose", False),
+        ),
     )
-    if exit_code != 0:
-        sys.exit(exit_code)
 
 
-@prove.command("smoke")
-@click.option(
-    "--out",
-    type=click.Path(file_okay=False),
-    help="Output directory for smoke artifacts (defaults to a temporary directory)",
-)
-@click.option(
-    "--live",
-    is_flag=True,
-    help="Run live/browser scenarios (requires extra dependencies)",
-)
-@click.option(
-    "--scenarios",
-    default="offline_fixture",
-    show_default=True,
-    help="Comma-separated scenarios",
-)
-@click.option(
-    "--keep",
-    is_flag=True,
-    help="Keep existing output directory contents",
-)
-@click.pass_context
-def prove_smoke(
-    ctx: click.Context,
-    out: str | None,
-    live: bool,
-    scenarios: str,
-    keep: bool,
-) -> None:
-    """Run prove scenarios in a small smoke matrix."""
-    from caskmcp.cli.wow import run_prove_smoke
-
-    exit_code = run_prove_smoke(
-        out_dir=out,
-        live=live,
-        scenarios=scenarios,
-        keep=keep,
-        verbose=ctx.obj.get("verbose", False),
-    )
-    if exit_code != 0:
-        sys.exit(exit_code)
+# ---------------------------------------------------------------------------
+# Secondary Groups (hidden by default)
+# ---------------------------------------------------------------------------
 
 
-@cli.command("wow")
-@click.option(
-    "--out",
-    type=click.Path(file_okay=False),
-    help="Output directory for wow artifacts (defaults to a temporary directory)",
-)
-@click.option(
-    "--live",
-    is_flag=True,
-    help="Run live/browser orchestration (requires extra dependencies)",
-)
-@click.option(
-    "--scenario",
-    type=click.Choice(["basic_products", "auth_refresh"]),
-    default="basic_products",
-    show_default=True,
-    help="Live scenario to execute when --live is enabled",
-)
-@click.option(
-    "--keep",
-    is_flag=True,
-    help="Keep existing output directory contents",
-)
-@click.pass_context
-def wow(
-    ctx: click.Context,
-    out: str | None,
-    live: bool,
-    scenario: str,
-    keep: bool,
-) -> None:
-    """Run the one-command wow flow with governed replay proof."""
-    from caskmcp.cli.wow import run_wow
-
-    exit_code = run_wow(
-        out_dir=out,
-        live=live,
-        scenario=scenario,
-        keep=keep,
-        verbose=ctx.obj.get("verbose", False),
-    )
-    if exit_code != 0:
-        sys.exit(exit_code)
-
-
-@cli.group()
-def govern() -> None:
-    """Govern capabilities with approvals, lockfiles, drift gates, and runtime policy."""
-
-
-@cli.group()
-def scopes() -> None:
+@cli.group(hidden=True)
+def scope() -> None:
     """Scope authoring and merge workflows."""
-    pass
 
 
-@scopes.command("merge")
+@scope.command("merge")
 @click.option(
     "--suggested",
     type=click.Path(),
@@ -1356,7 +1302,7 @@ def scopes() -> None:
 )
 @click.option("--apply", is_flag=True, help="Apply merged proposal into authoritative scopes.yaml")
 @click.pass_context
-def scopes_merge(
+def scope_merge(
     ctx: click.Context,
     suggested: str | None,
     authoritative: str | None,
@@ -1368,6 +1314,7 @@ def scopes_merge(
 
     resolved_suggested = suggested or str(_default_root_path(ctx, "scopes", "scopes.suggested.yaml"))
     resolved_authoritative = authoritative or str(_default_root_path(ctx, "scopes", "scopes.yaml"))
+
     def _merge_scopes() -> None:
         run_scopes_merge(
             suggested_path=resolved_suggested,
@@ -1378,15 +1325,14 @@ def scopes_merge(
         )
 
     if apply:
-        _run_with_lock(ctx, "scopes merge", _merge_scopes)
+        _run_with_lock(ctx, "scope merge", _merge_scopes)
     else:
         _merge_scopes()
 
 
-@cli.group()
+@cli.group(hidden=True)
 def confirm() -> None:
     """Out-of-band confirmation workflow for state-changing actions."""
-    pass
 
 
 @confirm.command("grant")
@@ -1401,6 +1347,7 @@ def confirm() -> None:
 def confirm_grant(ctx: click.Context, token_id: str, store_path: str | None) -> None:
     """Grant a pending confirmation token."""
     from caskmcp.cli.confirm import run_confirm_grant
+
     resolved_store = store_path or str(
         confirmation_store_path(ctx.obj.get("root", resolve_root()))
     )
@@ -1434,6 +1381,7 @@ def confirm_deny(
 ) -> None:
     """Deny a pending confirmation token."""
     from caskmcp.cli.confirm import run_confirm_deny
+
     resolved_store = store_path or str(
         confirmation_store_path(ctx.obj.get("root", resolve_root()))
     )
@@ -1461,6 +1409,7 @@ def confirm_deny(
 def confirm_list(ctx: click.Context, store_path: str | None) -> None:
     """List pending confirmation tokens."""
     from caskmcp.cli.confirm import run_confirm_list
+
     resolved_store = store_path or str(
         confirmation_store_path(ctx.obj.get("root", resolve_root()))
     )
@@ -1471,115 +1420,12 @@ def confirm_list(ctx: click.Context, store_path: str | None) -> None:
     )
 
 
-@cli.command()
-@click.option(
-    "--toolpack",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to toolpack.yaml",
-)
-@click.option(
-    "--apply/--dry-run",
-    "apply_changes",
-    default=False,
-    show_default=True,
-    help="Apply migrations or print planned changes",
-)
-@click.pass_context
-def migrate(ctx: click.Context, toolpack: str, apply_changes: bool) -> None:
-    """Migrate legacy toolpack/artifact layouts to current schema contracts."""
-    from caskmcp.cli.migrate import run_migrate
-
-    _run_with_lock(
-        ctx,
-        "migrate",
-        lambda: run_migrate(
-            toolpack_path=toolpack,
-            apply_changes=apply_changes,
-            verbose=ctx.obj.get("verbose", False),
-        ),
-    )
-
-
-@cli.group()
-def state() -> None:
-    """Local state management commands."""
-    pass
-
-
-@state.command("unlock")
-@click.option(
-    "--force",
-    is_flag=True,
-    help="Force remove lock even if process appears active",
-)
-@click.pass_context
-def state_unlock(ctx: click.Context, force: bool) -> None:
-    """Clear the root state lock file."""
-    root = ctx.obj.get("root", resolve_root())
-    try:
-        clear_root_lock(root, force=force)
-    except RootLockError as exc:
-        click.echo(f"Error: {exc}", err=True)
-        sys.exit(1)
-    click.echo(f"Cleared lock for root: {root}")
-
-
-# Register compliance command group (lazy import)
-@cli.group()
-def compliance() -> None:
-    """EU AI Act compliance reporting."""
-    pass
-
-
-@compliance.command("report")
-@click.option(
-    "--tools", "tools_path",
-    type=click.Path(exists=True),
-    help="Path to tools.json manifest",
-)
-@click.option(
-    "--output", "output_path",
-    type=click.Path(),
-    default=None,
-    help="Output path for the report (default: stdout as JSON)",
-)
-def compliance_report(tools_path: str | None, output_path: str | None) -> None:
-    """Generate a structured compliance report."""
-    from caskmcp.cli.compliance import run_compliance_report
-
-    run_compliance_report(tools_path=tools_path, output_path=output_path)
-
-
-@cli.command("init")
-@click.option(
-    "--directory", "-d",
-    default=".",
-    help="Project directory to initialize (default: current directory)",
-)
-@click.option("--non-interactive", is_flag=True, help="Use defaults without prompting")
-@click.pass_context
-def init_cmd(ctx: click.Context, directory: str, non_interactive: bool) -> None:
-    """Initialize CaskMCP in a project directory.
-
-    Auto-detects project type, generates config, and prints next steps.
-    """
-    from caskmcp.cli.init import run_init
-
-    run_init(
-        directory=directory,
-        non_interactive=non_interactive,
-        verbose=ctx.obj.get("verbose", False) if ctx.obj else False,
-    )
-
-
-@cli.group()
+@cli.group(hidden=True)
 def propose() -> None:
     """Manage agent draft proposals for new capabilities."""
-    pass
 
 
-@propose.command("from-capture")
+@propose.command("create")
 @click.argument("capture_id")
 @click.option(
     "--scope",
@@ -1608,7 +1454,7 @@ def propose() -> None:
     help="Deterministic proposal artifact IDs by default",
 )
 @click.pass_context
-def propose_from_capture(
+def propose_create(
     ctx: click.Context,
     capture_id: str,
     scope: str,
@@ -1740,7 +1586,7 @@ def propose_show(ctx: click.Context, proposal_id: str) -> None:
 @click.option("--by", "reviewed_by", default="human", help="Who is approving")
 @click.pass_context
 def propose_approve(ctx: click.Context, proposal_id: str, reviewed_by: str) -> None:
-    """Approve a proposal — marks it for future capture."""
+    """Approve a proposal for future capture."""
     from caskmcp.cli.propose import run_propose_approve
 
     root = str(ctx.obj.get("root", resolve_root())) if ctx.obj else ".caskmcp"
@@ -1760,10 +1606,14 @@ def propose_reject(ctx: click.Context, proposal_id: str, reason: str, reviewed_b
     run_propose_reject(root=root, proposal_id=proposal_id, reason=reason, reviewed_by=reviewed_by)
 
 
+# ---------------------------------------------------------------------------
+# Auth Group
+# ---------------------------------------------------------------------------
+
+
 @cli.group()
 def auth() -> None:
     """Manage authentication profiles for capture."""
-    pass
 
 
 @auth.command("login")
@@ -1814,31 +1664,61 @@ def auth_list_cmd(ctx: click.Context, root: str | None) -> None:
     ctx.invoke(_do_list, root=resolved_root)
 
 
-def _register_govern_aliases() -> None:
-    """Expose flagship governance commands under `caskmcp govern`."""
-    for command_name in ("mint", "diff", "gate", "run", "drift", "verify", "mcp"):
-        command = cli.commands.get(command_name)
-        if command is None:
-            continue
-        if command_name in govern.commands:
-            continue
-        govern_command = copy(command)
-        govern_command.hidden = False
-        govern.add_command(govern_command, name=command_name)
+# ---------------------------------------------------------------------------
+# State Management
+# ---------------------------------------------------------------------------
 
 
-_register_govern_aliases()
+@cli.group(hidden=True)
+def state() -> None:
+    """Local state management commands."""
 
 
-def _hide_advanced_commands() -> None:
-    """Hide advanced and compatibility commands from default top-level help."""
-    for name in ADVANCED_TOP_LEVEL_COMMANDS:
-        command = cli.commands.get(name)
-        if command is not None:
-            command.hidden = True
+@state.command("unlock")
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Force remove lock even if process appears active",
+)
+@click.pass_context
+def state_unlock(ctx: click.Context, force: bool) -> None:
+    """Clear the root state lock file."""
+    root = ctx.obj.get("root", resolve_root())
+    try:
+        clear_root_lock(root, force=force)
+    except RootLockError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    click.echo(f"Cleared lock for root: {root}")
 
 
-_hide_advanced_commands()
+# ---------------------------------------------------------------------------
+# Compliance
+# ---------------------------------------------------------------------------
+
+
+@cli.group(hidden=True)
+def compliance() -> None:
+    """EU AI Act compliance reporting."""
+
+
+@compliance.command("report")
+@click.option(
+    "--tools", "tools_path",
+    type=click.Path(exists=True),
+    help="Path to tools.json manifest",
+)
+@click.option(
+    "--output", "output_path",
+    type=click.Path(),
+    default=None,
+    help="Output path for the report (default: stdout as JSON)",
+)
+def compliance_report(tools_path: str | None, output_path: str | None) -> None:
+    """Generate a structured compliance report."""
+    from caskmcp.cli.compliance import run_compliance_report
+
+    run_compliance_report(tools_path=tools_path, output_path=output_path)
 
 
 if __name__ == "__main__":

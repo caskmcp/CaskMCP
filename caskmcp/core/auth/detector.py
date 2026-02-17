@@ -128,8 +128,8 @@ def detect_auth_requirements(session: CaptureSession) -> AuthRequirement:
     if requires_auth and not auth_headers_seen:
         suggestion = (
             "This API appears to require authentication. "
-            "Run: caskmcp auth login --profile <name> --url <login-url>\n"
-            "Then: caskmcp mint <url> --auth-profile <name> -a <host>"
+            "Run: cask auth login --profile <name> --url <login-url>\n"
+            "Then: cask mint <url> --auth-profile <name> -a <host>"
         )
     elif requires_auth:
         suggestion = (

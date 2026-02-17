@@ -119,7 +119,7 @@ def test_detects_cookie_auth() -> None:
 def test_suggestion_when_auth_needed() -> None:
     session = _make_session([_exchange(status=401)])
     req = detect_auth_requirements(session)
-    assert "caskmcp auth login" in req.suggestion
+    assert "cask auth login" in req.suggestion
 
 
 def test_to_dict() -> None:

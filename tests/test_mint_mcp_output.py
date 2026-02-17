@@ -8,7 +8,7 @@ from caskmcp.cli.mint import build_mcp_integration_output
 def test_integration_output_mentions_config_command() -> None:
     """Output should guide users to generate a client config snippet."""
     output = build_mcp_integration_output(toolpack_path="/path/to/toolpack.yaml")
-    assert "caskmcp config" in output
+    assert "cask config" in output
     assert "--toolpack" in output
 
 

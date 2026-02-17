@@ -148,7 +148,7 @@ def run_mcp_serve(
                 click.echo(
                     "Error: approved lockfile required for runtime. "
                     "Toolpack contains pending approvals only. "
-                    "Run `caskmcp gate allow ...` then use an approved lockfile "
+                    "Run `cask gate allow ...` then use an approved lockfile "
                     "or pass --unsafe-no-lockfile (unsafe).",
                     err=True,
                 )
@@ -181,7 +181,7 @@ def run_mcp_serve(
                 sys.exit(1)
 
     if verbose:
-        click.echo("Starting CaskMCP MCP Server...", err=True)
+        click.echo("Starting Cask MCP Server...", err=True)
         click.echo(f"  Tools: {resolved_tools_path}", err=True)
         if toolpack_path:
             click.echo(f"  Toolpack: {toolpack_path}", err=True)

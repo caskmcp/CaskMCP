@@ -21,7 +21,7 @@ REGEX_FIELDS = ("host_pattern", "path_pattern")
 
 @dataclass(frozen=True)
 class LintIssue:
-    """A lint issue emitted by caskmcp lint."""
+    """A lint issue emitted by cask lint."""
 
     code: str
     location: str

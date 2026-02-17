@@ -326,8 +326,8 @@ class CaskMCPMCPServer:
                     import sys
 
                     sys.stderr.write(
-                        f"[caskmcp] Confirmation required for {name}. "
-                        f"Run: caskmcp confirm grant {decision.confirmation_token_id}\\n"
+                        f"[cask] Confirmation required for {name}. "
+                        f"Run: cask confirm grant {decision.confirmation_token_id}\\n"
                     )
                 self._emit_decision_trace(
                     tool_id=tool_id,

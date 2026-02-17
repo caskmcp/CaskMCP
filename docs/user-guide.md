@@ -1,9 +1,6 @@
-# CaskMCP User Guide
+# Cask User Guide
 
-This guide reflects the unified external experience:
-- one product: `caskmcp`
-- one default wow command: `caskmcp wow`
-- two primary surfaces: `govern` and `prove`
+This guide covers the unified CLI experience for Cask.
 
 ## Install
 
@@ -20,7 +17,7 @@ pip install -e .
 ## Golden Path
 
 ```bash
-caskmcp wow
+cask demo
 ```
 
 Required artifacts are always emitted:
@@ -37,69 +34,180 @@ Exit behavior:
 ```bash
 pip install "caskmcp[playwright]"
 python -m playwright install chromium
-caskmcp wow --live
+cask demo --live
 ```
 
 ## Primary Commands
 
-### `caskmcp govern ...`
+### `cask init`
 
-Governance/runtime commands:
-- `mint`
-- `diff`
-- `gate`
-- `run`
-- `drift`
-- `verify`
-- `mcp`
-
-Examples:
+Initialize Cask in a project directory. Detects existing captures, OpenAPI specs, and auth configurations.
 
 ```bash
-caskmcp govern mint https://app.example.com -a api.example.com
-caskmcp govern diff --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml --format github-md
-caskmcp govern gate allow --all --lockfile .caskmcp/toolpacks/<id>/lockfile/caskmcp.lock.pending.yaml
-caskmcp govern run --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml
+cask init
 ```
 
-### `caskmcp prove ...`
+### `cask mint <url>`
 
-Proof commands:
-- `twice`
-- `smoke`
-
-Examples:
+Capture traffic from a live web app and compile a governed toolpack in one shot.
 
 ```bash
-caskmcp prove twice
-caskmcp prove smoke
+cask mint https://app.example.com -a api.example.com
 ```
 
-### `caskmcp wow`
+### `cask diff`
 
-Happy-path alias for the prove-twice contract.
+Generate a risk-classified change report showing new tools, schema changes, and host additions.
+
+```bash
+cask diff --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml
+cask diff --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml --format github-md
+```
+
+### `cask gate ...`
+
+Approval workflow commands:
+
+```bash
+# Sync lockfile with tools manifest
+cask gate sync --tools tools.json
+
+# Approve all pending tools
+cask gate allow --all
+
+# Approve specific tools
+cask gate allow get_users create_user
+
+# Block a dangerous tool
+cask gate block delete_all_users --reason "Too dangerous"
+
+# Check approval status (for CI)
+cask gate check
+
+# List current approval status
+cask gate status
+
+# Materialize baseline snapshot
+cask gate snapshot
+
+# Re-sign approval signatures
+cask gate reseal
+```
+
+### `cask serve`
+
+Start the governed MCP server over stdio.
+
+```bash
+cask serve --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml
+```
+
+### `cask run`
+
+Execute a toolpack with full policy enforcement.
+
+```bash
+cask run --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml
+```
+
+### `cask drift`
+
+Detect capability surface changes between a baseline and current state.
+
+```bash
+cask drift --baseline .caskmcp/toolpacks/<id>/artifact/baseline.json --capture-id <id>
+```
+
+### `cask verify`
+
+Run assertion-based verification contracts.
+
+```bash
+cask verify --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml
+```
+
+### `cask demo`
+
+Run the full governance proof loop offline in ~30 seconds.
+
+```bash
+# Default: offline fixture-based proof
+cask demo
+
+# With live browser capture
+cask demo --live
+
+# Smoke matrix
+cask demo --smoke
+```
+
+## Traffic Capture
+
+### Import existing files
+
+```bash
+# HAR files
+cask capture import traffic.har -a api.example.com
+
+# OpenTelemetry traces
+cask capture import traces.json --input-format otel -a api.example.com
+
+# OpenAPI specs (auto-detected)
+cask capture import openapi.yaml -a api.example.com
+```
+
+### Live browser recording
+
+```bash
+cask capture record https://app.example.com -a api.example.com
+```
+
+## Verification Workflows
+
+Cask integrates a workflow runner for structured verification:
+
+```bash
+# Initialize a workflow
+cask workflow init
+
+# Run a workflow
+cask workflow run workflow.yaml
+
+# Compare two runs
+cask workflow diff run_a/ run_b/
+
+# Generate a report
+cask workflow report run_dir/
+
+# Check workflow dependencies
+cask workflow doctor
+```
 
 ## Help Surface
 
-- `caskmcp --help` shows the flagship surface (`wow`, `govern`, `prove`).
-- `caskmcp --help-all` shows advanced/compatibility commands.
-
-`cask` remains a compatibility alias, but defaults and docs use `caskmcp`.
+- `cask --help` shows the core command surface.
+- `cask --help-all` shows all commands including advanced ones.
 
 ## MCP Client Config
 
-Generate client config snippet:
+Generate config snippets for AI clients:
 
 ```bash
-caskmcp config --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml
+# JSON (Claude Desktop, Cursor)
+cask config --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml
+
+# Codex TOML
+cask config --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml --format codex
 ```
 
-## Safety Model (Current)
+## Safety Model
 
 - Fail-closed lockfile enforcement by default
-- Signed approvals in lockfile
+- Ed25519 signed approvals in lockfile
+- Runtime egress safety (scheme, DNS/IP, redirect-hop checks)
 - Drift checks for capability surface changes
-- Audit logs for governance decisions
+- Audit logs for governance decisions (DecisionTrace)
+- Export boundary excluding auth state, signing keys, and raw secrets
 
 ## Known Limitations
 

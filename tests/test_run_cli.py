@@ -24,9 +24,8 @@ def test_run_print_config_and_exit(tmp_path: Path) -> None:
     assert result.stderr == ""
     payload = json.loads(result.stdout)
     server = payload["mcpServers"]["tp_demo"]
-    assert str(server["command"]).endswith("caskmcp")
+    assert str(server["command"]).endswith(("cask", "caskmcp"))
     assert server["args"][0] == "--root"
-    assert "mcp" in server["args"]
     assert "serve" in server["args"]
 
 

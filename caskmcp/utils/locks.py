@@ -103,9 +103,9 @@ def root_command_lock(
         existing = _read_lock_info(lock_path)
         if existing and _pid_alive(existing.pid):
             raise RootLockError(
-                "another caskmcp process is running "
+                "another cask process is running "
                 f"(pid={existing.pid}, command={existing.command}). "
-                f"If stale, clear lock at {lock_path} with `caskmcp state unlock --force`."
+                f"If stale, clear lock at {lock_path} with `cask state unlock --force`."
             ) from exc
 
         if existing and not _pid_alive(existing.pid):
@@ -117,15 +117,15 @@ def root_command_lock(
                 retry_existing = _read_lock_info(lock_path)
                 if retry_existing and _pid_alive(retry_existing.pid):
                     raise RootLockError(
-                        "another caskmcp process is running "
+                        "another cask process is running "
                         f"(pid={retry_existing.pid}, command={retry_existing.command}). "
-                        f"If stale, clear lock at {lock_path} with `caskmcp state unlock --force`."
+                        f"If stale, clear lock at {lock_path} with `cask state unlock --force`."
                     ) from retry_exc
 
         if fd is None:
             raise RootLockError(
                 "found stale or unreadable lock file. "
-                f"Clear {lock_path} with `caskmcp state unlock --force`."
+                f"Clear {lock_path} with `cask state unlock --force`."
             ) from exc
 
     try:

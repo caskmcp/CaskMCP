@@ -16,9 +16,10 @@ The v1 release baseline is locked to:
 
 Canonical command surface:
 
-- `mint`, `diff`, `gate`, `run`, `drift`, `verify`, `mcp serve`, `mcp inspect`
-- aliases: `plan -> diff`, `approve -> gate`, `mcp meta -> mcp inspect`
-- advanced commands remain shipped behind `--help-all`
+- Core: `init`, `mint`, `diff`, `gate`, `serve`, `run`, `drift`, `verify`, `demo`
+- More: `capture`, `workflow`, `auth`
+- Advanced (behind `--help-all`): `compile`, `bundle`, `lint`, `doctor`, `config`, `inspect`, `enforce`, `migrate`
+- No aliases -- one best name per command
 
 Hard v1 contracts in force:
 
@@ -63,22 +64,22 @@ By the end of vNext, CaskMCP must support:
 
 1. **Deterministic supply chain**
 
-* `caskmcp mint` compiles raw captures (HAR, Playwright traces, optional OpenAPI) into a runnable toolpack with stable IDs and canonical schemas.
+* `cask mint` compiles raw captures (HAR, Playwright traces, optional OpenAPI) into a runnable toolpack with stable IDs and canonical schemas.
 
 2. **Lockfile governance loop**
 
-* `caskmcp diff` shows exactly what changed and classifies risk.
-* `caskmcp approve` writes an immutable governance decision into `caskmcp.lock`.
+* `cask diff` shows exactly what changed and classifies risk.
+* `cask gate allow` writes an immutable governance decision into `caskmcp.lock`.
 * Any capability expansion requires explicit approval.
 
 3. **Verification contracts**
 
-* `caskmcp verify` runs assertion-based verification against multi-signal post-conditions (API state, UI semantics, optional event signals).
+* `cask verify` runs assertion-based verification against multi-signal post-conditions (API state, UI semantics, optional event signals).
 * Verification produces a structured report and evidence bundle that humans can audit and CI can gate on.
 
 4. **Drift gates tied to verification**
 
-* `caskmcp drift` detects changes in tool surface and verification contract behavior.
+* `cask drift` detects changes in tool surface and verification contract behavior.
 * Drift fails CI by default for high-risk changes or contract breaks.
 
 5. **Runtime parity for enforcement decisions**
@@ -396,8 +397,8 @@ Purpose:
 
 **CLI and API**
 
-* `caskmcp evidence purge --older-than <days>` must exist and be safe by default.
-* `caskmcp evidence hold --bundle <id>` requires explicit operator action.
+* `cask evidence purge --older-than <days>` must exist and be safe by default.
+* `cask evidence hold --bundle <id>` requires explicit operator action.
 
 #### 5.2.3 VerificationContract (new first-class) [ALPHA]
 
@@ -642,9 +643,9 @@ Rules:
 
 CI should support:
 
-* `caskmcp diff --fail-on-broaden`
-* `caskmcp verify --contract <contract>`
-* `caskmcp drift --baseline <baseline>`
+* `cask diff --fail-on-broaden`
+* `cask verify --contract <contract>`
+* `cask drift --baseline <baseline>`
 
 ---
 
@@ -853,9 +854,9 @@ Current state clarification:
 ### 10.1 vNext: human-led discovery only
 
 * humans run capture in sandbox
-* `caskmcp mint` compiles a draft toolpack
-* `caskmcp verify` attaches evidence
-* `caskmcp approve` publishes to lockfile
+* `cask mint` compiles a draft toolpack
+* `cask verify` attaches evidence
+* `cask gate allow` publishes to lockfile
 
 ### 10.2 Autonomous Draft Expansion - Agent Tool Discovery and Drafting (after vNext)
 
@@ -982,7 +983,7 @@ Directories:
 Rules:
 
 1. Runtime and serve modes MUST ignore `.cask/drafts/` entirely.
-2. Only `caskmcp approve` may promote drafts to published state.
+2. Only `cask gate allow` may promote drafts to published state.
 3. Promotion is a copy operation into `.cask/published/` plus lockfile update.
 4. Drafts may be committed to git, but must not be referenced by default configs.
 5. Provide `.gitignore` guidance:
@@ -991,7 +992,7 @@ Rules:
    * allow committing contracts and diffs if desired
 
 **Approval promotion contract**
-`caskmcp approve --draft <draft_id>` must:
+`cask gate allow --draft <draft_id>` must:
 
 * validate draft artifacts are internally consistent
 * run `verify` for any new write/admin/auth surfaces (or require an explicit bypass)
@@ -1040,31 +1041,29 @@ Optional later:
 
 ## 12. CLI (updated and aligned) [SHIPPED]
 
-### 12.1 Required commands
+### 12.1 Core commands
 
-* `caskmcp mint`
-  inputs: HAR/trace, allowed_hosts, auth ref, redaction profile
-  outputs: draft toolpack + digests
+* `cask init` -- initialize project
+* `cask mint <url>` -- capture + compile in one shot
+* `cask diff` -- risk-classified change report
+* `cask gate sync|allow|block|check|status|snapshot|reseal` -- approval workflow
+* `cask serve` -- MCP server (stdio) under lockfile enforcement
+* `cask run` -- execute toolpack with policy enforcement
+* `cask drift` -- detect capability surface changes
+* `cask verify` -- run verification contracts
+* `cask demo` -- offline governance proof loop
 
-* `caskmcp diff`
-  outputs: risk-classified diff report
+### 12.2 More commands
 
-* `caskmcp approve`
-  outputs: lockfile update and signatures
+* `cask capture import|record` -- traffic capture from HAR, OTEL, OpenAPI, or browser
+* `cask workflow init|run|replay|diff|report|pack|export|doctor` -- verification workflows
+* `cask auth login|status|clear|list` -- auth profile management
 
-* `caskmcp serve`
-  serves toolpack under lockfile enforcement
+### 12.3 Advanced commands (behind `--help-all`)
 
-* `caskmcp verify`
-  runs verification contracts, writes report + evidence bundle
-
-* `caskmcp drift`
-  runs drift checks tied to verification contracts
-
-### 12.2 Optional commands
-
-* `caskmcp index build|search` (only if it helps tool discovery)
-* `caskmcp audit export` (evidence bundles and reports for review)
+* `cask compile`, `cask bundle`, `cask lint`, `cask doctor`, `cask config`
+* `cask inspect`, `cask enforce`, `cask migrate`
+* `cask confirm`, `cask propose`, `cask scope`, `cask compliance`, `cask state`
 
 ---
 
@@ -1145,15 +1144,15 @@ Persona:
 Flow:
 
 1. Capture a sandbox workflow with Playwright.
-2. Run `caskmcp mint` to produce a draft toolpack.
-3. Run `caskmcp verify` using a verification contract:
+2. Run `cask mint` to produce a draft toolpack.
+3. Run `cask verify` using a verification contract:
 
    * API post-condition (state changed)
    * UI semantic assertion (role/label)
    * optional webhook fired
-4. Review `caskmcp diff`, then `caskmcp approve`.
+4. Review `cask diff`, then `cask gate allow`.
 5. Serve toolpack under lockfile enforcement.
-6. CI runs `caskmcp drift` nightly. If drift breaks contract, deployment blocks.
+6. CI runs `cask drift` nightly. If drift breaks contract, deployment blocks.
 
 Outcome:
 

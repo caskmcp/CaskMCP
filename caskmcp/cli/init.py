@@ -79,11 +79,11 @@ def run_init(
     click.echo("\nWhat's next:")
     if detection.api_specs:
         spec = detection.api_specs[0]
-        click.echo(f"  1. caskmcp openapi {spec} -a <api-host>")
+        click.echo(f"  1. cask capture import {spec} -a <api-host>")
     else:
-        click.echo("  1. caskmcp mint <start-url> -a <api-host>")
-    click.echo("  2. caskmcp verify --toolpack <path> --mode all")
-    click.echo("  3. caskmcp run --toolpack <path>")
+        click.echo("  1. cask mint <start-url> -a <api-host>")
+    click.echo("  2. cask verify --toolpack <path> --mode all")
+    click.echo("  3. cask run --toolpack <path>")
 
 
 def run_mcp_config(
@@ -111,7 +111,7 @@ def _build_mcp_client_config(toolpack_path: Path, client: str) -> dict[str, obje
     policy_path = _find_artifact(tp_dir, "policy.yaml")
 
     base_args = [
-        "caskmcp", "run",
+        "cask", "run",
         "--toolpack", tp_file,
     ]
     if tools_path:
@@ -122,7 +122,7 @@ def _build_mcp_client_config(toolpack_path: Path, client: str) -> dict[str, obje
     if client in {"claude", "cursor"}:
         return {
             "mcpServers": {
-                "caskmcp": {
+                "cask": {
                     "command": base_args[0],
                     "args": base_args[1:],
                 }
@@ -132,7 +132,7 @@ def _build_mcp_client_config(toolpack_path: Path, client: str) -> dict[str, obje
         # Generic stdio config
         return {
             "server": {
-                "name": "caskmcp",
+                "name": "cask",
                 "transport": "stdio",
                 "command": base_args,
             }

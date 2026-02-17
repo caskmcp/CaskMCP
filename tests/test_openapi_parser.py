@@ -384,8 +384,13 @@ class TestOpenAPICLI:
         result = runner.invoke(
             cli,
             [
+                "capture",
+                "import",
+                "--input-format",
                 "openapi",
                 str(openapi_json_file),
+                "-a",
+                "api.example.com",
                 "--output",
                 str(output_dir),
                 "--name",
@@ -410,8 +415,13 @@ class TestOpenAPICLI:
             cli,
             [
                 "-v",
+                "capture",
+                "import",
+                "--input-format",
                 "openapi",
                 str(openapi_json_file),
+                "-a",
+                "api.example.com",
                 "--output",
                 str(output_dir),
             ],

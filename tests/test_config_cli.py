@@ -24,7 +24,7 @@ def test_config_outputs_snippet_to_stdout(tmp_path: Path) -> None:
     assert result.stderr == ""
     payload = json.loads(result.stdout)
     server = payload["mcpServers"]["tp_demo"]
-    assert str(server["command"]).endswith("caskmcp")
+    assert str(server["command"]).endswith(("cask", "caskmcp"))
     assert server["args"][0] == "--root"
     assert "--toolpack" in server["args"]
 

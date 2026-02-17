@@ -98,7 +98,7 @@ def run_mint(
         state_path = auth_manager.get_storage_state_path(auth_profile)
         if state_path is None:
             click.echo(f"Error: Auth profile '{auth_profile}' not found.", err=True)
-            click.echo(f"  Run: caskmcp auth login --profile {auth_profile} --url {start_url}", err=True)
+            click.echo(f"  Run: cask auth login --profile {auth_profile} --url {start_url}", err=True)
             sys.exit(1)
         storage_state_path = str(state_path)
         if verbose:
@@ -327,12 +327,12 @@ def run_mint(
 
     click.echo("\nNext commands:")
     click.echo(
-        "  caskmcp gate allow --all --toolset readonly "
+        "  cask gate allow --all --toolset readonly "
         f"--lockfile {pending_lockfile}"
     )
-    click.echo(f"  caskmcp run --toolpack {toolpack_file}")
+    click.echo(f"  cask run --toolpack {toolpack_file}")
     click.echo(
-        f"  caskmcp drift --baseline {copied_baseline} --capture-path {capture_path}"
+        f"  cask drift --baseline {copied_baseline} --capture-path {capture_path}"
     )
 
     click.echo(build_mcp_integration_output(toolpack_path=toolpack_file))
@@ -350,14 +350,14 @@ def run_mint(
 def build_mcp_integration_output(toolpack_path: str | Path) -> str:
     """Return ready-to-paste MCP integration instructions.
 
-    Primary: guide users to generate a config snippet via `caskmcp config`.
+    Primary: guide users to generate a config snippet via `cask config`.
     """
     tp = str(toolpack_path)
     return (
         "\nConnect to MCP clients:\n"
         "\n"
         "  Generate a ready-to-paste MCP config snippet:\n"
-        f"    caskmcp config --toolpack {tp}\n"
+        f"    cask config --toolpack {tp}\n"
         "\n"
         "  Claude Desktop:\n"
         "    Paste the emitted JSON into:\n"
@@ -457,7 +457,7 @@ def _resolve_requirements_pin(runtime_version_pin: str | None) -> str:
         return f"caskmcp[mcp]=={__version__}"
     raise ValueError(
         "Runtime version pin required for pre-release builds. "
-        "Pass --runtime-version-pin to caskmcp mint."
+        "Pass --runtime-version-pin to cask mint."
     )
 
 

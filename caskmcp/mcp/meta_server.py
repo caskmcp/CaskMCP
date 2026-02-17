@@ -380,7 +380,7 @@ class CaskMCPMetaMCPServer:
                 text=json.dumps({
                     "action": action_name,
                     "status": "no_lockfile",
-                    "message": "No lockfile found - run 'caskmcp approve sync' first",
+                    "message": "No lockfile found - run 'cask gate sync' first",
                 })
             )]
 
@@ -426,7 +426,7 @@ class CaskMCPMetaMCPServer:
             return [types.TextContent(
                 type="text",
                 text=json.dumps({
-                    "error": "No lockfile found - run 'caskmcp approve sync' first",
+                    "error": "No lockfile found - run 'cask gate sync' first",
                 })
             )]
 

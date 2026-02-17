@@ -367,7 +367,7 @@ def test_mcp_serve_missing_mcp_exact_error(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr("importlib.util.find_spec", lambda _name: None)
     monkeypatch.setattr("caskmcp.mcp.server.run_mcp_server", lambda **_kwargs: None)
 
-    result = runner.invoke(cli, ["mcp", "serve", "--toolpack", str(toolpack_path)])
+    result = runner.invoke(cli, ["serve", "--toolpack", str(toolpack_path)])
 
     assert result.exit_code != 0
     assert result.stdout == ""

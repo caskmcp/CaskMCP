@@ -56,7 +56,7 @@ def test_propose_from_capture_writes_artifacts(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
-        ["--root", str(root), "propose", "from-capture", session.id, "--scope", "first_party_only"],
+        ["--root", str(root), "propose", "create", session.id, "--scope", "first_party_only"],
     )
     assert result.exit_code == 0
     assert "endpoint_catalog.yaml" in result.output

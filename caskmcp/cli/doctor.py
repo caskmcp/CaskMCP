@@ -43,7 +43,7 @@ def run_doctor(
 
     lockfile_path = resolved.approved_lockfile_path or resolved.pending_lockfile_path
     if lockfile_path is None or not lockfile_path.exists():
-        errors.append("lockfile missing; run caskmcp approve sync")
+        errors.append("lockfile missing; run cask gate sync")
     else:
         manager = LockfileManager(lockfile_path)
         lockfile = manager.load()
@@ -54,7 +54,7 @@ def run_doctor(
                 policy_path=resolved.policy_path,
             )
             if lockfile.artifacts_digest and lockfile.artifacts_digest != digest:
-                errors.append("lockfile artifacts digest mismatch; re-run caskmcp approve sync")
+                errors.append("lockfile artifacts digest mismatch; re-run cask gate sync")
 
             expected_hash = lockfile.evidence_summary_sha256
             if expected_hash:
@@ -95,7 +95,7 @@ def run_doctor(
         for error in errors:
             click.echo(f"Error: {error}", err=True)
         click.echo("Doctor failed.", err=True)
-        click.echo("Next: fix the errors above and re-run `caskmcp doctor --toolpack <path>`.", err=True)
+        click.echo("Next: fix the errors above and re-run `cask doctor --toolpack <path>`.", err=True)
         sys.exit(1)
 
     if warnings:
@@ -103,9 +103,9 @@ def run_doctor(
             click.echo(f"Warning: {warning}", err=True)
 
     click.echo("Doctor check passed.", err=True)
-    click.echo(f"Next: caskmcp run --toolpack {toolpack_path}", err=True)
+    click.echo(f"Next: cask run --toolpack {toolpack_path}", err=True)
     click.echo(
-        f"      caskmcp run --toolpack {toolpack_path} --print-config-and-exit",
+        f"      cask run --toolpack {toolpack_path} --print-config-and-exit",
         err=True,
     )
 

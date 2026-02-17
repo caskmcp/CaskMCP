@@ -37,7 +37,7 @@ def test_scopes_merge_proposes_without_overwrite(tmp_path: Path) -> None:
     )
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["--root", str(root), "scopes", "merge"])
+    result = runner.invoke(cli, ["--root", str(root), "scope", "merge"])
     assert result.exit_code == 0
 
     proposal = scopes_dir / "scopes.merge.proposed.yaml"
@@ -67,7 +67,7 @@ def test_scopes_merge_apply_updates_authoritative(tmp_path: Path) -> None:
     authoritative.write_text(yaml.safe_dump({"version": 1, "scopes": {}}, sort_keys=False), encoding="utf-8")
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["--root", str(root), "scopes", "merge", "--apply"])
+    result = runner.invoke(cli, ["--root", str(root), "scope", "merge", "--apply"])
     assert result.exit_code == 0
 
     payload = yaml.safe_load(authoritative.read_text(encoding="utf-8"))
@@ -111,7 +111,7 @@ def test_scopes_merge_supports_draft_style_suggestions(tmp_path: Path) -> None:
     authoritative.write_text(yaml.safe_dump({"version": 1, "scopes": {}}, sort_keys=False), encoding="utf-8")
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["--root", str(root), "scopes", "merge", "--apply"])
+    result = runner.invoke(cli, ["--root", str(root), "scope", "merge", "--apply"])
     assert result.exit_code == 0
 
     payload = yaml.safe_load(authoritative.read_text(encoding="utf-8"))

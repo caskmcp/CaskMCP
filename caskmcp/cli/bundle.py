@@ -127,9 +127,9 @@ def _write_zip_file(zf: zipfile.ZipFile, arcname: str, data: bytes, mode: int) -
 
 def _render_run_md(_toolpack_id: str) -> str:
     return (
-        "# CaskMCP Bundle\n\n"
+        "# Cask Bundle\n\n"
         "Run this toolpack:\n\n"
-        "  caskmcp run --toolpack ./toolpack.yaml\n"
+        "  cask run --toolpack ./toolpack.yaml\n"
     )
 
 

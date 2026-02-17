@@ -587,7 +587,7 @@ class TestApprovalCLI:
 
         result = runner.invoke(
             cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
+            ["gate", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 1  # Pending tools
@@ -608,13 +608,13 @@ class TestApprovalCLI:
         # First sync
         runner.invoke(
             cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
+            ["gate", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
         )
 
         # Then list
         result = runner.invoke(
             cli,
-            ["approve", "list", "--lockfile", str(lockfile_path)],
+            ["gate", "status", "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 0
@@ -633,13 +633,13 @@ class TestApprovalCLI:
         # Sync
         runner.invoke(
             cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
+            ["gate", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
         )
 
         # Approve
         result = runner.invoke(
             cli,
-            ["approve", "tool", "get_users", "--lockfile", str(lockfile_path)],
+            ["gate", "allow", "get_users", "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 0
@@ -664,13 +664,13 @@ class TestApprovalCLI:
         # Sync
         runner.invoke(
             cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
+            ["gate", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
         )
 
         # Approve all
         result = runner.invoke(
             cli,
-            ["approve", "tool", "--all", "--lockfile", str(lockfile_path)],
+            ["gate", "allow", "--all", "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 0
@@ -688,13 +688,13 @@ class TestApprovalCLI:
         # Sync
         runner.invoke(
             cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
+            ["gate", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
         )
 
         # Reject
         result = runner.invoke(
             cli,
-            ["approve", "reject", "create_user", "--lockfile", str(lockfile_path), "--reason", "Too risky"],
+            ["gate", "block", "create_user", "--lockfile", str(lockfile_path), "--reason", "Too risky"],
         )
 
         assert result.exit_code == 0
@@ -712,13 +712,13 @@ class TestApprovalCLI:
         # Sync
         runner.invoke(
             cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
+            ["gate", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
         )
 
         # Check
         result = runner.invoke(
             cli,
-            ["approve", "check", "--lockfile", str(lockfile_path)],
+            ["gate", "check", "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 1
@@ -736,12 +736,12 @@ class TestApprovalCLI:
 
         runner.invoke(
             cli,
-            ["approve", "tool", "--all", "--lockfile", str(lockfile_path)],
+            ["gate", "allow", "--all", "--lockfile", str(lockfile_path)],
         )
 
         result = runner.invoke(
             cli,
-            ["approve", "check", "--lockfile", str(lockfile_path)],
+            ["gate", "check", "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 0
@@ -759,7 +759,7 @@ class TestApprovalCLI:
 
         pending_check = runner.invoke(
             cli,
-            ["approve", "check", "--lockfile", str(lockfile_path), "--toolset", "readonly"],
+            ["gate", "check", "--lockfile", str(lockfile_path), "--toolset", "readonly"],
         )
         assert pending_check.exit_code == 1
         assert "Pending approval in 'readonly'" in pending_check.output
@@ -767,7 +767,7 @@ class TestApprovalCLI:
         approve_result = runner.invoke(
             cli,
             [
-                "approve", "tool", "get_users",
+                "gate", "allow", "get_users",
                 "--lockfile", str(lockfile_path),
                 "--toolset", "readonly",
             ],
@@ -776,7 +776,7 @@ class TestApprovalCLI:
 
         passed_check = runner.invoke(
             cli,
-            ["approve", "check", "--lockfile", str(lockfile_path), "--toolset", "readonly"],
+            ["gate", "check", "--lockfile", str(lockfile_path), "--toolset", "readonly"],
         )
         assert passed_check.exit_code == 0
         assert "All tools approved in 'readonly'" in passed_check.output

@@ -124,8 +124,8 @@ class TestMint:
 
         out = capsys.readouterr().out
         assert "Mint complete:" in out
-        assert "caskmcp run --toolpack" in out
-        assert "caskmcp gate allow --all --toolset readonly" in out
+        assert "cask run --toolpack" in out
+        assert "cask gate allow --all --toolset readonly" in out
 
         toolpack_files = list((tmp_path / "toolpacks").glob("*/toolpack.yaml"))
         assert len(toolpack_files) == 1
@@ -252,7 +252,6 @@ class TestMint:
         server = payload["mcpServers"]["demo"]
         assert isinstance(server["command"], str)
         assert server["command"]
-        assert "mcp" in server["args"]
         assert "serve" in server["args"]
         assert "--toolpack" in server["args"]
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CaskMCP Governance Demo
+# Cask Governance Demo
 #
 # This script demonstrates the complete workflow:
 # 1. Import HAR traffic capture
@@ -21,15 +21,15 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║        CaskMCP: Governance + Enforcement Demo             ║${NC}"
+echo -e "${BLUE}║          Cask: Governance + Enforcement Demo               ║${NC}"
 echo -e "${BLUE}║   Compile, approve, enforce, and expose agent tools          ║${NC}"
 echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# Check if caskmcp is installed
-if ! command -v caskmcp &> /dev/null; then
-    echo -e "${RED}Error: caskmcp is not installed${NC}"
-    echo "Run: pip install -e ."
+# Check if cask is installed
+if ! command -v cask &> /dev/null; then
+    echo -e "${RED}Error: cask is not installed${NC}"
+    echo "Run: pip install caskmcp"
     exit 1
 fi
 
@@ -48,7 +48,7 @@ echo "In a real workflow, you'd export a HAR file from Chrome DevTools."
 echo "We'll use the sample HAR file for this demo."
 echo ""
 
-caskmcp capture import "${SCRIPT_DIR}/sample.har" \
+cask capture import "${SCRIPT_DIR}/sample.har" \
   --allowed-hosts api.example.com \
   --name "Demo Session" \
   --output .caskmcp/captures
@@ -65,7 +65,7 @@ echo "Compiling with 'first_party_only' scope - includes all first-party endpoin
 echo "(Use 'agent_safe_readonly' for production to restrict to safe GET endpoints)"
 echo ""
 
-caskmcp compile \
+cask compile \
   --capture "${CAPTURE_ID}" \
   --scope first_party_only \
   --format all \
@@ -94,7 +94,7 @@ echo "Tools require explicit approval before use."
 echo ""
 
 # Sync lockfile
-caskmcp approve sync \
+cask gate sync \
   --tools ".caskmcp/artifacts/${ARTIFACT_DIR}/tools.json" \
   --policy ".caskmcp/artifacts/${ARTIFACT_DIR}/policy.yaml" \
   --toolsets ".caskmcp/artifacts/${ARTIFACT_DIR}/toolsets.yaml" \
@@ -102,40 +102,40 @@ caskmcp approve sync \
 
 echo ""
 echo "Lockfile created. Let's see what needs approval:"
-caskmcp approve list --lockfile caskmcp.lock.yaml
+cask gate status --lockfile caskmcp.lock.yaml
 echo ""
 
 echo "Approving all tools for the demo..."
-caskmcp approve tool --all --lockfile caskmcp.lock.yaml --by "demo@caskmcp.dev"
+cask gate allow --all --lockfile caskmcp.lock.yaml --by "demo@cask.dev"
 echo ""
 
 echo "CI check (would run in your pipeline):"
-caskmcp approve check --lockfile caskmcp.lock.yaml
+cask gate check --lockfile caskmcp.lock.yaml
 echo ""
 
 echo -e "${YELLOW}Step 4: Runtime enforcement + MCP${NC}"
 echo "────────────────────────────────────────────────"
 echo ""
 echo -e "${BLUE}# Proxy mode with lockfile enables approval + integrity gating:${NC}"
-echo "caskmcp enforce \\"
+echo "cask enforce \\"
 echo "  --tools .caskmcp/artifacts/${ARTIFACT_DIR}/tools.json \\"
 echo "  --policy .caskmcp/artifacts/${ARTIFACT_DIR}/policy.yaml \\"
 echo "  --lockfile caskmcp.lock.yaml \\"
 echo "  --mode=proxy --base-url https://api.example.com --auth \"Bearer YOUR_API_TOKEN\""
 echo ""
 echo -e "${BLUE}# If a write is challenged, grant out-of-band:${NC}"
-echo "caskmcp confirm grant <confirmation-token-id>"
+echo "cask confirm grant <confirmation-token-id>"
 echo ""
 echo "To expose these tools to Claude or other AI agents:"
 echo ""
 echo -e "${BLUE}# Start the MCP server (dry-run mode - no actual API calls)${NC}"
-echo "caskmcp mcp serve \\"
+echo "cask serve \\"
 echo "  --tools .caskmcp/artifacts/${ARTIFACT_DIR}/tools.json \\"
 echo "  --policy .caskmcp/artifacts/${ARTIFACT_DIR}/policy.yaml \\"
 echo "  --dry-run"
 echo ""
 echo -e "${BLUE}# Or with real upstream API:${NC}"
-echo "caskmcp mcp serve \\"
+echo "cask serve \\"
 echo "  --tools .caskmcp/artifacts/${ARTIFACT_DIR}/tools.json \\"
 echo "  --base-url https://api.example.com \\"
 echo "  --auth \"Bearer YOUR_API_TOKEN\""
@@ -145,9 +145,9 @@ cat << 'EOF'
 {
   "mcpServers": {
     "my-api": {
-      "command": "caskmcp",
+      "command": "cask",
       "args": [
-        "mcp", "serve",
+        "serve",
         "--tools", "/path/to/tools.json",
         "--policy", "/path/to/policy.yaml"
       ]
@@ -174,7 +174,7 @@ echo "  caskmcp.lock.yaml      - Tool approvals and versions"
 echo ""
 echo "Next steps:"
 echo "  • Add caskmcp.lock.yaml to git for version control"
-echo "  • Run 'caskmcp approve check' in CI to gate deployments"
+echo "  • Run 'cask gate check' in CI to gate deployments"
 echo "  • Use drift detection when APIs change"
 echo ""
 echo -e "Demo output saved to: ${BLUE}${DEMO_DIR}${NC}"

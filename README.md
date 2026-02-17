@@ -1,127 +1,193 @@
-# CaskMCP
+# Cask
 
-<!-- mcp-name: io.github.caskmcp/caskmcp -->
+**Turn any web API into a governed, agent-ready MCP server in one command.**
 
-CaskMCP is a governed MCP capability supply chain with replayable proof.
+<!-- mcp-name: io.github.caskmcp/cask -->
 
-Core contract:
-- `caskmcp wow` proves governance enforcement, replayability, and parity in one run.
-- `caskmcp govern ...` is the governance surface (approvals, lockfiles, drift gates, runtime policy).
-- `caskmcp prove ...` is the proof surface (prove-twice and smoke matrix).
+Cask captures real API traffic, compiles it into governed tool definitions, and serves them through MCP with lockfile-based approval, drift detection, and verification contracts. Every tool your AI agent uses is auditable, versioned, and fail-closed by default.
 
-## Install
+## See It Work (30 seconds)
 
 ```bash
 pip install caskmcp
+cask demo
 ```
 
-For local development:
+What just happened:
+- Compiled a governed toolpack from offline fixtures
+- Enforced fail-closed lockfile governance (no lockfile = no runtime)
+- Proved deterministic replay parity between two independent runs
+- Emitted `prove_summary.json`, `prove_twice_report.md`, and `prove_twice_diff.json`
+
+Exit code `0` means governance held, parity passed, and everything is deterministic.
+
+## Quick Start (5 minutes)
+
+```bash
+# 1. Initialize cask in your project
+cask init
+
+# 2. Capture traffic and compile a governed toolpack
+cask mint https://your-app.com -a api.your-app.com
+
+# 3. Review what changed (risk-classified diff)
+cask diff --toolpack .caskmcp/toolpacks/*/toolpack.yaml
+
+# 4. Approve tools for use
+cask gate allow --all
+
+# 5. Start the governed MCP server
+cask serve --toolpack .caskmcp/toolpacks/*/toolpack.yaml
+```
+
+Your AI agent now has governed, auditable access to your API.
+
+## How It Works
+
+```
+  Capture ─── Compile ─── Review ─── Approve ─── Serve ─── Verify
+    │            │           │          │           │          │
+  HAR/OTEL    tools.json   cask diff  lockfile   MCP stdio  contracts
+  OpenAPI     policy.yaml            signatures              drift
+  Browser     contracts                                      evidence
+```
+
+**Capture** real traffic (HAR, OpenTelemetry, OpenAPI specs, or live browser sessions).
+**Compile** into deterministic, versioned tool definitions with risk classification.
+**Review** changes with `cask diff` -- every new tool, schema change, or host addition is risk-classified.
+**Approve** via signed lockfile entries -- explicit human decisions, not silent defaults.
+**Serve** through MCP with fail-closed enforcement -- unapproved tools never execute.
+**Verify** with assertion-based contracts, drift detection, and evidence bundles for CI.
+
+## Traffic Capture
+
+Start where you already are:
+
+| You have | Command | Best for |
+| --- | --- | --- |
+| Nothing (just exploring) | `cask demo` | Fastest first run, no credentials needed |
+| A web app to capture | `cask mint https://app.example.com -a api.example.com` | Capturing real authorized behavior |
+| HAR/OTEL files | `cask capture import traffic.har -a api.example.com` | Adopting Cask without recapturing |
+| An OpenAPI spec | `cask capture import openapi.yaml -a api.example.com` | Generating tools from specs |
+
+All paths converge to the same governed runtime.
+
+## Core Commands
+
+| Command | What it does |
+| --- | --- |
+| `cask init` | Initialize Cask in your project |
+| `cask mint <url>` | Capture traffic and compile a toolpack |
+| `cask diff` | Generate a risk-classified change report |
+| `cask gate allow` | Approve tools for use |
+| `cask gate check` | CI gate: exit 0 only if all tools approved |
+| `cask serve` | Start the governed MCP server (stdio) |
+| `cask run` | Execute a toolpack with policy enforcement |
+| `cask drift` | Detect capability surface changes |
+| `cask verify` | Run verification contracts |
+| `cask demo` | Prove governance works (offline, 30 seconds) |
+
+Run `cask --help` for the full command tree, or `cask --help-all` for advanced commands.
+
+## Why Cask?
+
+**Safe by default.** Fail-closed lockfile enforcement means unapproved tools never run. No lockfile, no runtime. Period.
+
+**Auditable.** Every approval is signed. Every runtime decision produces a trace. Every verification run creates an evidence bundle.
+
+**Deterministic.** Same inputs produce identical artifacts and digests. Replay parity is a first-class contract, not an aspiration.
+
+**Zero friction.** `cask demo` proves the entire governance loop offline in 30 seconds. `cask mint` captures and compiles in one command. OpenAPI specs are auto-detected on import.
+
+**CI-native.** `cask gate check` gates deployments. `cask drift` catches API surface changes. `cask verify` runs assertion-based contracts. All exit codes are machine-readable.
+
+## MCP Client Config
+
+Generate a config snippet for your AI client:
+
+```bash
+# For Claude Desktop
+cask config --toolpack .caskmcp/toolpacks/*/toolpack.yaml --format json
+
+# For Codex
+cask config --toolpack .caskmcp/toolpacks/*/toolpack.yaml --format codex
+```
+
+Or add this to your Claude Desktop config (`~/.claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "my-api": {
+      "command": "cask",
+      "args": ["serve", "--toolpack", "/path/to/toolpack.yaml"]
+    }
+  }
+}
+```
+
+## Verification Workflows
+
+Cask includes a built-in workflow runner for structured verification:
+
+```bash
+# Initialize a workflow
+cask workflow init
+
+# Run a verification workflow
+cask workflow run workflow.yaml
+
+# Compare two runs
+cask workflow diff run_a/ run_b/
+
+# Generate a report
+cask workflow report run_dir/
+```
+
+## Installation
+
+```bash
+# Base install (includes offline demo)
+pip install caskmcp
+
+# With MCP server support
+pip install "caskmcp[mcp]"
+
+# With live browser capture
+pip install "caskmcp[playwright]"
+python -m playwright install chromium
+
+# Everything
+pip install "caskmcp[all]"
+```
+
+For development:
 
 ```bash
 git clone https://github.com/caskmcp/CaskMCP.git
 cd CaskMCP/cask
-pip install -e .
+pip install -e ".[dev]"
 ```
 
-## Zero-Friction Wow
+## The Problem Cask Solves
 
-Default wow path is offline and browser-free:
+AI agents need tools. MCP gives them tools. But who governs what those tools can do?
 
-```bash
-caskmcp wow
-```
+MCP adoption is accelerating while trust and safety remain unsolved:
 
-Artifacts emitted on every run:
-- `prove_twice_report.md`
-- `prove_twice_diff.json`
-- `prove_summary.json`
+- [OpenAI highlights tool-injection and trust risks](https://platform.openai.com/docs/mcp)
+- [Remote MCP requires strict allowlisting](https://docs.x.ai/docs/guides/tools/remote-mcp-tools)
+- [Registry moderation is intentionally permissive](https://modelcontextprotocol.io/registry/moderation-policy)
+- [Real incidents are already happening](https://www.upguard.com/blog/asana-discloses-data-exposure-bug-in-mcp-server)
 
-`caskmcp wow` exits `0` only when all are true:
-1. Governance was enforced in fail-closed mode.
-2. Run A and Run B replay deterministically from the same governed inputs.
-3. Parity passed.
+Cask provides the missing governance layer: local, deterministic, auditable, fail-closed.
 
-### Optional Live Browser Path
+## Documentation
 
-```bash
-pip install "caskmcp[playwright]"
-python -m playwright install chromium
-caskmcp wow --live
-```
-
-## Traffic Capture, Without Friction
-
-CaskMCP supports three practical capture paths so teams can start where they already are.
-
-| You already have | Command | Best for |
-| --- | --- | --- |
-| Nothing yet (just want to see it work) | `caskmcp wow` | Fastest first run, no credentials, no browser deps |
-| A first-party web flow | `caskmcp govern mint https://app.example.com -a api.example.com` | Capturing real authorized behavior |
-| Existing artifacts (HAR, OTEL, OpenAPI) | `caskmcp capture import ...` / `caskmcp openapi ...` | Adopting CaskMCP without recapturing traffic |
-
-All three paths converge to the same governed runtime and proof loop (`diff`, `gate`, `run`, `drift`, `verify`, `prove`, `wow`).
-
-1. Offline fixture (no credentials, no browser install):
-```bash
-caskmcp wow
-```
-2. Live browser capture (first-party authorized flows):
-```bash
-caskmcp govern mint https://app.example.com -a api.example.com
-```
-3. Existing telemetry/spec imports:
-```bash
-caskmcp capture import traffic.har -a api.example.com
-caskmcp capture import traces.json --input-format otel -a api.example.com
-caskmcp openapi openapi.json -a api.example.com
-```
-
-## Primary CLI Shape
-
-```bash
-caskmcp wow
-caskmcp govern --help
-caskmcp prove --help
-```
-
-Examples:
-
-```bash
-# Governed capture -> compile
-caskmcp govern mint https://app.example.com -a api.example.com
-
-# Review and approve pending lockfile
-caskmcp govern diff --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml --format github-md
-caskmcp govern gate allow --all --lockfile .caskmcp/toolpacks/<id>/lockfile/caskmcp.lock.pending.yaml
-
-# Enforced runtime + drift checks
-caskmcp govern run --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml
-caskmcp govern drift --baseline .caskmcp/toolpacks/<id>/artifact/baseline.json --capture-id <capture-id>
-
-# Prove matrix
-caskmcp prove smoke
-```
-
-`cask` remains an alias for compatibility, but docs/defaults use `caskmcp`.
-
-## Why This Exists
-
-MCP adoption is accelerating, while official guidance highlights tool-injection and trust risks in third-party MCP servers.
-
-- OpenAI MCP risk framing and safety guidance: [OpenAI MCP docs](https://platform.openai.com/docs/mcp)
-- Remote MCP allowlist pressure: [xAI remote MCP tools](https://docs.x.ai/docs/guides/tools/remote-mcp-tools)
-- Registry moderation is intentionally permissive: [MCP moderation policy](https://modelcontextprotocol.io/registry/moderation-policy)
-- Real incident context: [Asana MCP data exposure write-up](https://www.upguard.com/blog/asana-discloses-data-exposure-bug-in-mcp-server)
-
-CaskMCP focuses on local governance and evidence, not bypass tooling.
-
-## Packaging
-
-- Distribution: `caskmcp`
-- Base install: supports offline `wow`
-- Extra: `playwright` (live/browser capture)
-- Extra: `mcp` (MCP SDK integration)
-- Extra: `all` (convenience install for `mcp` + `playwright`)
+- [Architecture](ARCHITECTURE.md)
+- [User Guide](docs/user-guide.md)
+- [Known Limitations](docs/known-limitations.md)
+- [Publishing](docs/publishing.md)
 
 ## Development
 
@@ -131,10 +197,3 @@ pytest tests/ -v
 ruff check caskmcp tests
 mypy caskmcp --ignore-missing-imports
 ```
-
-## Docs
-
-- [Architecture](ARCHITECTURE.md)
-- [User Guide](docs/user-guide.md)
-- [Known Limitations](docs/known-limitations.md)
-- [Publishing](docs/publishing.md)

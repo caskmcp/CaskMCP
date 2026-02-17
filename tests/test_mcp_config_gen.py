@@ -28,9 +28,9 @@ def test_claude_config_format(tmp_path: Path) -> None:
     tp = _setup_toolpack(tmp_path)
     config = _build_mcp_client_config(tp, "claude")
     assert "mcpServers" in config
-    assert "caskmcp" in config["mcpServers"]
-    server = config["mcpServers"]["caskmcp"]
-    assert server["command"] == "caskmcp"
+    assert "cask" in config["mcpServers"]
+    server = config["mcpServers"]["cask"]
+    assert server["command"] == "cask"
     assert "run" in server["args"]
     assert "--toolpack" in server["args"]
 
@@ -39,7 +39,7 @@ def test_cursor_config_format(tmp_path: Path) -> None:
     tp = _setup_toolpack(tmp_path)
     config = _build_mcp_client_config(tp, "cursor")
     assert "mcpServers" in config
-    assert "caskmcp" in config["mcpServers"]
+    assert "cask" in config["mcpServers"]
 
 
 def test_generic_config_format(tmp_path: Path) -> None:
@@ -47,20 +47,20 @@ def test_generic_config_format(tmp_path: Path) -> None:
     config = _build_mcp_client_config(tp, "generic")
     assert "server" in config
     assert config["server"]["transport"] == "stdio"
-    assert "caskmcp" in config["server"]["command"]
+    assert "cask" in config["server"]["command"]
 
 
 def test_config_includes_tools_path(tmp_path: Path) -> None:
     tp = _setup_toolpack(tmp_path)
     config = _build_mcp_client_config(tp, "claude")
-    args = config["mcpServers"]["caskmcp"]["args"]
+    args = config["mcpServers"]["cask"]["args"]
     assert "--tools" in args
 
 
 def test_config_includes_policy_path(tmp_path: Path) -> None:
     tp = _setup_toolpack(tmp_path)
     config = _build_mcp_client_config(tp, "claude")
-    args = config["mcpServers"]["caskmcp"]["args"]
+    args = config["mcpServers"]["cask"]["args"]
     assert "--policy" in args
 
 
@@ -72,7 +72,7 @@ def test_config_without_artifacts(tmp_path: Path) -> None:
     tp_file.write_text("toolpack_id: tp_empty\n")
 
     config = _build_mcp_client_config(tp_file, "claude")
-    args = config["mcpServers"]["caskmcp"]["args"]
+    args = config["mcpServers"]["cask"]["args"]
     # Should still have --toolpack but not --tools or --policy
     assert "--toolpack" in args
 
