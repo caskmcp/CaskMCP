@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "caskmcp"
-version = "0.2.0b4"
+version = "0.2.0b5"
 description = "Action surface compiler: turn observed web traffic into safe, versioned, agent-ready tools"
 readme = "README.md"
 license = "MIT"

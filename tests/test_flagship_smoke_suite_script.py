@@ -1,4 +1,4 @@
-"""Unit tests for the monorepo flagship smoke suite script."""
+"""Unit tests for the flagship smoke suite script."""
 
 from __future__ import annotations
 
@@ -12,7 +12,8 @@ import pytest
 
 
 def _load_script_module() -> ModuleType:
-    script_path = Path(__file__).resolve().parents[2] / "scripts" / "flagship_smoke_suite.py"
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "flagship_smoke_suite.py"
+    assert script_path.exists(), f"missing script under repo root: {script_path}"
     spec = importlib.util.spec_from_file_location("flagship_smoke_suite_script", script_path)
     assert spec is not None
     assert spec.loader is not None

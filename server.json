@@ -3,12 +3,12 @@
   "name": "io.github.caskmcp/caskmcp",
   "title": "CaskMCP",
   "description": "Capture-first compiler for minimal, governed MCP tool surfaces.",
-  "version": "0.2.0-beta.4",
+  "version": "0.2.0-beta.5",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "caskmcp",
-      "version": "0.2.0b4",
+      "version": "0.2.0b5",
       "transport": {
         "type": "stdio"
       },

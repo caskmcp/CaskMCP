@@ -1,4 +1,4 @@
-"""Unit tests for the monorepo Prove Twice orchestration script."""
+"""Unit tests for the Prove Twice orchestration script."""
 
 from __future__ import annotations
 
@@ -12,7 +12,8 @@ import pytest
 
 
 def _load_script_module() -> ModuleType:
-    script_path = Path(__file__).resolve().parents[2] / "scripts" / "prove_twice_demo.py"
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "prove_twice_demo.py"
+    assert script_path.exists(), f"missing script under repo root: {script_path}"
     spec = importlib.util.spec_from_file_location("prove_twice_demo_script", script_path)
     assert spec is not None
     assert spec.loader is not None

@@ -6,6 +6,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0-beta.5] - 2026-02-17
+
+### Fixed
+
+- CI portability issue in script-loader tests by resolving helper scripts from repo root instead of a parent-directory monorepo assumption.
+- Packaging smoke assertion to match canonical demo headline text (`Demo complete`) emitted by the CLI.
+
+### Changed
+
+- Version metadata synchronized across packaging manifests (`pyproject.toml`, `caskmcp/__init__.py`, `server.json`, `uv.lock`) for first successful public PyPI release candidate.
+
 ## [0.2.0-beta.4] - 2026-02-17
 
 ### Added
