@@ -47,6 +47,7 @@ Thumbs.db
 # CaskMCP specific
 captures/
 *.har
+!caskmcp/assets/demo/sample.har
 *.session.json
 .caskmcp/
 outputs/

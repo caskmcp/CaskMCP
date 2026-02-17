@@ -49,6 +49,27 @@ python -m playwright install chromium
 caskmcp wow --live
 ```
 
+## Traffic Capture, Without Friction
+
+CaskMCP supports three practical capture paths so teams can start where they already are:
+
+1. Offline fixture (no credentials, no browser install):
+```bash
+caskmcp wow
+```
+2. Live browser capture (first-party authorized flows):
+```bash
+caskmcp govern mint https://app.example.com -a api.example.com
+```
+3. Existing telemetry/spec imports:
+```bash
+caskmcp capture import traffic.har -a api.example.com
+caskmcp capture import traces.json --input-format otel -a api.example.com
+caskmcp openapi openapi.json -a api.example.com
+```
+
+Then all paths converge on the same governed runtime and proof loop (`diff`, `gate`, `run`, `drift`, `verify`, `prove`, `wow`).
+
 ## Primary CLI Shape
 
 ```bash

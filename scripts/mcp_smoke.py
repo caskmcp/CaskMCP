@@ -90,57 +90,58 @@ async def _run_smoke(ns: argparse.Namespace) -> int:
     )
 
     print("spawning server...", flush=True)
-    async with stdio_client(server) as (read_stream, write_stream):
-        async with ClientSession(read_stream, write_stream) as session:
+    async with stdio_client(server) as (read_stream, write_stream), ClientSession(
+        read_stream, write_stream
+    ) as session:
+        with anyio.fail_after(ns.timeout_seconds):
+            await session.initialize()
+        print("initialized", flush=True)
+
+        if ns.print_tools:
             with anyio.fail_after(ns.timeout_seconds):
-                await session.initialize()
-            print("initialized", flush=True)
+                tools = await session.list_tools()
+            print(f"tools={len(tools.tools)}")
+            for tool in tools.tools:
+                advertised = "yes" if tool.outputSchema else "no"
+                print(f"- {tool.name} outputSchema={advertised}")
+            sys.stdout.flush()
 
-            if ns.print_tools:
-                with anyio.fail_after(ns.timeout_seconds):
-                    tools = await session.list_tools()
-                print(f"tools={len(tools.tools)}")
-                for tool in tools.tools:
-                    advertised = "yes" if tool.outputSchema else "no"
-                    print(f"- {tool.name} outputSchema={advertised}")
-                sys.stdout.flush()
+        for call in calls:
+            if not isinstance(call, dict) or "name" not in call:
+                raise ValueError("Each call must be an object with at least a 'name' field")
+            name = str(call["name"])
+            arguments = call.get("arguments")
+            if arguments is not None and not isinstance(arguments, dict):
+                raise ValueError(f"Call arguments must be an object for tool {name}")
 
-            for call in calls:
-                if not isinstance(call, dict) or "name" not in call:
-                    raise ValueError("Each call must be an object with at least a 'name' field")
-                name = str(call["name"])
-                arguments = call.get("arguments")
-                if arguments is not None and not isinstance(arguments, dict):
-                    raise ValueError(f"Call arguments must be an object for tool {name}")
+            print(f"\ncall {name}", flush=True)
+            with anyio.fail_after(ns.timeout_seconds):
+                result = await session.call_tool(name, arguments=arguments or {})
 
-                print(f"\ncall {name}", flush=True)
-                with anyio.fail_after(ns.timeout_seconds):
-                    result = await session.call_tool(name, arguments=arguments or {})
-
-                if result.isError:
-                    text = ""
-                    if result.content:
-                        text = getattr(result.content[0], "text", "") or ""
-                    print("isError=true", flush=True)
-                    print(_truncate(text, ns.max_chars))
-                    continue
-
-                if result.structuredContent is not None:
-                    payload = json.dumps(
-                        result.structuredContent,
-                        indent=2,
-                        sort_keys=True,
-                        ensure_ascii=True,
-                    )
-                    print("structured=true", flush=True)
-                    print(_truncate(payload, ns.max_chars))
-                    continue
-
+            if result.isError:
                 text = ""
                 if result.content:
                     text = getattr(result.content[0], "text", "") or ""
-                print("structured=false", flush=True)
+                print("isError=true", flush=True)
                 print(_truncate(text, ns.max_chars))
+                continue
+
+            if result.structuredContent is not None:
+                payload = json.dumps(
+                    result.structuredContent,
+                    indent=2,
+                    sort_keys=True,
+                    ensure_ascii=True,
+                )
+                print("structured=true", flush=True)
+                print(_truncate(payload, ns.max_chars))
+                continue
+
+            text = ""
+            if result.content:
+                text = getattr(result.content[0], "text", "") or ""
+            print("structured=false", flush=True)
+            print(_truncate(text, ns.max_chars))
 
     return 0
 
