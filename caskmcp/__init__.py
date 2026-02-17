@@ -1,3 +1,3 @@
 """CaskMCP: Action surface compiler for safe, versioned, agent-ready tools."""
 
-__version__ = "0.2.0b5"
+__version__ = "0.2.0b6"

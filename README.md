@@ -51,7 +51,15 @@ caskmcp wow --live
 
 ## Traffic Capture, Without Friction
 
-CaskMCP supports three practical capture paths so teams can start where they already are:
+CaskMCP supports three practical capture paths so teams can start where they already are.
+
+| You already have | Command | Best for |
+| --- | --- | --- |
+| Nothing yet (just want to see it work) | `caskmcp wow` | Fastest first run, no credentials, no browser deps |
+| A first-party web flow | `caskmcp govern mint https://app.example.com -a api.example.com` | Capturing real authorized behavior |
+| Existing artifacts (HAR, OTEL, OpenAPI) | `caskmcp capture import ...` / `caskmcp openapi ...` | Adopting CaskMCP without recapturing traffic |
+
+All three paths converge to the same governed runtime and proof loop (`diff`, `gate`, `run`, `drift`, `verify`, `prove`, `wow`).
 
 1. Offline fixture (no credentials, no browser install):
 ```bash
@@ -67,8 +75,6 @@ caskmcp capture import traffic.har -a api.example.com
 caskmcp capture import traces.json --input-format otel -a api.example.com
 caskmcp openapi openapi.json -a api.example.com
 ```
-
-Then all paths converge on the same governed runtime and proof loop (`diff`, `gate`, `run`, `drift`, `verify`, `prove`, `wow`).
 
 ## Primary CLI Shape
 

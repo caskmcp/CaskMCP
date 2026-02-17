@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0-beta.6] - 2026-02-17
+
+### Changed
+
+- README onboarding polish for first public release:
+  - Added a clear capture-path matrix (`offline fixture`, `live browser`, `existing artifacts`).
+  - Reframed traffic capture as a low-friction entrypoint into governed proof, not the product headline.
+- Version metadata synchronized across packaging manifests (`pyproject.toml`, `caskmcp/__init__.py`, `server.json`, `uv.lock`).
+
 ## [0.2.0-beta.5] - 2026-02-17
 
 ### Fixed
