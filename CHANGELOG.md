@@ -6,6 +6,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0-beta.4] - 2026-02-17
+
+### Added
+
+- Added first-party demo fixture to repository/package artifacts:
+  - `caskmcp/assets/demo/sample.har`
+- Added prove orchestration helper scripts to repository root for CI parity:
+  - `scripts/prove_twice_demo.py`
+  - `scripts/flagship_smoke_suite.py`
+- Expanded README with a dedicated traffic-capture section showing:
+  - offline fixture path
+  - live browser mint path
+  - HAR/OTEL/OpenAPI import paths
+
+### Fixed
+
+- CI test failures caused by missing script/fixture files in the standalone CaskMCP repo.
+- `.gitignore` now preserves the packaged demo HAR fixture while continuing to ignore arbitrary HAR captures.
+- `scripts/mcp_smoke.py` lint issue (`SIM117`) by collapsing nested context managers.
+
 ## [0.2.0-beta.3] - 2026-02-17
 
 ### Added
