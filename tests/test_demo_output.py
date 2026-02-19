@@ -45,3 +45,33 @@ def test_demo_output_contains_artifact_paths() -> None:
     assert "Toolpack:" in result.stdout
     assert "Pending lock:" in result.stdout
     assert "Baseline:" in result.stdout
+
+
+def test_demo_output_contains_temp_dir_disclaimer() -> None:
+    """Demo output warns that artifacts are in a temp dir and suggests mint."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["demo"])
+
+    assert result.exit_code == 0
+    output = result.stdout.lower()
+    # Should warn users about temp paths
+    assert "temp" in output and "mint" in output, (
+        f"Demo should include a disclaimer about temp paths and suggest mint. Got: {result.stdout!r}"
+    )
+
+
+def test_demo_what_happened_uses_clear_language() -> None:
+    """'What just happened' section should use clear, non-jargon language."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["demo"])
+
+    assert result.exit_code == 0
+    output = result.stdout
+    # Should NOT use jargon-heavy phrases
+    assert "Parsed" not in output or "bundled HAR traffic" not in output, (
+        "Demo should not use jargon like 'bundled HAR traffic'"
+    )
+    # Should use clearer language
+    assert "approval" in output.lower() or "review" in output.lower(), (
+        "Demo should explain the approval workflow in user-friendly terms"
+    )

@@ -282,7 +282,7 @@ def _replay_result(baseline_path: Path, tools_path: Path) -> dict[str, Any]:
 
 def _outcomes_result() -> dict[str, Any]:
     return {
-        "status": "pass",
+        "status": "skipped",
         "checks": {"semantic_assertions": "not_configured"},
     }
 

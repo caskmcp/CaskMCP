@@ -69,11 +69,12 @@ def run_init(
     else:
         gitignore_path.write_text("\n".join(gitignore_entries) + "\n", encoding="utf-8")
 
-    click.echo(f"Initialized CaskMCP in {caskmcp_dir}")
+    click.echo(f"✓ Initialized CaskMCP in {caskmcp_dir}")
     click.echo(f"  Config: {config_path}")
 
     # Print next steps
-    click.echo("\nWhat's next:")
+    click.echo()
+    click.echo("What's next:")
     if detection.api_specs:
         spec = detection.api_specs[0]
         click.echo(f"  1. cask capture import {spec} -a <api-host>")
@@ -82,8 +83,7 @@ def run_init(
         click.echo("  1. cask mint <start-url> -a <api-host>")
     click.echo("     mint will print the exact gate and serve commands with correct paths.")
     click.echo("  2. Follow the gate allow + serve commands printed by mint.")
-    click.echo("")
-    click.echo("  Tip: cask config --toolpack <path> prints a ready-to-paste MCP client snippet.")
+    click.echo("  3. cask config --toolpack <path>   (generate MCP client config)")
 
 
 def run_mcp_config(

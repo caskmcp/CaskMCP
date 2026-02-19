@@ -42,19 +42,19 @@ MORE_COMMANDS = {
     "auth",
 }
 
-# Core commands shown prominently in default help (everything else).
-CORE_COMMANDS = {
+# Core commands shown prominently in default help, in workflow order.
+CORE_COMMANDS = [
     "init",
     "mint",
-    "diff",
     "gate",
     "serve",
-    "run",
-    "drift",
-    "verify",
-    "demo",
     "config",
-}
+    "verify",
+    "drift",
+    "diff",
+    "run",
+    "demo",
+]
 
 
 class CaskGroup(click.Group):
@@ -85,7 +85,7 @@ class CaskGroup(click.Group):
             with formatter.section("Core Commands"):
                 formatter.write_dl(core)
         if more:
-            with formatter.section("More"):
+            with formatter.section("Advanced"):
                 formatter.write_dl(more)
 
         formatter.write("\n")
@@ -771,7 +771,15 @@ def drift(
     )
 
 
-@cli.command()
+@cli.command(
+    epilog="""\b
+Examples:
+  cask verify --toolpack toolpack.yaml
+  cask verify --toolpack toolpack.yaml --mode baseline-check
+  cask verify --toolpack toolpack.yaml --mode contracts --strict
+  cask verify --toolpack toolpack.yaml --mode provenance
+""",
+)
 @click.option(
     "--toolpack",
     required=True,
@@ -959,7 +967,15 @@ register_workflow_commands(cli=cli)
 # ---------------------------------------------------------------------------
 
 
-@cli.command()
+@cli.command(
+    epilog="""\b
+Examples:
+  cask config --toolpack toolpack.yaml
+  cask config --toolpack toolpack.yaml --format yaml
+  cask config --toolpack toolpack.yaml --name my-api
+  cask config --toolpack toolpack.yaml --format codex
+""",
+)
 @click.option(
     "--toolpack",
     required=True,

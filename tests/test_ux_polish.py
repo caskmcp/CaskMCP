@@ -243,3 +243,56 @@ def test_verify_baseline_check_mode_no_deprecation_warning(tmp_path: Path) -> No
     assert "deprecated" not in output.lower(), (
         f"verify --mode baseline-check should not print deprecation warning. Got: {result.output!r}"
     )
+
+
+# --- 9. Help command ordering should follow user workflow ---
+
+
+def test_help_core_commands_in_workflow_order() -> None:
+    """Core commands in --help should follow user workflow order:
+    init -> mint -> gate -> serve -> config -> verify -> ..."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["--help"])
+
+    assert result.exit_code == 0
+    output = result.output
+    # Extract only the Core Commands section to avoid matching words elsewhere
+    core_start = output.find("Core Commands:")
+    assert core_start != -1, "Help should have a 'Core Commands:' section"
+    core_section = output[core_start:]
+
+    # Find positions within the core section only
+    # Use "  init " pattern to match command entries, not random occurrences
+    init_pos = core_section.find("\n  init ")
+    mint_pos = core_section.find("\n  mint ")
+    gate_pos = core_section.find("\n  gate ")
+    serve_pos = core_section.find("\n  serve ")
+    config_pos = core_section.find("\n  config ")
+
+    assert init_pos < mint_pos, "init should appear before mint in help"
+    assert mint_pos < gate_pos, "mint should appear before gate in help"
+    assert gate_pos < serve_pos, "gate should appear before serve in help"
+    assert serve_pos < config_pos, "serve should appear before config in help"
+
+
+def test_help_more_section_renamed_to_advanced() -> None:
+    """The 'More' section should be renamed to 'Advanced' for clarity."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["--help"])
+
+    assert result.exit_code == 0
+    assert "Advanced" in result.output, "Help should use 'Advanced' instead of 'More'"
+
+
+# --- 10. Outcomes verification should return "skipped" not "pass" ---
+
+
+def test_outcomes_result_returns_skipped_not_pass() -> None:
+    """_outcomes_result() should return 'skipped' since it's not configured,
+    not 'pass' which falsely claims verification succeeded."""
+    from caskmcp.cli.verify import _outcomes_result
+
+    result = _outcomes_result()
+    assert result["status"] == "skipped", (
+        f"outcomes should return 'skipped' when not configured, got '{result['status']}'"
+    )
