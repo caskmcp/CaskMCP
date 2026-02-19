@@ -129,7 +129,7 @@ def register_mcp_commands(
           cask serve --toolpack toolpack.yaml --dry-run
 
         \b
-        Claude Desktop configuration (~/.claude/claude_desktop_config.json):
+        Claude Desktop configuration (see Claude Desktop docs for your platform):
           {
             "mcpServers": {
               "my-api": {

@@ -25,7 +25,6 @@ ADVANCED_COMMANDS = {
     "bundle",
     "lint",
     "doctor",
-    "config",
     "enforce",
     "migrate",
     "inspect",
@@ -54,6 +53,7 @@ CORE_COMMANDS = {
     "drift",
     "verify",
     "demo",
+    "config",
 }
 
 
@@ -191,9 +191,8 @@ def _run_with_lock(
     default=".",
     help="Project directory to initialize (default: current directory)",
 )
-@click.option("--non-interactive", is_flag=True, help="Use defaults without prompting")
 @click.pass_context
-def init_cmd(ctx: click.Context, directory: str, non_interactive: bool) -> None:
+def init_cmd(ctx: click.Context, directory: str) -> None:
     """Initialize cask in a project directory.
 
     Auto-detects project type, generates config, and prints next steps.
@@ -202,7 +201,6 @@ def init_cmd(ctx: click.Context, directory: str, non_interactive: bool) -> None:
 
     run_init(
         directory=directory,
-        non_interactive=non_interactive,
         verbose=ctx.obj.get("verbose", False) if ctx.obj else False,
     )
 
@@ -214,8 +212,7 @@ def init_cmd(ctx: click.Context, directory: str, non_interactive: bool) -> None:
     "--allowed-hosts",
     "-a",
     multiple=True,
-    required=True,
-    help="Hosts to include (required, repeatable)",
+    help="API hosts to include (required, repeatable). Use the domain of your API, e.g. -a api.example.com",
 )
 @click.option("--name", "-n", help="Name for the capture session")
 @click.option(
@@ -297,6 +294,19 @@ def capture(
 
     Record mode supports interactive, timed headless, and scripted automation.
     """
+    if not allowed_hosts:
+        click.echo(
+            "Error: --allowed-hosts / -a is required.\n\n"
+            "This tells cask which API hosts to capture. Use the domain of your API server.\n\n"
+            "Examples:\n"
+            "  cask capture import traffic.har -a api.example.com\n"
+            "  cask capture record https://app.example.com -a api.example.com\n"
+            "  cask capture import spec.yaml -a api.example.com -a auth.example.com\n\n"
+            "Tip: check your HAR/spec file for the API hostname.",
+            err=True,
+        )
+        sys.exit(2)
+
     resolved_output = output or str(_default_root_path(ctx, "captures"))
 
     # Auto-detect OpenAPI for import subcommand.
@@ -382,7 +392,7 @@ def _detect_openapi_format(source: str, default: str) -> str:
 @click.option(
     "--scope",
     "-s",
-    default="agent_safe_readonly",
+    default="first_party_only",
     show_default=True,
     help="Scope to apply during compile",
 )
@@ -487,14 +497,7 @@ def mint(
       cask mint https://app.example.com -a api.example.com --auth-profile myapp
       cask mint https://app.example.com --webmcp -a api.example.com
     """
-    from click.core import ParameterSource
-
     from caskmcp.cli.mint import run_mint
-
-    effective_scope = scope
-    scope_source = ctx.get_parameter_source("scope")
-    if scope_source != ParameterSource.COMMANDLINE and allowed_hosts:
-        effective_scope = "first_party_only"
 
     resolved_output = output or str(ctx.obj.get("root", resolve_root()))
 
@@ -505,7 +508,7 @@ def mint(
             start_url=start_url,
             allowed_hosts=list(allowed_hosts),
             name=name,
-            scope_name=effective_scope,
+            scope_name=scope,
             headless=headless,
             script_path=script,
             duration_seconds=duration,
@@ -777,7 +780,7 @@ def drift(
 )
 @click.option(
     "--mode",
-    type=click.Choice(["contracts", "replay", "outcomes", "provenance", "all"]),
+    type=click.Choice(["contracts", "baseline-check", "replay", "outcomes", "provenance", "all"]),
     default="all",
     show_default=True,
     help="Verification mode",
@@ -956,7 +959,7 @@ register_workflow_commands(cli=cli)
 # ---------------------------------------------------------------------------
 
 
-@cli.command(hidden=True)
+@cli.command()
 @click.option(
     "--toolpack",
     required=True,
@@ -976,7 +979,7 @@ register_workflow_commands(cli=cli)
     help="Output format for config snippet",
 )
 def config(toolpack: str, name: str | None, output_format: str) -> None:
-    """Print a ready-to-paste MCP client config snippet."""
+    """Print a ready-to-paste MCP client config snippet (Claude, Cursor, Codex)."""
     from caskmcp.cli.config import run_config
 
     run_config(toolpack_path=toolpack, fmt=output_format, name_override=name)

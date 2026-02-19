@@ -328,7 +328,11 @@ def run_approve_tool(
                 count += 1
         manager.save()
         click.echo(f"Approved {count} tools")
-        _maybe_materialize_snapshot(manager, root_path=Path(root_path))
+        snapshot_ok = _maybe_materialize_snapshot(manager, root_path=Path(root_path))
+        if not snapshot_ok and count > 0:
+            _print_snapshot_guidance()
+        if count > 0:
+            _print_next_steps_after_approval()
         return
 
     if not tool_ids:
@@ -377,7 +381,11 @@ def run_approve_tool(
         click.echo(f"Not found: {', '.join(not_found)}", err=True)
         sys.exit(1)
 
-    _maybe_materialize_snapshot(manager, root_path=Path(root_path))
+    snapshot_ok = _maybe_materialize_snapshot(manager, root_path=Path(root_path))
+    if not snapshot_ok and approved:
+        _print_snapshot_guidance()
+    if approved:
+        _print_next_steps_after_approval()
 
 
 def run_approve_reject(
@@ -626,16 +634,40 @@ def _promote_toolpack_lockfile(
         click.echo(f"Approved lockfile: {rel}")
 
 
-def _maybe_materialize_snapshot(manager: LockfileManager, *, root_path: Path) -> None:
+def _maybe_materialize_snapshot(manager: LockfileManager, *, root_path: Path) -> bool:
+    """Try to materialize a snapshot. Returns True if snapshot was created."""
     approvals_passed, _message = manager.check_approvals()
     if not approvals_passed:
-        return
+        return False
+    toolpack_root = resolve_toolpack_root(manager.lockfile_path)
+    if toolpack_root is None:
+        return False
     _materialize_snapshot(
         manager,
         verbose=False,
         require_toolpack=False,
         root_path=root_path,
     )
+    return True
+
+
+def _print_snapshot_guidance() -> None:
+    """Print guidance when snapshot couldn't be auto-materialized after approval."""
+    click.echo(
+        "\nNote: No toolpack.yaml found — baseline snapshot was not materialized."
+    )
+    click.echo(
+        "  If using a toolpack, run: cask gate snapshot --lockfile <path>"
+    )
+    click.echo(
+        "  This is required before 'cask gate check' will pass."
+    )
+
+
+def _print_next_steps_after_approval() -> None:
+    """Print what the user should do after approving tools."""
+    click.echo("\nNext: cask serve --toolpack <path>")
+    click.echo("  Or:  cask config --toolpack <path>  (prints MCP client snippet)")
 
 
 def _seed_toolpack_trust_store(

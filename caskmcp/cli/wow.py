@@ -194,11 +194,21 @@ def _execute_wow_contract(*, workdir: Path, toolpack_file: Path, scenario_label:
         click.echo("Error: wow flow did not create a pending lockfile", err=True)
         return 1
 
+    # === Phase 1: Governance enforcement check ===
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  Phase 1: Governance enforcement check")
+    click.echo("=" * 60)
+
     governance_enforced = _check_fail_closed_without_lockfile(
         tools_path=resolved.tools_path,
         toolsets_path=resolved.toolsets_path,
         policy_path=resolved.policy_path,
     )
+    if governance_enforced:
+        click.echo("  ✓ Fail-closed: runtime blocked without lockfile")
+    else:
+        click.echo("  ✗ Fail-closed check did not trigger")
 
     lock_manager = LockfileManager(str(resolved.pending_lockfile_path))
     lock_manager.load()
@@ -213,7 +223,16 @@ def _execute_wow_contract(*, workdir: Path, toolpack_file: Path, scenario_label:
         else:
             os.environ["CASKMCP_ROOT"] = prior_root
 
+    click.echo("  ✓ Tools approved via lockfile")
+
+    # === Phase 2: Deterministic replay parity ===
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  Phase 2: Deterministic replay parity")
+    click.echo("=" * 60)
+
     action_name, action_args = _pick_replay_action(resolved.tools_path, resolved.toolsets_path)
+    click.echo(f"  Replaying action: {action_name}")
     run_a = _run_governed_dry_replay(
         tools_path=resolved.tools_path,
         toolsets_path=resolved.toolsets_path,
@@ -237,6 +256,19 @@ def _execute_wow_contract(*, workdir: Path, toolpack_file: Path, scenario_label:
     run_b_ok = bool(run_b.get("allowed")) and run_b.get("decision") == "allow"
     parity_ok = _results_are_parity_equivalent(run_a, run_b)
     drift_count = _compute_drift_count(workdir, toolpack.capture_id, resolved.baseline_path)
+
+    click.echo(f"  Run A: {'✓ allowed' if run_a_ok else '✗ denied'}")
+    click.echo(f"  Run B: {'✓ allowed' if run_b_ok else '✗ denied'}")
+    click.echo(f"  Parity: {'✓ deterministic' if parity_ok else '✗ non-deterministic'}")
+
+    # === Results ===
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("  Results")
+    click.echo("=" * 60)
+    click.echo(f"  Governance enforced:  {'✓' if governance_enforced else '✗'}")
+    click.echo(f"  Replay parity:        {'✓' if parity_ok else '✗'}")
+    click.echo(f"  Drift count:          {drift_count}")
 
     diff_payload = _build_diff_payload(run_a=run_a, run_b=run_b, parity_ok=parity_ok)
     artifacts.diff_path.write_text(
@@ -269,10 +301,11 @@ def _execute_wow_contract(*, workdir: Path, toolpack_file: Path, scenario_label:
         encoding="utf-8",
     )
 
-    click.echo("Wow flow complete.")
-    click.echo(f"- Report: {artifacts.report_path}")
-    click.echo(f"- Diff: {artifacts.diff_path}")
-    click.echo(f"- Summary: {artifacts.summary_path}")
+    click.echo("")
+    click.echo("Artifacts:")
+    click.echo(f"  Report:   {artifacts.report_path}")
+    click.echo(f"  Diff:     {artifacts.diff_path}")
+    click.echo(f"  Summary:  {artifacts.summary_path}")
 
     success = governance_enforced and run_a_ok and run_b_ok and parity_ok
     if not success:

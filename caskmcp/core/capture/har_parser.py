@@ -326,13 +326,13 @@ class HARParser:
         # POST/PUT/PATCH/DELETE are more likely to be API calls
         return method in ("POST", "PUT", "PATCH", "DELETE") and "html" not in ct_lower
 
-    def _try_parse_json(self, text: str) -> dict[str, Any] | None:
-        """Try to parse text as JSON."""
+    def _try_parse_json(self, text: str) -> dict[str, Any] | list[Any] | None:
+        """Try to parse text as a JSON object or array."""
         if not text:
             return None
         try:
             result = json.loads(text)
-            if isinstance(result, dict):
+            if isinstance(result, dict | list):
                 return result
         except (json.JSONDecodeError, TypeError):
             pass

@@ -49,7 +49,7 @@
 
 - `mcp inspect` is read-only and not intended for runtime mutation workflows.
 - `--unsafe-no-lockfile` bypass exists for local debugging only and is intentionally noisy.
-- Some hostile/anti-bot sites (StockX-class, Cloudflare/Akamai protected) will return challenge pages or `403` when executed from a non-browser HTTP runtime. In these cases CaskMCP is still valuable for capture/compilation/governance, but live execution should be treated as best-effort unless you run requests via a browser-mediated runtime with explicit operator control.
+- Some hostile/anti-bot sites (Cloudflare/Akamai protected) will return challenge pages or `403` when executed from a non-browser HTTP runtime. In these cases CaskMCP is still valuable for capture/compilation/governance/verification, but live execution should be treated as best-effort unless you run requests via a browser-mediated runtime with explicit operator control.
 - On macOS, GUI apps may be restricted from accessing `~/Documents`, `~/Desktop`, and `~/Downloads` unless explicitly granted permission. If your MCP client spawns `caskmcp` from one of these locations, you may see `PermissionError: [Errno 1] Operation not permitted ... pyvenv.cfg`. Prefer installing `caskmcp` and storing toolpacks outside those folders for Claude Desktop integration.
 
 ## Security boundaries

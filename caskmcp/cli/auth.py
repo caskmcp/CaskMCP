@@ -20,10 +20,11 @@ def auth_group() -> None:
 @click.option("--root", default=".caskmcp", help="CaskMCP root directory")
 def auth_login(profile: str, url: str, root: str) -> None:
     """Launch headful browser for one-time login, saving storage state."""
+    import asyncio
     from pathlib import Path
 
     try:
-        import asyncio
+        from playwright.async_api import async_playwright as _check_pw  # noqa: F401
     except ImportError:
         click.echo("Error: playwright is required for auth login", err=True)
         click.echo("  pip install playwright && playwright install chromium", err=True)

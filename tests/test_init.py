@@ -161,7 +161,7 @@ def test_init_next_steps_use_openapi_command(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "cask capture import openapi.yaml -a <api-host>" in result.output
     assert "mint --openapi" not in result.output
-    assert "cask run --toolpack <path>" in result.output
+    assert "gate allow" in result.output.lower() or "printed by mint" in result.output.lower()
     assert "--tools <tools.json>" not in result.output
     assert "--policy <policy.yaml>" not in result.output
 

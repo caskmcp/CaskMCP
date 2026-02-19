@@ -11,7 +11,7 @@ from caskmcp.cli.main import cli
 from tests.helpers import write_demo_toolpack
 
 
-def test_doctor_outputs_to_stderr_only(tmp_path: Path) -> None:
+def test_doctor_success_on_stdout(tmp_path: Path) -> None:
     toolpack_file = write_demo_toolpack(tmp_path)
     runner = CliRunner()
 
@@ -21,9 +21,8 @@ def test_doctor_outputs_to_stderr_only(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0
-    assert result.stdout == ""
-    assert "Doctor check passed." in result.stderr
-    assert f"Next: cask run --toolpack {toolpack_file}" in result.stderr
+    assert "Doctor check passed." in result.stdout
+    assert f"Next: cask serve --toolpack {toolpack_file}" in result.stdout
 
 
 def test_doctor_reports_missing_artifacts(tmp_path: Path) -> None:
@@ -128,5 +127,4 @@ def test_doctor_auto_does_not_require_mcp(tmp_path: Path, monkeypatch) -> None:
     )
 
     assert result.exit_code == 0
-    assert result.stdout == ""
-    assert "Doctor check passed." in result.stderr
+    assert "Doctor check passed." in result.stdout

@@ -150,8 +150,8 @@ def run_demo(*, output_root: str | None, verbose: bool) -> None:
     click.echo("  # Approve all tools:")
     click.echo(f"  {CLI_PRIMARY_COMMAND} gate allow --all --lockfile {pending_lockfile}")
     click.echo()
-    click.echo("  # Run under lockfile enforcement:")
-    click.echo(f"  {CLI_PRIMARY_COMMAND} run --toolpack {toolpack_file}")
+    click.echo("  # Start governed MCP server:")
+    click.echo(f"  {CLI_PRIMARY_COMMAND} serve --toolpack {toolpack_file}")
     click.echo()
     click.echo("  # Check for API drift against baseline:")
     click.echo(

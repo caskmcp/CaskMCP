@@ -89,6 +89,7 @@ class PlaywrightCapture:
 
         self._exchanges: list[HttpExchange] = []
         self._pending_requests: dict[str, dict[str, Any]] = {}
+        self._pending_tasks: list[asyncio.Task[None]] = []
         self._stop_requested = False
 
         self.stats = {
@@ -129,6 +130,7 @@ class PlaywrightCapture:
 
         self._exchanges = []
         self._pending_requests = {}
+        self._pending_tasks = []
         self._stop_requested = False
         self.stats = {
             "total_requests": 0,
@@ -183,6 +185,10 @@ class PlaywrightCapture:
                             break
 
                 print("\nStopping capture...")
+                # Wait for all in-flight exchange creation tasks to complete
+                if self._pending_tasks:
+                    await asyncio.gather(*self._pending_tasks, return_exceptions=True)
+                    self._pending_tasks.clear()
                 if self.save_storage_state_path:
                     await context.storage_state(path=self.save_storage_state_path)
                 await browser.close()
@@ -264,7 +270,8 @@ class PlaywrightCapture:
             return
 
         # Create exchange
-        asyncio.create_task(self._create_exchange(pending, response))
+        task = asyncio.create_task(self._create_exchange(pending, response))
+        self._pending_tasks.append(task)
 
     def _on_request_failed(self, request: Any) -> None:
         """Handle failed request event."""

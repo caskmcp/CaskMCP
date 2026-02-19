@@ -1,4 +1,4 @@
-# Cask
+# Cask - Agent tool supply chain and verification
 
 **Turn any web API into a governed, agent-ready MCP server in one command.**
 
@@ -85,7 +85,10 @@ All paths converge to the same governed runtime.
 | `cask run` | Execute a toolpack with policy enforcement |
 | `cask drift` | Detect capability surface changes |
 | `cask verify` | Run verification contracts |
+| `cask config` | Generate MCP client config snippet |
 | `cask demo` | Prove governance works (offline, 30 seconds) |
+
+> **Tip:** Both `cask` and `caskmcp` work as the CLI entry point. `cask` is preferred.
 
 Run `cask --help` for the full command tree, or `cask --help-all` for advanced commands.
 
@@ -128,21 +131,35 @@ Or add this to your Claude Desktop config (`~/.claude/claude_desktop_config.json
 
 ## Verification Workflows
 
-Cask includes a built-in workflow runner for structured verification:
+Cask integrates with Tide for structured, multi-step verification workflows:
 
 ```bash
-# Initialize a workflow
+# Create a starter workflow
 cask workflow init
 
-# Run a verification workflow
-cask workflow run workflow.yaml
+# Execute a workflow and emit evidence
+cask workflow run tide.yaml
+
+# Replay a previous run
+cask workflow replay .tide/runs/<run_id>
 
 # Compare two runs
 cask workflow diff run_a/ run_b/
 
 # Generate a report
-cask workflow report run_dir/
+cask workflow report .tide/runs/<run_id>
+
+# Bundle a run into a portable zip
+cask workflow pack .tide/runs/<run_id>
+
+# Export evidence in a specific format
+cask workflow export cask .tide/runs/<run_id>
+
+# Check dependency status
+cask workflow doctor
 ```
+
+Workflows support shell, HTTP, browser, and MCP step types. Each run produces an evidence bundle with digests.
 
 ## Installation
 

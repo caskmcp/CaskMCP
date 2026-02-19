@@ -76,7 +76,7 @@ FRAMEWORK_SIGNALS: list[tuple[str, str]] = [
     ("astro.config.mjs", "astro"),
     ("vite.config.ts", "vite"),
     ("vite.config.js", "vite"),
-    ("fastapi", "fastapi"),  # check in imports
+    # fastapi: detected via dependency files, not a signal file (see _detect_fastapi)
     ("Procfile", "heroku"),
     ("vercel.json", "vercel"),
     ("fly.toml", "fly"),
@@ -114,6 +114,10 @@ def detect_project(directory: Path) -> ProjectDetection:
     for signal_file, framework in FRAMEWORK_SIGNALS:
         if (directory / signal_file).exists() and framework not in result.frameworks:
             result.frameworks.append(framework)
+
+    # Special detection for FastAPI (not a signal file — check deps and imports)
+    if "fastapi" not in result.frameworks and _detect_fastapi(directory):
+        result.frameworks.append("fastapi")
 
     # Generate suggestions
     if result.api_specs:
@@ -165,3 +169,58 @@ def generate_gitignore_entries() -> list[str]:
         "drafts/",
         "evidence/",
     ]
+
+
+def _detect_fastapi(directory: Path) -> bool:
+    """Detect FastAPI via dependency files or Python imports."""
+    import re
+
+    # Pattern matches "fastapi" as a standalone package name in dependency lists
+    dep_pattern = re.compile(r"(?:^|\s|[\"',])fastapi(?:[><=!~\s\"',\]]|$)", re.IGNORECASE)
+
+    # Check requirements.txt
+    req_path = directory / "requirements.txt"
+    if req_path.exists():
+        try:
+            content = req_path.read_text(encoding="utf-8")
+            for line in content.splitlines():
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#") and re.match(
+                    r"^fastapi\b", stripped, re.IGNORECASE
+                ):
+                    return True
+        except OSError:
+            pass
+
+    # Check pyproject.toml
+    pyproject_path = directory / "pyproject.toml"
+    if pyproject_path.exists():
+        try:
+            content = pyproject_path.read_text(encoding="utf-8")
+            if dep_pattern.search(content):
+                return True
+        except OSError:
+            pass
+
+    # Check Pipfile
+    pipfile_path = directory / "Pipfile"
+    if pipfile_path.exists():
+        try:
+            content = pipfile_path.read_text(encoding="utf-8")
+            if dep_pattern.search(content):
+                return True
+        except OSError:
+            pass
+
+    # Check common entry point files for FastAPI imports
+    for filename in ("main.py", "app.py", "api.py", "server.py"):
+        py_path = directory / filename
+        if py_path.exists():
+            try:
+                content = py_path.read_text(encoding="utf-8")
+                if re.search(r"(?:from|import)\s+fastapi\b", content):
+                    return True
+            except OSError:
+                pass
+
+    return False

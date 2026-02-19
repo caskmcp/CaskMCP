@@ -102,12 +102,11 @@ def run_doctor(
         for warning in warnings:
             click.echo(f"Warning: {warning}", err=True)
 
-    click.echo("Doctor check passed.", err=True)
-    click.echo(f"Next: cask run --toolpack {toolpack_path}", err=True)
+    click.echo("Doctor check passed.")
+    click.echo(f"Next: cask serve --toolpack {toolpack_path}")
     click.echo(
-        f"      cask run --toolpack {toolpack_path} --print-config-and-exit",
-        err=True,
+        f"      cask config --toolpack {toolpack_path}",
     )
 
     if verbose:
-        click.echo(f"Runtime mode: {mode}", err=True)
+        click.echo(f"Runtime mode: {mode}")

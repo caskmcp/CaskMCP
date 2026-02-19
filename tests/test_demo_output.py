@@ -23,7 +23,7 @@ def test_demo_output_contains_correct_next_step_commands() -> None:
 
     assert result.exit_code == 0
     assert "cask gate allow --all --lockfile" in result.stdout
-    assert "cask run --toolpack" in result.stdout
+    assert "cask serve --toolpack" in result.stdout
     assert "cask drift --baseline" in result.stdout
 
 

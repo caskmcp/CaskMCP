@@ -77,17 +77,16 @@ def run_mint(
         emit_playwright_missing_package()
         sys.exit(1)
 
+    click.echo(f"Minting toolpack from {start_url}...")
+    if script_path:
+        click.echo(f"  Capturing traffic (scripted: {Path(script_path).name})...")
+    else:
+        click.echo(f"  Capturing traffic ({duration_seconds}s)...")
     if verbose:
-        click.echo("Mint step 1/4: capturing traffic...")
-        click.echo(f"  Start URL: {start_url}")
         click.echo(f"  Allowed hosts: {', '.join(allowed_hosts)}")
         click.echo(f"  Headless: {headless}")
         if webmcp:
             click.echo("  WebMCP discovery: enabled")
-        if script_path:
-            click.echo(f"  Script: {script_path}")
-        else:
-            click.echo(f"  Duration: {duration_seconds}s")
 
     # Resolve auth profile to storage_state path if provided
     storage_state_path: str | None = None
@@ -104,6 +103,10 @@ def run_mint(
         if verbose:
             click.echo(f"  Auth profile: {auth_profile}")
         auth_manager.update_last_used(auth_profile)
+
+    # Quick auth pre-check for headless mode (best-effort)
+    if headless and not auth_profile and not script_path:
+        _auth_precheck(allowed_hosts, start_url)
 
     capture = PlaywrightCapture(
         allowed_hosts=allowed_hosts,
@@ -172,8 +175,7 @@ def run_mint(
     storage = Storage(base_path=output_base)
     capture_path = storage.save_capture(session)
 
-    if verbose:
-        click.echo("Mint step 2/4: compiling artifacts...")
+    click.echo("  Compiling artifacts...")
 
     try:
         compile_result = compile_capture_session(
@@ -196,8 +198,7 @@ def run_mint(
         click.echo("Error: compile did not produce required policy/baseline artifacts", err=True)
         sys.exit(1)
 
-    if verbose:
-        click.echo("Mint step 3/4: creating toolpack...")
+    click.echo("  Packaging toolpack...")
 
     effective_allowed_hosts = sorted(set(session.allowed_hosts or allowed_hosts))
 
@@ -330,7 +331,7 @@ def run_mint(
         "  cask gate allow --all --toolset readonly "
         f"--lockfile {pending_lockfile}"
     )
-    click.echo(f"  cask run --toolpack {toolpack_file}")
+    click.echo(f"  cask serve --toolpack {toolpack_file}")
     click.echo(
         f"  cask drift --baseline {copied_baseline} --capture-path {capture_path}"
     )
@@ -432,6 +433,42 @@ def discover_webmcp_exchanges(
         if verbose:
             click.echo(f"  WebMCP discovery skipped: {exc}")
         return []
+
+
+def _auth_precheck(allowed_hosts: list[str], start_url: str) -> None:
+    """Best-effort pre-flight auth check before capture starts."""
+    import urllib.error
+    import urllib.request
+
+    for host in allowed_hosts[:2]:
+        try:
+            proto = "http" if host.startswith(("localhost", "127.")) else "https"
+            req = urllib.request.Request(
+                f"{proto}://{host}/",
+                method="HEAD",
+                headers={"User-Agent": "cask-precheck/1.0"},
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                status = resp.status
+        except urllib.error.HTTPError as e:
+            status = e.code
+        except Exception:
+            continue
+
+        if status in (401, 403):
+            click.echo(
+                click.style(
+                    f"\n  Warning: {host} returned {status} — "
+                    "capture may produce empty results.",
+                    fg="yellow",
+                )
+            )
+            click.echo(f"  Consider: cask auth login --profile myapp --url {start_url}")
+            click.echo(
+                f"  Then: cask mint {start_url} --auth-profile myapp "
+                f"-a {' -a '.join(allowed_hosts)}\n"
+            )
+            break
 
 
 def _build_runtime(

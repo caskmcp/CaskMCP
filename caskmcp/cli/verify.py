@@ -17,7 +17,7 @@ import yaml
 from caskmcp.core.toolpack import load_toolpack, resolve_toolpack_paths
 from caskmcp.utils.schema_version import resolve_generated_at
 
-VERIFY_MODES = {"contracts", "replay", "outcomes", "provenance", "all"}
+VERIFY_MODES = {"contracts", "replay", "baseline-check", "outcomes", "provenance", "all"}
 SOURCE_KINDS = {"http_response", "cache_or_sw", "websocket_or_sse", "local_state"}
 SUPPORTED_PLAYBOOK_STEPS = {"goto", "click", "fill", "wait", "select", "submit", "scroll", "extract"}
 SUPPORTED_LOCATORS = ("role", "label", "text", "css", "xpath")
@@ -51,6 +51,11 @@ def run_verify(
     if mode not in VERIFY_MODES:
         click.echo(f"Error: unsupported verify mode '{mode}'", err=True)
         sys.exit(3)
+    if mode == "replay":
+        click.echo(
+            "Warning: --mode replay is deprecated. Use --mode baseline-check instead.",
+            err=True,
+        )
     if top_k <= 0:
         click.echo("Error: --top-k must be greater than zero", err=True)
         sys.exit(3)
@@ -151,7 +156,7 @@ def _build_report(
 
     active_modes = _expand_modes(mode)
     contract_result = _contracts_result(contract_path, strict=strict) if "contracts" in active_modes else None
-    replay_result = _replay_result(baseline_path) if "replay" in active_modes else None
+    replay_result = _replay_result(baseline_path, tools_path) if "replay" in active_modes else None
     outcome_result = _outcomes_result() if "outcomes" in active_modes else None
     provenance_result = (
         _provenance_result(
@@ -194,6 +199,8 @@ def _build_report(
 def _expand_modes(mode: str) -> set[str]:
     if mode == "all":
         return {"contracts", "replay", "outcomes", "provenance"}
+    if mode == "baseline-check":
+        return {"replay"}
     return {mode}
 
 
@@ -240,12 +247,36 @@ def _contracts_result(contract_path: Path | None, strict: bool) -> dict[str, Any
     }
 
 
-def _replay_result(baseline_path: Path) -> dict[str, Any]:
-    exists = baseline_path.exists()
+def _replay_result(baseline_path: Path, tools_path: Path) -> dict[str, Any]:
+    if not tools_path.exists():
+        return {
+            "status": "unknown",
+            "baseline_path": str(baseline_path),
+            "checks": {"baseline_present": baseline_path.exists()},
+        }
+
+    from caskmcp.core.verify.replay import run_replay
+
+    tools_manifest = json.loads(tools_path.read_text(encoding="utf-8"))
+    result = run_replay(baseline_path=baseline_path, tools_manifest=tools_manifest)
     return {
-        "status": "pass" if exists else "unknown",
+        "status": result.status.value,
         "baseline_path": str(baseline_path),
-        "checks": {"baseline_present": exists},
+        "checks": {
+            "baseline_present": baseline_path.exists(),
+            "pass_count": result.pass_count,
+            "fail_count": result.fail_count,
+            "unknown_count": result.unknown_count,
+            "details": [
+                {
+                    "endpoint_ref": c.endpoint_ref,
+                    "check_type": c.check_type,
+                    "status": c.status.value,
+                    "message": c.message,
+                }
+                for c in result.checks
+            ],
+        },
     }
 
 

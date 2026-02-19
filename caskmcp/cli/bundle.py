@@ -76,7 +76,7 @@ def run_bundle(
         )
 
     if verbose:
-        click.echo(f"Bundle created: {bundle_path}", err=True)
+        click.echo(f"Bundle created: {bundle_path}")
 
 
 def _collect_toolpack_files(root: Path) -> list[str]:

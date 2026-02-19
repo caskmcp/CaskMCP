@@ -19,7 +19,6 @@ from caskmcp.core.init.detector import (
 def run_init(
     *,
     directory: str,
-    non_interactive: bool,
     verbose: bool,
 ) -> None:
     """Initialize CaskMCP in a project directory."""
@@ -35,8 +34,6 @@ def run_init(
         click.echo(f"  Type: {detection.project_type}")
         click.echo(f"  Language: {detection.language}")
         click.echo(f"  Package manager: {detection.package_manager}")
-        if non_interactive:
-            click.echo("  Mode: non-interactive")
         if detection.frameworks:
             click.echo(f"  Frameworks: {', '.join(detection.frameworks)}")
         if detection.api_specs:
@@ -80,10 +77,13 @@ def run_init(
     if detection.api_specs:
         spec = detection.api_specs[0]
         click.echo(f"  1. cask capture import {spec} -a <api-host>")
+        click.echo("     Then: cask compile -c <capture-id>")
     else:
         click.echo("  1. cask mint <start-url> -a <api-host>")
-    click.echo("  2. cask verify --toolpack <path> --mode all")
-    click.echo("  3. cask run --toolpack <path>")
+    click.echo("     mint will print the exact gate and serve commands with correct paths.")
+    click.echo("  2. Follow the gate allow + serve commands printed by mint.")
+    click.echo("")
+    click.echo("  Tip: cask config --toolpack <path> prints a ready-to-paste MCP client snippet.")
 
 
 def run_mcp_config(

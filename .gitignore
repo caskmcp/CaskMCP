@@ -66,6 +66,7 @@ credentials.json
 
 # MD Files
 SPEC.md
+*SPEC.md
 findings.md
 progress.md
 task_plan.md

@@ -124,7 +124,7 @@ class TestMint:
 
         out = capsys.readouterr().out
         assert "Mint complete:" in out
-        assert "cask run --toolpack" in out
+        assert "cask serve --toolpack" in out
         assert "cask gate allow --all --toolset readonly" in out
 
         toolpack_files = list((tmp_path / "toolpacks").glob("*/toolpack.yaml"))
@@ -304,7 +304,7 @@ class TestMint:
         )
 
         assert result.exit_code != 0
-        assert result.stdout == ""
+        assert "Minting toolpack from" in result.stdout
         assert (
             result.stderr
             == 'Error: Playwright not installed. Install with: pip install "caskmcp[playwright]"\n'
@@ -335,7 +335,7 @@ class TestMint:
         )
 
         assert result.exit_code != 0
-        assert result.stdout == ""
+        assert "Minting toolpack from" in result.stdout
         assert (
             result.stderr
             == "Error: Playwright browsers not installed. Run: playwright install chromium\n"

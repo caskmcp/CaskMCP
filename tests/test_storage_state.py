@@ -35,9 +35,8 @@ class TestStorageStateCLIFlags:
             assert result.exit_code == 0
             # Verify the parameter was passed through
             mock_run.assert_called_once()
-            call_kwargs = mock_run.call_args
-            assert call_kwargs[1].get("load_storage_state") == state_path or \
-                   (call_kwargs[0] if call_kwargs[0] else None) is not None
+            _, kwargs = mock_run.call_args
+            assert kwargs.get("load_storage_state") == state_path
         finally:
             Path(state_path).unlink(missing_ok=True)
 
