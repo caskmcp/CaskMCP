@@ -11,6 +11,7 @@ CaskMCP self-dogfood using a curated subset of the GitHub REST API.
 | `toolpack.yaml` | Toolpack manifest |
 | `artifact/` | tools.json, policy.yaml, toolsets.yaml, baseline.json |
 | `lockfile/` | Pending and approved lockfiles (21 tools, all approved) |
+| `snapshot/` | Baseline snapshot (digests.json + artifact copies) for CI gate check |
 | `vars.env` | Reference parameters for manual runs; CI currently hardcodes paths |
 | `DOGFOOD.md` | This file |
 

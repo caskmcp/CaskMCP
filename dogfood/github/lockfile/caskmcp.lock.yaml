@@ -5,7 +5,7 @@ capture_id: null
 scope: null
 artifacts_digest: e7d33ef85e473b67064633f5586cd86f3c465576be76fd119d678bdb410fce66
 evidence_summary_sha256: null
-baseline_snapshot_dir: .caskmcp/approvals/appr_2e9aa9e994da/artifacts
+baseline_snapshot_dir: snapshot
 baseline_snapshot_digest: 2e9aa9e994da544ee65e22183d77105f427fc630655703b4efc383daf1ce83dd
 baseline_snapshot_id: appr_2e9aa9e994da
 tools:

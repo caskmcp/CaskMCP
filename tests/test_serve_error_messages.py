@@ -95,8 +95,7 @@ def _run_serve_and_capture_errors(toolpack_path: Path, tmp_path: Path) -> str:
     """Run serve and capture all error output."""
     from caskmcp.cli.mcp import run_mcp_serve
 
-    with pytest.raises(SystemExit):
-        with patch("click.echo") as mock_echo:
+    with pytest.raises(SystemExit), patch("click.echo") as mock_echo:
             run_mcp_serve(
                 tools_path=None,
                 toolpack_path=str(toolpack_path),
