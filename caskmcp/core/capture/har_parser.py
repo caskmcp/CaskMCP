@@ -220,7 +220,7 @@ class HARParser:
         if is_websocket:
             self.warnings.append(
                 f"WebSocket entry skipped: {url} "
-                "— streaming connections cannot be replayed as MCP tools."
+                "-- streaming connections cannot be replayed as MCP tools."
             )
             self.stats["filtered_streaming"] = self.stats.get("filtered_streaming", 0) + 1
             return None
@@ -230,7 +230,7 @@ class HARParser:
         if ct_lower.startswith("text/event-stream"):
             self.warnings.append(
                 f"SSE endpoint skipped: {url} "
-                "— Server-Sent Events streams cannot be replayed as MCP tools."
+                "-- Server-Sent Events streams cannot be replayed as MCP tools."
             )
             self.stats["filtered_streaming"] = self.stats.get("filtered_streaming", 0) + 1
             return None

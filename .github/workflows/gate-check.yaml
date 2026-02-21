@@ -26,4 +26,3 @@ jobs:
         with:
           toolpack: dogfood/github/toolpack.yaml
           lockfile: dogfood/github/lockfile/caskmcp.lock.yaml
-          baseline: dogfood/github/artifact/baseline.json

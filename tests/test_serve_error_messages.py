@@ -150,11 +150,31 @@ class TestServeErrorMessages:
         )
         error_text = _run_serve_and_capture_errors(toolpack_path, tmp_path)
 
+        # gate allow should target the pending lockfile
         assert "caskmcp.lock.pending.yaml" in error_text, (
             f"Error should reference the pending lockfile path, got:\n{error_text}"
         )
         assert "toolpack.yaml" in error_text, (
             f"Error should reference the toolpack path, got:\n{error_text}"
+        )
+
+    def test_pending_ref_serve_points_at_approved_path(self, tmp_path: Path) -> None:
+        """serve and gate check should point at approved lockfile, not pending."""
+        toolpack_path = _write_toolpack(
+            tmp_path, pending_ref=True, pending_on_disk=False,
+        )
+        error_text = _run_serve_and_capture_errors(toolpack_path, tmp_path)
+
+        # gate check and serve should point at approved (non-pending) path
+        lines = error_text.split("\n")
+        for line in lines:
+            if "cask gate check" in line or "cask serve" in line:
+                assert ".pending." not in line, (
+                    f"gate check/serve should use approved path, not pending:\n  {line}"
+                )
+        # The approved path caskmcp.lock.yaml should appear
+        assert "caskmcp.lock.yaml" in error_text, (
+            f"Error should reference the approved lockfile path, got:\n{error_text}"
         )
 
     def test_no_lockfile_at_all_error_is_actionable(self, tmp_path: Path) -> None:
@@ -164,9 +184,13 @@ class TestServeErrorMessages:
         )
         error_text = _run_serve_and_capture_errors(toolpack_path, tmp_path)
 
-        assert "cask gate allow" in error_text, (
-            f"Error should mention 'cask gate allow', got:\n{error_text}"
+        assert "cask gate" in error_text, (
+            f"Error should mention 'cask gate', got:\n{error_text}"
         )
         assert "cask serve" in error_text, (
             f"Error should mention 'cask serve' next step, got:\n{error_text}"
+        )
+        # Should show a concrete default lockfile path, not a placeholder
+        assert "caskmcp.lock.yaml" in error_text, (
+            f"Error should show concrete default lockfile path, got:\n{error_text}"
         )

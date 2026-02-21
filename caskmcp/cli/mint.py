@@ -464,7 +464,7 @@ def _auth_precheck(allowed_hosts: list[str], start_url: str) -> None:
         if status in (401, 403):
             click.echo(
                 click.style(
-                    f"\n  Warning: {host} returned {status} — "
+                    f"\n  Warning: {host} returned {status} -- "
                     "capture may produce empty results.",
                     fg="yellow",
                 )

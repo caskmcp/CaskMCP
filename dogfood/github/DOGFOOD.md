@@ -51,7 +51,7 @@ against the committed toolpack. Triggers on PRs that modify `caskmcp/core/`,
 `caskmcp/mcp/`, `caskmcp/cli/`, or `dogfood/github/`.
 
 **Drift check:** Not wired for the GitHub dogfood. The spec is pinned at a static
-commit SHA — it can't drift. Drift detection requires a live API whose upstream
+commit SHA -- it can't drift. Drift detection requires a live API whose upstream
 can change independently (e.g. a team's Jira or internal API). When we add a live
 API dogfood target, the drift workflow template at
 `.github/workflows/drift-check.yaml.example` can be instantiated with a fresh

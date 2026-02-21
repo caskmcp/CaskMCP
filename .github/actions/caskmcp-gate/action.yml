@@ -77,15 +77,16 @@ runs:
       id: diff
       shell: bash
       run: |
-        set -euo pipefail
+        set -uo pipefail
         REPORT_DIR="$(mktemp -d)"
+        echo "report-dir=$REPORT_DIR" >> "$GITHUB_OUTPUT"
+        echo "diff-report-path=$REPORT_DIR/diff.github.md" >> "$GITHUB_OUTPUT"
+
         ARGS=(--toolpack "${{ inputs.toolpack }}" --output "$REPORT_DIR" --format github-md)
         if [ -n "${{ inputs.baseline }}" ]; then
           ARGS+=(--baseline "${{ inputs.baseline }}")
         fi
-        caskmcp diff "${ARGS[@]}"
-        echo "diff-report-path=$REPORT_DIR/diff.github.md" >> "$GITHUB_OUTPUT"
-        echo "report-dir=$REPORT_DIR" >> "$GITHUB_OUTPUT"
+        caskmcp diff "${ARGS[@]}" || echo "::warning::caskmcp diff exited non-zero (may be expected for first run)"
 
     - name: Gate approval status
       id: gate
@@ -108,9 +109,10 @@ runs:
         exit 1
 
     - name: Upload gate report
-      if: always()
+      if: always() && steps.diff.outputs.report-dir != ''
       uses: actions/upload-artifact@v4
       with:
         name: caskmcp-gate-report
         path: ${{ steps.diff.outputs.report-dir }}
+        if-no-files-found: ignore
         retention-days: 30

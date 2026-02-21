@@ -27,7 +27,7 @@ SPEC_URL = (
     f"{PINNED_SHA}/descriptions/api.github.com/api.github.com.yaml"
 )
 
-# Curated path allowlist — covers repos, issues, pulls, commits, labels, user
+# Curated path allowlist -- covers repos, issues, pulls, commits, labels, user
 ALLOWED_PATHS = {
     "/repos/{owner}/{repo}",
     "/repos/{owner}/{repo}/issues",

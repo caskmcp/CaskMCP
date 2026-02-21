@@ -149,12 +149,14 @@ def run_mcp_serve(
                 resolved_toolpack is not None
                 and resolved_toolpack.paths.lockfiles.get("pending")
             ):
-                pending_rel = resolved_toolpack.paths.lockfiles["pending"]
                 pending_abs = (
                     resolved_toolpack_paths.pending_lockfile_path
                     if resolved_toolpack_paths
-                    else pending_rel
+                    else Path(toolpack_path).parent / resolved_toolpack.paths.lockfiles["pending"]
                 )
+                # Approved path: same name with .pending. removed
+                approved_name = pending_abs.name.replace(".pending.", ".")
+                approved_abs = pending_abs.with_name(approved_name)
                 tp = toolpack_path or "toolpack.yaml"
                 click.echo(
                     "Error: approved lockfile required.\n"
@@ -162,23 +164,28 @@ def run_mcp_serve(
                     "Your toolpack has pending approvals. Run:\n"
                     "\n"
                     f"  cask gate allow --all --lockfile {pending_abs}\n"
-                    f"  cask gate check --lockfile {pending_abs}\n"
+                    f"  cask gate check --lockfile {approved_abs}\n"
                     "\n"
                     "Then start the server with:\n"
                     "\n"
-                    f"  cask serve --toolpack {tp} --lockfile {pending_abs}",
+                    f"  cask serve --toolpack {tp} --lockfile {approved_abs}",
                     err=True,
                 )
             else:
                 tp = toolpack_path or "toolpack.yaml"
+                tp_dir = Path(tp).resolve().parent if toolpack_path else Path.cwd()
+                default_lockfile = tp_dir / "lockfile" / "caskmcp.lock.yaml"
                 click.echo(
                     "Error: no lockfile found.\n"
                     "\n"
-                    "Run cask gate allow to approve your tools first, "
-                    "then pass the approved lockfile:\n"
+                    "Create and approve a lockfile first:\n"
                     "\n"
-                    f"  cask gate allow --all --lockfile <path-to-lockfile>\n"
-                    f"  cask serve --toolpack {tp} --lockfile <path-to-approved-lockfile>",
+                    f"  cask gate sync --tools {resolved_tools_path}\n"
+                    f"  cask gate allow --all\n"
+                    "\n"
+                    "Then start the server with:\n"
+                    "\n"
+                    f"  cask serve --toolpack {tp} --lockfile {default_lockfile}",
                     err=True,
                 )
             sys.exit(1)
