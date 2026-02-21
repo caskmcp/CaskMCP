@@ -86,6 +86,9 @@ class Endpoint(BaseModel):
     auth_type: AuthType = AuthType.UNKNOWN
     auth_header: str | None = None
 
+    # Tags (semantic labels for scoping/filtering)
+    tags: list[str] = Field(default_factory=list)
+
     # Classification
     is_first_party: bool = True
     is_state_changing: bool = False

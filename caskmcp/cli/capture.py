@@ -8,6 +8,7 @@ import click
 from caskmcp.cli.playwright_errors import emit_playwright_error, emit_playwright_missing_package
 from caskmcp.core.capture.har_parser import HARParser
 from caskmcp.core.capture.openapi_parser import OpenAPIParser
+from caskmcp.core.capture.otel_parser import OTELParser
 from caskmcp.core.capture.redactor import Redactor
 from caskmcp.storage.filesystem import Storage
 
@@ -15,6 +16,7 @@ from caskmcp.storage.filesystem import Storage
 def run_capture(
     subcommand: str,
     source: str | None,
+    input_format: str,
     allowed_hosts: list[str],
     name: str | None,
     output: str,
@@ -23,34 +25,61 @@ def run_capture(
     script_path: str | None,
     duration_seconds: int,
     verbose: bool,
+    load_storage_state: str | None = None,
+    save_storage_state: str | None = None,
+    root_path: str | None = ".caskmcp",
 ) -> None:
     """Run the capture command."""
     if subcommand == "import":
         if not source:
             click.echo("Error: SOURCE is required for 'import' subcommand", err=True)
             sys.exit(1)
-        _import_har(
-            source=source,
-            allowed_hosts=allowed_hosts,
-            name=name,
-            output=output,
-            redact=redact,
-            verbose=verbose,
-        )
+        if input_format == "har":
+            _import_har(
+                source=source,
+                allowed_hosts=allowed_hosts,
+                name=name,
+                output=output,
+                root_path=root_path,
+                redact=redact,
+                verbose=verbose,
+            )
+        elif input_format == "otel":
+            _import_otel(
+                source=source,
+                allowed_hosts=allowed_hosts,
+                name=name,
+                output=output,
+                root_path=root_path,
+                redact=redact,
+                verbose=verbose,
+            )
+        else:
+            click.echo(f"Error: Unsupported input format: {input_format}", err=True)
+            sys.exit(1)
     elif subcommand == "record":
+        if input_format != "har":
+            click.echo(
+                "Error: --input-format is only supported for 'import' subcommand",
+                err=True,
+            )
+            sys.exit(1)
         if not source:
             click.echo("Error: URL is required for 'record' subcommand", err=True)
-            click.echo("Usage: caskmcp capture record <URL> --allowed-hosts <host>", err=True)
+            click.echo("Usage: cask capture record <URL> --allowed-hosts <host>", err=True)
             sys.exit(1)
         _record_playwright(
             start_url=source,
             allowed_hosts=allowed_hosts,
             name=name,
             output=output,
+            root_path=root_path,
             redact=redact,
             headless=headless,
             script_path=script_path,
             duration_seconds=duration_seconds,
+            load_storage_state=load_storage_state,
+            save_storage_state=save_storage_state,
             verbose=verbose,
         )
 
@@ -61,6 +90,7 @@ def run_capture_openapi(
     name: str | None,
     output: str,
     verbose: bool,
+    root_path: str | None = ".caskmcp",
 ) -> None:
     """Import an OpenAPI specification.
 
@@ -91,9 +121,7 @@ def run_capture_openapi(
         sys.exit(1)
 
     # Save
-    base_path = Path(output)
-    if base_path.name == "captures":
-        base_path = base_path.parent
+    base_path = _resolve_storage_root(output=output, root_path=root_path)
     storage = Storage(base_path=base_path)
     capture_path = storage.save_capture(session)
 
@@ -121,6 +149,7 @@ def _import_har(
     allowed_hosts: list[str],
     name: str | None,
     output: str,
+    root_path: str | None,
     redact: bool,
     verbose: bool,
 ) -> None:
@@ -148,9 +177,50 @@ def _import_har(
     # Save
     # Note: output is typically .caskmcp/captures, but Storage expects .caskmcp
     # so we go up one level if the output ends with /captures
-    base_path = Path(output)
-    if base_path.name == "captures":
-        base_path = base_path.parent
+    base_path = _resolve_storage_root(output=output, root_path=root_path)
+    storage = Storage(base_path=base_path)
+    capture_path = storage.save_capture(session)
+
+    click.echo(f"Capture saved: {session.id}")
+    click.echo(f"  Location: {capture_path}")
+    click.echo(f"  Exchanges: {len(session.exchanges)}")
+    click.echo(f"  Filtered: {session.filtered_requests}")
+    if session.warnings:
+        click.echo(f"  Warnings: {len(session.warnings)}")
+        if verbose:
+            for warning in session.warnings:
+                click.echo(f"    - {warning}")
+
+
+def _import_otel(
+    source: str,
+    allowed_hosts: list[str],
+    name: str | None,
+    output: str,
+    root_path: str | None,
+    redact: bool,
+    verbose: bool,
+) -> None:
+    """Import an OTEL trace export file."""
+    source_path = Path(source)
+    if not source_path.exists():
+        click.echo(f"Error: OTEL file not found: {source}", err=True)
+        sys.exit(1)
+
+    if verbose:
+        click.echo(f"Importing OTEL file: {source}")
+        click.echo(f"Allowed hosts: {', '.join(allowed_hosts)}")
+
+    parser = OTELParser(allowed_hosts=allowed_hosts)
+    session = parser.parse_file(source_path, name=name)
+
+    if redact:
+        if verbose:
+            click.echo("Applying redaction...")
+        redactor = Redactor()
+        session = redactor.redact_session(session)
+
+    base_path = _resolve_storage_root(output=output, root_path=root_path)
     storage = Storage(base_path=base_path)
     capture_path = storage.save_capture(session)
 
@@ -170,11 +240,14 @@ def _record_playwright(
     allowed_hosts: list[str],
     name: str | None,
     output: str,
+    root_path: str | None,
     redact: bool,
     headless: bool,
     script_path: str | None,
     duration_seconds: int,
     verbose: bool,
+    load_storage_state: str | None = None,
+    save_storage_state: str | None = None,
 ) -> None:
     """Record traffic using Playwright browser automation."""
     try:
@@ -196,7 +269,12 @@ def _record_playwright(
     try:
         import asyncio
 
-        capture = PlaywrightCapture(allowed_hosts=allowed_hosts, headless=headless)
+        capture = PlaywrightCapture(
+            allowed_hosts=allowed_hosts,
+            headless=headless,
+            storage_state_path=load_storage_state,
+            save_storage_state_path=save_storage_state,
+        )
         session = asyncio.run(
             capture.capture(
                 start_url=start_url,
@@ -228,9 +306,7 @@ def _record_playwright(
         sys.exit(1)
 
     # Save
-    base_path = Path(output)
-    if base_path.name == "captures":
-        base_path = base_path.parent
+    base_path = _resolve_storage_root(output=output, root_path=root_path)
     storage = Storage(base_path=base_path)
     capture_path = storage.save_capture(session)
 
@@ -251,3 +327,13 @@ def _record_playwright(
         if verbose:
             for warning in session.warnings:
                 click.echo(f"  - {warning}")
+
+
+def _resolve_storage_root(output: str, root_path: str | None) -> Path:
+    """Resolve capture output into canonical storage root."""
+    target = Path(output)
+    if target.name == "captures":
+        return target.parent
+    if root_path is not None and target == Path(root_path):
+        return target
+    return target

@@ -30,6 +30,7 @@ def run_run(
     confirm_store: str,
     allow_private_cidrs: list[str],
     allow_redirects: bool,
+    unsafe_no_lockfile: bool,
     verbose: bool,
 ) -> None:
     """Run a toolpack locally or in a container."""
@@ -64,6 +65,7 @@ def run_run(
             confirmation_store_path=confirm_store,
             allow_private_cidrs=allow_private_cidrs,
             allow_redirects=allow_redirects,
+            unsafe_no_lockfile=unsafe_no_lockfile,
             verbose=verbose,
         )
         return
@@ -87,25 +89,25 @@ def run_run(
         sys.exit(1)
 
     env = os.environ.copy()
-    env["MCPMINT_TOOLPACK"] = "/toolpack/toolpack.yaml"
+    env["CASKMCP_TOOLPACK"] = "/toolpack/toolpack.yaml"
     if toolset:
-        env["MCPMINT_TOOLSET"] = toolset
+        env["CASKMCP_TOOLSET"] = toolset
     if lockfile:
-        env["MCPMINT_LOCKFILE"] = lockfile
+        env["CASKMCP_LOCKFILE"] = lockfile
     if base_url:
-        env["MCPMINT_BASE_URL"] = base_url
+        env["CASKMCP_BASE_URL"] = base_url
     if auth_header:
-        env["MCPMINT_AUTH_HEADER"] = auth_header
+        env["CASKMCP_AUTH_HEADER"] = auth_header
     if audit_log:
-        env["MCPMINT_AUDIT_LOG"] = audit_log
+        env["CASKMCP_AUDIT_LOG"] = audit_log
     if dry_run:
-        env["MCPMINT_DRY_RUN"] = "1"
+        env["CASKMCP_DRY_RUN"] = "1"
     if confirm_store:
-        env["MCPMINT_CONFIRM_STORE"] = confirm_store
+        env["CASKMCP_CONFIRM_STORE"] = confirm_store
     if allow_private_cidrs:
-        env["MCPMINT_ALLOW_PRIVATE_CIDR"] = " ".join(allow_private_cidrs)
+        env["CASKMCP_ALLOW_PRIVATE_CIDR"] = " ".join(allow_private_cidrs)
     if allow_redirects:
-        env["MCPMINT_ALLOW_REDIRECTS"] = "1"
+        env["CASKMCP_ALLOW_REDIRECTS"] = "1"
 
     try:
         subprocess.run([str(run_wrapper)], check=True, env=env)

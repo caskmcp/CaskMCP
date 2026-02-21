@@ -25,6 +25,8 @@ class ReasonCode(StrEnum):
     DENIED_UNKNOWN_ACTION = "denied_unknown_action"
     DENIED_POLICY = "denied_policy"
     DENIED_NOT_APPROVED = "denied_not_approved"
+    DENIED_APPROVAL_SIGNATURE_REQUIRED = "denied_approval_signature_required"
+    DENIED_APPROVAL_SIGNATURE_INVALID = "denied_approval_signature_invalid"
     DENIED_TOOLSET_NOT_ALLOWED = "denied_toolset_not_allowed"
     DENIED_TOOLSET_NOT_APPROVED = "denied_toolset_not_approved"
     DENIED_INTEGRITY_MISMATCH = "denied_integrity_mismatch"
@@ -37,6 +39,7 @@ class ReasonCode(StrEnum):
     DENIED_TIMEOUT = "denied_timeout"
     DENIED_RATE_LIMITED = "denied_rate_limited"
     DENIED_HOST_RESOLUTION_FAILED = "denied_host_resolution_failed"
+    DENIED_SCHEME_NOT_ALLOWED = "denied_scheme_not_allowed"
     DENIED_REDIRECT_NOT_ALLOWLISTED = "denied_redirect_not_allowlisted"
     DENIED_CONTENT_TYPE_NOT_ALLOWED = "denied_content_type_not_allowed"
     ERROR_INTERNAL = "error_internal"
@@ -81,6 +84,8 @@ class DecisionContext(BaseModel):
     network_safety: NetworkSafetyConfig = Field(default_factory=NetworkSafetyConfig)
     artifacts_digest_current: str | None = None
     lockfile_digest_current: str | None = None
+    approval_root_path: str | None = None
+    require_signed_approvals: bool = True
     confirmation_ttl_seconds: int = 300
 
 

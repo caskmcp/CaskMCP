@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +18,10 @@ from caskmcp.core.approval import (
     LockfileManager,
     compute_artifacts_digest_from_paths,
 )
+from caskmcp.core.approval.signing import ApprovalSigner, resolve_approver
 from caskmcp.core.approval.snapshot import materialize_snapshot, resolve_toolpack_root
+from caskmcp.core.toolpack import load_toolpack, write_toolpack
+from caskmcp.utils.files import atomic_write_text
 from caskmcp.utils.schema_version import resolve_schema_version
 
 
@@ -40,6 +45,7 @@ def sync_lockfile(
     capture_id: str | None,
     scope: str | None,
     deterministic: bool,
+    prune_removed: bool = False,
     evidence_summary_sha256: str | None = None,
 ) -> ApprovalSyncResult:
     """Sync a lockfile from manifest + optional policy/toolsets."""
@@ -89,6 +95,7 @@ def sync_lockfile(
         scope=scope,
         toolsets=toolsets,
         deterministic=deterministic,
+        prune_removed=prune_removed,
     )
     manager.set_artifacts_digest(artifacts_digest)
     if evidence_summary_sha256:
@@ -113,6 +120,7 @@ def run_approve_sync(
     capture_id: str | None,
     scope: str | None,
     verbose: bool,
+    prune_removed: bool = False,
     deterministic: bool = True,
 ) -> None:
     """Sync lockfile with a tools manifest.
@@ -139,6 +147,7 @@ def run_approve_sync(
             lockfile_path=lockfile_path,
             capture_id=capture_id,
             scope=scope,
+            prune_removed=prune_removed,
             deterministic=deterministic,
         )
     except FileNotFoundError as e:
@@ -195,7 +204,7 @@ def run_approve_list(
 
     if not manager.exists():
         click.echo(f"No lockfile found at: {manager.lockfile_path}")
-        click.echo("Run 'caskmcp approve sync' first to create one.")
+        click.echo("Run 'cask gate sync' first to create one.")
         sys.exit(1)
 
     manager.load()
@@ -260,6 +269,8 @@ def run_approve_tool(
     all_pending: bool,
     toolset: str | None,
     approved_by: str | None,
+    reason: str | None,
+    root_path: str,
     verbose: bool,  # noqa: ARG001
 ) -> None:
     """Approve one or more tools.
@@ -270,6 +281,8 @@ def run_approve_tool(
         all_pending: Approve all pending tools
         toolset: Optional toolset name for scoped approvals
         approved_by: Who is approving
+        reason: Optional reason recorded in approval metadata
+        root_path: Canonical state root used for signing key storage
         verbose: Enable verbose output
     """
     manager = LockfileManager(lockfile_path)
@@ -279,12 +292,47 @@ def run_approve_tool(
         sys.exit(1)
 
     manager.load()
+    signer = ApprovalSigner(root_path=root_path)
+
+    try:
+        actor = resolve_approver(approved_by)
+    except ValueError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
 
     if all_pending:
-        count = manager.approve_all(approved_by, toolset=toolset)
+        pending = manager.get_pending(toolset=toolset)
+        count = 0
+        for tool in pending:
+            approval_time = datetime.now(UTC)
+            if manager.approve(
+                tool.signature_id or tool.tool_id,
+                actor,
+                toolset=toolset,
+                reason=reason,
+                approval_signature="pending",
+                approval_alg=signer.algorithm,
+                approval_key_id=signer.key_id,
+                approved_at=approval_time,
+            ):
+                signature = signer.sign_approval(
+                    tool=tool,
+                    approved_by=actor,
+                    approved_at=approval_time,
+                    reason=reason,
+                    mode=tool.approval_mode,
+                )
+                tool.approval_signature = signature
+                tool.approval_alg = signer.algorithm
+                tool.approval_key_id = signer.key_id
+                count += 1
         manager.save()
         click.echo(f"Approved {count} tools")
-        _maybe_materialize_snapshot(manager)
+        snapshot_ok = _maybe_materialize_snapshot(manager, root_path=Path(root_path))
+        if not snapshot_ok and count > 0:
+            _print_snapshot_guidance()
+        if count > 0:
+            _print_next_steps_after_approval()
         return
 
     if not tool_ids:
@@ -295,7 +343,31 @@ def run_approve_tool(
     not_found = []
 
     for tool_id in tool_ids:
-        if manager.approve(tool_id, approved_by, toolset=toolset):
+        existing = manager.get_tool(tool_id)
+        if existing is None:
+            not_found.append(tool_id)
+            continue
+        approval_time = datetime.now(UTC)
+        if manager.approve(
+            tool_id,
+            actor,
+            toolset=toolset,
+            reason=reason,
+            approval_signature="pending",
+            approval_alg=signer.algorithm,
+            approval_key_id=signer.key_id,
+            approved_at=approval_time,
+        ):
+            signature = signer.sign_approval(
+                tool=existing,
+                approved_by=actor,
+                approved_at=approval_time,
+                reason=reason,
+                mode=existing.approval_mode,
+            )
+            existing.approval_signature = signature
+            existing.approval_alg = signer.algorithm
+            existing.approval_key_id = signer.key_id
             approved.append(tool_id)
         else:
             not_found.append(tool_id)
@@ -309,7 +381,11 @@ def run_approve_tool(
         click.echo(f"Not found: {', '.join(not_found)}", err=True)
         sys.exit(1)
 
-    _maybe_materialize_snapshot(manager)
+    snapshot_ok = _maybe_materialize_snapshot(manager, root_path=Path(root_path))
+    if not snapshot_ok and approved:
+        _print_snapshot_guidance()
+    if approved:
+        _print_next_steps_after_approval()
 
 
 def run_approve_reject(
@@ -359,6 +435,7 @@ def run_approve_reject(
 
 def run_approve_snapshot(
     lockfile_path: str | None,
+    root_path: str,
     verbose: bool,
 ) -> None:
     """Materialize baseline snapshot for an approved lockfile."""
@@ -366,7 +443,7 @@ def run_approve_snapshot(
 
     if not manager.exists():
         click.echo(f"No lockfile found at: {manager.lockfile_path}")
-        click.echo("Run 'caskmcp approve sync' first.")
+        click.echo("Run 'cask gate sync' first.")
         sys.exit(2)
 
     manager.load()
@@ -375,7 +452,12 @@ def run_approve_snapshot(
         click.echo(f"Cannot snapshot: {message}")
         sys.exit(1)
 
-    _materialize_snapshot(manager, verbose=verbose, require_toolpack=True)
+    _materialize_snapshot(
+        manager,
+        verbose=verbose,
+        require_toolpack=True,
+        root_path=Path(root_path),
+    )
 
 
 def run_approve_check(
@@ -394,7 +476,7 @@ def run_approve_check(
 
     if not manager.exists():
         click.echo(f"No lockfile found at: {manager.lockfile_path}")
-        click.echo("Run 'caskmcp approve sync' first.")
+        click.echo("Run 'cask gate sync' first.")
         sys.exit(2)
 
     manager.load()
@@ -417,11 +499,71 @@ def run_approve_check(
         sys.exit(1)
 
 
+def run_approve_resign(
+    lockfile_path: str | None,
+    toolset: str | None,
+    root_path: str,
+    verbose: bool,
+) -> None:
+    """Re-sign existing approval signatures (migration / repair helper).
+
+    This is intended for cases where the signature payload changes (for example, to bind
+    additional fields like toolset approvals) and existing lockfiles must be re-signed.
+    """
+    manager = LockfileManager(lockfile_path)
+
+    if not manager.exists():
+        click.echo(f"No lockfile found at: {manager.lockfile_path}")
+        click.echo("Run 'cask gate sync' first.")
+        sys.exit(2)
+
+    manager.load()
+    assert manager.lockfile is not None
+
+    signer = ApprovalSigner(root_path=root_path)
+    count = 0
+
+    for tool in manager.lockfile.tools.values():
+        if toolset and toolset not in tool.toolsets:
+            continue
+        if not tool.approved_by or tool.approved_at is None:
+            continue
+        if not tool.approval_signature:
+            continue
+
+        signature = signer.sign_approval(
+            tool=tool,
+            approved_by=str(tool.approved_by),
+            approved_at=tool.approved_at,
+            reason=tool.approval_reason,
+            mode=tool.approval_mode,
+        )
+        tool.approval_signature = signature
+        tool.approval_alg = signer.algorithm
+        tool.approval_key_id = signer.key_id
+        count += 1
+
+    manager.save()
+    click.echo(f"Re-signed {count} tools")
+
+    # Make the result portable for MCP clients that run with `--root <toolpack>/.caskmcp`.
+    from caskmcp.core.approval.snapshot import resolve_toolpack_root
+
+    toolpack_root = resolve_toolpack_root(manager.lockfile_path)
+    if toolpack_root is not None:
+        _seed_toolpack_trust_store(
+            source_root=Path(root_path),
+            toolpack_root=toolpack_root,
+            verbose=verbose,
+        )
+
+
 def _materialize_snapshot(
     manager: LockfileManager,
     *,
     verbose: bool,
     require_toolpack: bool,
+    root_path: Path,
 ) -> None:
     toolpack_root = resolve_toolpack_root(manager.lockfile_path)
     if toolpack_root is None:
@@ -439,9 +581,122 @@ def _materialize_snapshot(
         status = "created" if result.created else "reused"
         click.echo(f"Baseline snapshot {status}: {relative_dir}")
 
+    _seed_toolpack_trust_store(
+        source_root=root_path,
+        toolpack_root=toolpack_root,
+        verbose=verbose,
+    )
 
-def _maybe_materialize_snapshot(manager: LockfileManager) -> None:
+    _promote_toolpack_lockfile(manager, toolpack_root=toolpack_root, verbose=verbose)
+
+
+def _promote_toolpack_lockfile(
+    manager: LockfileManager,
+    *,
+    toolpack_root: Path,
+    verbose: bool,
+) -> None:
+    """Promote a fully-approved toolpack pending lockfile to canonical name.
+
+    Toolpack minting creates `lockfile/caskmcp.lock.pending.yaml`, but runtime rejects
+    pending lockfiles (by filename). Once all tools are approved, we write a copy to
+    `lockfile/caskmcp.lock.yaml` and update toolpack.yaml to reference it.
+    """
     approvals_passed, _message = manager.check_approvals()
     if not approvals_passed:
         return
-    _materialize_snapshot(manager, verbose=False, require_toolpack=False)
+
+    pending_path = manager.lockfile_path
+    if ".pending." not in pending_path.name:
+        return
+
+    approved_name = pending_path.name.replace(".pending.", ".")
+    if approved_name == pending_path.name:
+        approved_name = pending_path.name.replace(".pending", "")
+    approved_path = pending_path.with_name(approved_name)
+
+    atomic_write_text(
+        approved_path,
+        pending_path.read_text(encoding="utf-8"),
+    )
+
+    toolpack_file = toolpack_root / "toolpack.yaml"
+    try:
+        toolpack = load_toolpack(toolpack_file)
+    except Exception:
+        return
+
+    rel = approved_path.relative_to(toolpack_root)
+    toolpack.paths.lockfiles["approved"] = str(rel)
+    write_toolpack(toolpack, toolpack_file)
+
+    if verbose:
+        click.echo(f"Approved lockfile: {rel}")
+
+
+def _maybe_materialize_snapshot(manager: LockfileManager, *, root_path: Path) -> bool:
+    """Try to materialize a snapshot. Returns True if snapshot was created."""
+    approvals_passed, _message = manager.check_approvals()
+    if not approvals_passed:
+        return False
+    toolpack_root = resolve_toolpack_root(manager.lockfile_path)
+    if toolpack_root is None:
+        return False
+    _materialize_snapshot(
+        manager,
+        verbose=False,
+        require_toolpack=False,
+        root_path=root_path,
+    )
+    return True
+
+
+def _print_snapshot_guidance() -> None:
+    """Print guidance when snapshot couldn't be auto-materialized after approval."""
+    click.echo(
+        "\nNote: No toolpack.yaml found — baseline snapshot was not materialized."
+    )
+    click.echo(
+        "  If using a toolpack, run: cask gate snapshot --lockfile <path>"
+    )
+    click.echo(
+        "  This is required before 'cask gate check' will pass."
+    )
+
+
+def _print_next_steps_after_approval() -> None:
+    """Print what the user should do after approving tools."""
+    click.echo("\nNext: cask serve --toolpack <path>")
+    click.echo("  Or:  cask config --toolpack <path>  (prints MCP client snippet)")
+
+
+def _seed_toolpack_trust_store(
+    *,
+    source_root: Path,
+    toolpack_root: Path,
+    verbose: bool,
+) -> None:
+    """Seed portable trust material into a toolpack-local root.
+
+    Claude Desktop configs intentionally use a toolpack-local `--root <toolpack_root>/.caskmcp`
+    so the MCP server can start regardless of its current working directory. For signed approvals
+    to verify under that root, we must copy the trust store containing the signer public keys.
+    """
+    resolved_source = source_root.resolve()
+    source_trust_store = resolved_source / "state" / "keys" / "trusted_signers.json"
+    if not source_trust_store.exists():
+        if verbose:
+            click.echo(
+                f"Warning: trust store not found, cannot seed toolpack root: {source_trust_store}",
+                err=True,
+            )
+        return
+
+    toolpack_state_root = (toolpack_root / ".caskmcp").resolve()
+    dest_trust_store = toolpack_state_root / "state" / "keys" / "trusted_signers.json"
+    dest_trust_store.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(
+        dest_trust_store,
+        source_trust_store.read_text(encoding="utf-8"),
+    )
+    os.chmod(dest_trust_store, 0o600)

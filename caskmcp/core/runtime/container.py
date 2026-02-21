@@ -85,33 +85,33 @@ _caskmcp_env_allowlist="{allowlist}"
 
 _append_arg() {{
   if [ -n "$2" ]; then
-    MCPMINT_ARGS="$MCPMINT_ARGS $1 $2"
+    CASKMCP_ARGS="$CASKMCP_ARGS $1 $2"
   fi
 }}
 
-MCPMINT_ARGS="mcp serve --toolpack ${{MCPMINT_TOOLPACK:-/toolpack/toolpack.yaml}}"
-_append_arg "--toolset" "$MCPMINT_TOOLSET"
-_append_arg "--lockfile" "$MCPMINT_LOCKFILE"
-_append_arg "--base-url" "$MCPMINT_BASE_URL"
-_append_arg "--auth" "$MCPMINT_AUTH_HEADER"
-_append_arg "--audit-log" "$MCPMINT_AUDIT_LOG"
-_append_arg "--confirm-store" "$MCPMINT_CONFIRM_STORE"
+CASKMCP_ARGS="mcp serve --toolpack ${{CASKMCP_TOOLPACK:-/toolpack/toolpack.yaml}}"
+_append_arg "--toolset" "$CASKMCP_TOOLSET"
+_append_arg "--lockfile" "$CASKMCP_LOCKFILE"
+_append_arg "--base-url" "$CASKMCP_BASE_URL"
+_append_arg "--auth" "$CASKMCP_AUTH_HEADER"
+_append_arg "--audit-log" "$CASKMCP_AUDIT_LOG"
+_append_arg "--confirm-store" "$CASKMCP_CONFIRM_STORE"
 
-if [ "$MCPMINT_DRY_RUN" = "1" ] || [ "$MCPMINT_DRY_RUN" = "true" ]; then
-  MCPMINT_ARGS="$MCPMINT_ARGS --dry-run"
+if [ "$CASKMCP_DRY_RUN" = "1" ] || [ "$CASKMCP_DRY_RUN" = "true" ]; then
+  CASKMCP_ARGS="$CASKMCP_ARGS --dry-run"
 fi
 
-if [ -n "$MCPMINT_ALLOW_PRIVATE_CIDR" ]; then
-  for cidr in $MCPMINT_ALLOW_PRIVATE_CIDR; do
-    MCPMINT_ARGS="$MCPMINT_ARGS --allow-private-cidr $cidr"
+if [ -n "$CASKMCP_ALLOW_PRIVATE_CIDR" ]; then
+  for cidr in $CASKMCP_ALLOW_PRIVATE_CIDR; do
+    CASKMCP_ARGS="$CASKMCP_ARGS --allow-private-cidr $cidr"
   done
 fi
 
-if [ "$MCPMINT_ALLOW_REDIRECTS" = "1" ] || [ "$MCPMINT_ALLOW_REDIRECTS" = "true" ]; then
-  MCPMINT_ARGS="$MCPMINT_ARGS --allow-redirects"
+if [ "$CASKMCP_ALLOW_REDIRECTS" = "1" ] || [ "$CASKMCP_ALLOW_REDIRECTS" = "true" ]; then
+  CASKMCP_ARGS="$CASKMCP_ARGS --allow-redirects"
 fi
 
-exec caskmcp $MCPMINT_ARGS
+exec caskmcp $CASKMCP_ARGS
 """
     path.write_text(script, encoding="utf-8")
 

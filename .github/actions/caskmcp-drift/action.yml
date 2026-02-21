@@ -1,0 +1,84 @@
+name: "CaskMCP Drift Check"
+description: "Run CaskMCP drift detection as a CI gate. Fails if drift is detected."
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  toolpack:
+    description: "Path to toolpack.yaml"
+    required: true
+  baseline:
+    description: "Path to baseline file or snapshot directory"
+    required: false
+  capture:
+    description: "Capture session ID or path to compare against baseline"
+    required: false
+  python-version:
+    description: "Python version to use"
+    required: false
+    default: "3.11"
+  caskmcp-version:
+    description: "CaskMCP version to install (default: latest)"
+    required: false
+    default: "caskmcp"
+
+outputs:
+  drift-detected:
+    description: "Whether drift was detected (true/false)"
+    value: ${{ steps.drift.outputs.drift-detected }}
+  report-path:
+    description: "Path to the drift report"
+    value: ${{ steps.drift.outputs.report-path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install CaskMCP
+      shell: bash
+      run: pip install "${{ inputs.caskmcp-version }}"
+
+    - name: Run drift check
+      id: drift
+      shell: bash
+      run: |
+        set +e
+        REPORT_DIR=$(mktemp -d)
+
+        ARGS="--toolpack ${{ inputs.toolpack }}"
+
+        if [ -n "${{ inputs.baseline }}" ]; then
+          ARGS="$ARGS --baseline ${{ inputs.baseline }}"
+        fi
+        if [ -n "${{ inputs.capture }}" ]; then
+          ARGS="$ARGS --capture ${{ inputs.capture }}"
+        fi
+
+        ARGS="$ARGS --output $REPORT_DIR --format both"
+
+        caskmcp drift $ARGS
+        EXIT_CODE=$?
+
+        echo "report-path=$REPORT_DIR" >> "$GITHUB_OUTPUT"
+
+        if [ $EXIT_CODE -ne 0 ]; then
+          echo "drift-detected=true" >> "$GITHUB_OUTPUT"
+          echo "::error::CaskMCP drift detected! Review the drift report."
+          exit 1
+        else
+          echo "drift-detected=false" >> "$GITHUB_OUTPUT"
+          echo "No drift detected."
+        fi
+
+    - name: Upload drift report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: caskmcp-drift-report
+        path: ${{ steps.drift.outputs.report-path }}
+        retention-days: 30

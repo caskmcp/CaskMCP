@@ -21,12 +21,12 @@ def test_check_ci_requires_snapshot(tmp_path: Path) -> None:
     manager.save()
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["approve", "check", "--lockfile", str(lockfile_path)])
+    result = runner.invoke(cli, ["gate", "check", "--lockfile", str(lockfile_path)])
     assert result.exit_code == 1
     assert "baseline snapshot missing" in result.output
 
-    result = runner.invoke(cli, ["approve", "snapshot", "--lockfile", str(lockfile_path)])
+    result = runner.invoke(cli, ["gate", "snapshot", "--lockfile", str(lockfile_path)])
     assert result.exit_code == 0
 
-    result = runner.invoke(cli, ["approve", "check", "--lockfile", str(lockfile_path)])
+    result = runner.invoke(cli, ["gate", "check", "--lockfile", str(lockfile_path)])
     assert result.exit_code == 0

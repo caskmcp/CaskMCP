@@ -24,14 +24,14 @@ def test_plan_writes_deterministic_outputs(tmp_path: Path) -> None:
     runner = CliRunner()
     snapshot_result = runner.invoke(
         cli,
-        ["approve", "snapshot", "--lockfile", str(lockfile_path)],
+        ["gate", "snapshot", "--lockfile", str(lockfile_path)],
     )
     assert snapshot_result.exit_code == 0
 
     output_dir = tmp_path / "plan_output"
     result = runner.invoke(
         cli,
-        ["plan", "--toolpack", str(toolpack_file), "--output", str(output_dir)],
+        ["diff", "--toolpack", str(toolpack_file), "--output", str(output_dir)],
     )
 
     assert result.exit_code == 0

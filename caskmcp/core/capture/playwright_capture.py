@@ -66,6 +66,8 @@ class PlaywrightCapture:
         allowed_hosts: list[str],
         headless: bool = False,
         timeout_ms: int = 60000,
+        storage_state_path: str | None = None,
+        save_storage_state_path: str | None = None,
     ) -> None:
         """Initialize Playwright capture.
 
@@ -73,6 +75,8 @@ class PlaywrightCapture:
             allowed_hosts: List of allowed host patterns (required)
             headless: Run browser in headless mode (default: False for interactive)
             timeout_ms: Default timeout for navigation in milliseconds
+            storage_state_path: Path to load browser storage state (cookies, localStorage)
+            save_storage_state_path: Path to save browser storage state after capture
         """
         if not allowed_hosts:
             raise ValueError("At least one allowed host is required")
@@ -80,9 +84,12 @@ class PlaywrightCapture:
         self.allowed_hosts = allowed_hosts
         self.headless = headless
         self.timeout_ms = timeout_ms
+        self.storage_state_path = storage_state_path
+        self.save_storage_state_path = save_storage_state_path
 
         self._exchanges: list[HttpExchange] = []
         self._pending_requests: dict[str, dict[str, Any]] = {}
+        self._pending_tasks: list[asyncio.Task[None]] = []
         self._stop_requested = False
 
         self.stats = {
@@ -123,6 +130,7 @@ class PlaywrightCapture:
 
         self._exchanges = []
         self._pending_requests = {}
+        self._pending_tasks = []
         self._stop_requested = False
         self.stats = {
             "total_requests": 0,
@@ -139,7 +147,10 @@ class PlaywrightCapture:
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=self.headless)
-                context = await browser.new_context()
+                ctx_kwargs: dict[str, Any] = {}
+                if self.storage_state_path:
+                    ctx_kwargs["storage_state"] = self.storage_state_path
+                context = await browser.new_context(**ctx_kwargs)
                 page = await context.new_page()
 
                 # Set up network interception
@@ -174,6 +185,12 @@ class PlaywrightCapture:
                             break
 
                 print("\nStopping capture...")
+                # Wait for all in-flight exchange creation tasks to complete
+                if self._pending_tasks:
+                    await asyncio.gather(*self._pending_tasks, return_exceptions=True)
+                    self._pending_tasks.clear()
+                if self.save_storage_state_path:
+                    await context.storage_state(path=self.save_storage_state_path)
                 await browser.close()
 
         finally:
@@ -253,7 +270,8 @@ class PlaywrightCapture:
             return
 
         # Create exchange
-        asyncio.create_task(self._create_exchange(pending, response))
+        task = asyncio.create_task(self._create_exchange(pending, response))
+        self._pending_tasks.append(task)
 
     def _on_request_failed(self, request: Any) -> None:
         """Handle failed request event."""
@@ -353,6 +371,14 @@ class PlaywrightCapture:
 
     def _is_api_response(self, url: str, method: str, content_type: str) -> bool:
         """Check if response looks like an API response."""
+        from urllib.parse import urlparse
+
+        from caskmcp.core.capture.path_blocklist import is_blocked_path
+
+        path = urlparse(url).path
+        if is_blocked_path(path):
+            return False
+
         ct_lower = content_type.lower()
 
         # JSON/XML/GraphQL responses are APIs

@@ -197,6 +197,14 @@ class CaskMCPMetaMCPServer:
                         "properties": {},
                     },
                 ),
+                types.Tool(
+                    name="caskmcp_get_flows",
+                    description="Get detected API flow sequences (dependencies between endpoints).",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                    },
+                ),
             ]
 
         @self.server.call_tool()  # type: ignore
@@ -218,6 +226,8 @@ class CaskMCPMetaMCPServer:
                 return await self._get_action_details(arguments)
             elif name == "caskmcp_risk_summary":
                 return await self._risk_summary()
+            elif name == "caskmcp_get_flows":
+                return await self._get_flows(arguments)
             else:
                 return [types.TextContent(
                     type="text",
@@ -370,7 +380,7 @@ class CaskMCPMetaMCPServer:
                 text=json.dumps({
                     "action": action_name,
                     "status": "no_lockfile",
-                    "message": "No lockfile found - run 'caskmcp approve sync' first",
+                    "message": "No lockfile found - run 'cask gate sync' first",
                 })
             )]
 
@@ -416,7 +426,7 @@ class CaskMCPMetaMCPServer:
             return [types.TextContent(
                 type="text",
                 text=json.dumps({
-                    "error": "No lockfile found - run 'caskmcp approve sync' first",
+                    "error": "No lockfile found - run 'cask gate sync' first",
                 })
             )]
 
@@ -551,6 +561,36 @@ class CaskMCPMetaMCPServer:
                     "critical": {"count": len(by_risk["critical"]), "actions": by_risk["critical"]},
                 },
                 "approval_summary": approval_summary,
+            }, indent=2)
+        )]
+
+    async def _get_flows(
+        self, _arguments: dict[str, Any]
+    ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
+        """Get flow sequences from manifest."""
+        if not self.manifest:
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({"error": "No manifest loaded"})
+            )]
+
+        # Extract flow info from actions (depends_on/enables)
+        flows: list[dict[str, Any]] = []
+        for action in self.manifest.get("actions", []):
+            deps = action.get("depends_on", [])
+            enables = action.get("enables", [])
+            if deps or enables:
+                flows.append({
+                    "action": action["name"],
+                    "depends_on": deps,
+                    "enables": enables,
+                })
+
+        return [types.TextContent(
+            type="text",
+            text=json.dumps({
+                "total_actions_with_flows": len(flows),
+                "flows": flows,
             }, indent=2)
         )]
 

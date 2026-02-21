@@ -24,7 +24,7 @@ def test_bundle_contains_expected_files(tmp_path: Path) -> None:
     runner = CliRunner()
     snapshot_result = runner.invoke(
         cli,
-        ["approve", "snapshot", "--lockfile", str(lockfile_path)],
+        ["gate", "snapshot", "--lockfile", str(lockfile_path)],
     )
     assert snapshot_result.exit_code == 0
 

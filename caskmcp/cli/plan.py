@@ -7,7 +7,12 @@ from pathlib import Path
 
 import click
 
-from caskmcp.core.plan.engine import build_plan, render_plan_json, render_plan_md
+from caskmcp.core.plan.engine import (
+    build_plan,
+    render_plan_github_md,
+    render_plan_json,
+    render_plan_md,
+)
 from caskmcp.core.toolpack import load_toolpack
 
 
@@ -17,6 +22,7 @@ def run_plan(
     baseline: str | None,
     output_dir: str | None,
     output_format: str,
+    root_path: str,
     verbose: bool,
 ) -> None:
     """Generate a deterministic plan report."""
@@ -25,7 +31,7 @@ def run_plan(
     except (FileNotFoundError, ValueError) as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
-    output_root = Path(output_dir) if output_dir else Path(".caskmcp") / "plans" / toolpack.toolpack_id
+    output_root = Path(output_dir) if output_dir else Path(root_path) / "plans" / toolpack.toolpack_id
     output_root.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -46,6 +52,10 @@ def run_plan(
         md_path = output_root / "plan.md"
         md_path.write_text(render_plan_md(report), encoding="utf-8")
         artifacts_created.append(("plan.md", md_path))
+    if output_format == "github-md":
+        github_md_path = output_root / "diff.github.md"
+        github_md_path.write_text(render_plan_github_md(report), encoding="utf-8")
+        artifacts_created.append(("diff.github.md", github_md_path))
 
     if verbose:
         for name, path in artifacts_created:

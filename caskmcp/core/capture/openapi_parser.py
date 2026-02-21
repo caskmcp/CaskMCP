@@ -36,7 +36,8 @@ class OpenAPIParser:
         Args:
             allowed_hosts: List of allowed host patterns (optional for OpenAPI)
         """
-        self.allowed_hosts = allowed_hosts or []
+        self._initial_allowed_hosts = list(allowed_hosts or [])
+        self.allowed_hosts = list(self._initial_allowed_hosts)
         self.warnings: list[str] = []
         self.stats = {
             "total_paths": 0,
@@ -62,6 +63,8 @@ class OpenAPIParser:
             "imported": 0,
             "skipped": 0,
         }
+        # Reset parser host state for each parse invocation.
+        self.allowed_hosts = list(self._initial_allowed_hosts)
 
         # Load spec
         spec = self._load_spec(path)
@@ -95,6 +98,16 @@ class OpenAPIParser:
                 path_template, path_item, default_host, spec
             )
             session.exchanges.extend(exchanges)
+
+        # If no allowlist was inferred or provided, pin to discovered exchange host(s)
+        # so first_party scopes remain compile-safe for relative server specs.
+        if not session.allowed_hosts and session.exchanges:
+            session.allowed_hosts = sorted({exchange.host for exchange in session.exchanges})
+            self.allowed_hosts = list(session.allowed_hosts)
+            self.warnings.append(
+                "OpenAPI servers used relative URLs; defaulted allowed_hosts to "
+                f"{', '.join(session.allowed_hosts)}. Pass --allowed-hosts to override."
+            )
 
         # Update stats
         session.total_requests = len(session.exchanges)
@@ -202,7 +215,7 @@ class OpenAPIParser:
     ) -> HttpExchange:
         """Create an HttpExchange from an OpenAPI operation."""
         # Build URL
-        host = default_host or "api.example.com"
+        host = self._resolve_exchange_host(default_host)
         url = f"https://{host}{path_template}"
 
         # Extract parameters
@@ -238,6 +251,15 @@ class OpenAPIParser:
         )
 
         return exchange
+
+    def _resolve_exchange_host(self, default_host: str) -> str:
+        """Resolve host used for synthetic exchanges."""
+        if default_host:
+            return default_host
+        for pattern in self.allowed_hosts:
+            if pattern and not any(token in pattern for token in ("*", "?", "[")):
+                return pattern
+        return "api.example.com"
 
     def _collect_parameters(
         self,

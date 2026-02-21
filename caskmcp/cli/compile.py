@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import click
+import yaml
 
 from caskmcp.core.compile import (
     BaselineGenerator,
@@ -35,6 +38,8 @@ class CompileResult:
     endpoint_count: int
     generated_at: datetime
     artifacts_created: tuple[tuple[str, Path], ...]
+    contracts_path: Path | None = None
+    coverage_report_path: Path | None = None
     contract_yaml_path: Path | None = None
     contract_json_path: Path | None = None
     tools_path: Path | None = None
@@ -78,6 +83,13 @@ def compile_capture_session(
     if verbose:
         click.echo(f"  After scope filter: {len(filtered_endpoints)}")
 
+    # Detect flows (parent/child endpoint dependencies)
+    from caskmcp.core.normalize.flow_detector import FlowDetector
+
+    flow_graph = FlowDetector().detect(filtered_endpoints)
+    if verbose and flow_graph.edges:
+        click.echo(f"  Flow edges: {len(flow_graph.edges)}")
+
     generated_at = resolve_generated_at(
         deterministic=deterministic,
         candidate=session.created_at if deterministic else None,
@@ -93,12 +105,16 @@ def compile_capture_session(
     output_path.mkdir(parents=True, exist_ok=True)
 
     artifacts_created: list[tuple[str, Path]] = []
+    contracts_path: Path | None = None
+    coverage_report_path: Path | None = None
     contract_yaml_path: Path | None = None
     contract_json_path: Path | None = None
     tools_path: Path | None = None
     toolsets_path: Path | None = None
     policy_path: Path | None = None
     baseline_path: Path | None = None
+    manifest: dict[str, Any] | None = None
+    tool_gen: ToolManifestGenerator | None = None
 
     if output_format in ("all", "openapi", "manifest"):
         compiler = ContractCompiler(
@@ -122,7 +138,17 @@ def compile_capture_session(
             f.write(compiler.to_json(contract))
         artifacts_created.append(("Contract (JSON)", contract_json_path))
 
-    if output_format in ("all", "manifest"):
+        contracts_payload = _build_contracts_payload(
+            scope_name=scope.name,
+            capture_id=session.id,
+            generated_at=generated_at,
+            endpoints=filtered_endpoints,
+        )
+        contracts_path = output_path / "contracts.yaml"
+        with open(contracts_path, "w") as f:
+            yaml.safe_dump(contracts_payload, f, sort_keys=False)
+        artifacts_created.append(("Contracts", contracts_path))
+
         tool_gen = ToolManifestGenerator(
             name=session.name or "Generated Tools",
             description=f"Generated from capture {session.id}",
@@ -132,7 +158,53 @@ def compile_capture_session(
             scope=scope,
             capture_id=session.id,
             generated_at=generated_at,
+            flow_graph=flow_graph,
         )
+
+        # Coverage report should reference the published tool/action IDs and signatures
+        # (especially for GraphQL operation-scoped tools, which may derive signatures
+        # from fixed bodies instead of the raw endpoint signature).
+        from dataclasses import dataclass
+
+        @dataclass(frozen=True)
+        class _CoverageParam:
+            name: str
+
+        @dataclass(frozen=True)
+        class _CoverageEndpoint:
+            signature_id: str
+            tool_id: str
+            path: str
+            parameters: list[_CoverageParam]
+
+        coverage_inputs: list[_CoverageEndpoint] = []
+        for action in manifest.get("actions", []):
+            input_schema = action.get("input_schema") or {}
+            properties = input_schema.get("properties") or {}
+            params = [_CoverageParam(name=str(name)) for name in sorted(properties.keys())]
+            coverage_inputs.append(
+                _CoverageEndpoint(
+                    signature_id=str(action.get("signature_id", "")),
+                    tool_id=str(action.get("id") or action.get("name") or ""),
+                    path=str(action.get("path", "")),
+                    parameters=params,
+                )
+            )
+
+        coverage_payload = _build_coverage_report_payload(
+            scope_name=scope.name,
+            capture_id=session.id,
+            generated_at=generated_at,
+            endpoints=coverage_inputs,
+        )
+        coverage_report_path = output_path / "coverage_report.json"
+        with open(coverage_report_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(coverage_payload, indent=2, sort_keys=True))
+        artifacts_created.append(("Coverage Report", coverage_report_path))
+
+    if output_format in ("all", "manifest"):
+        assert manifest is not None
+        assert tool_gen is not None
 
         tools_path = output_path / "tools.json"
         with open(tools_path, "w") as f:
@@ -169,6 +241,31 @@ def compile_capture_session(
             f.write(baseline_gen.to_json(baseline))
         artifacts_created.append(("Baseline", baseline_path))
 
+    # Scope inference: emit scopes.suggested.yaml
+    if filtered_endpoints:
+        from caskmcp.core.scope.inference import ScopeInferenceEngine
+
+        scope_engine_infer = ScopeInferenceEngine()
+        scope_inputs = filtered_endpoints
+        if manifest and isinstance(manifest, dict) and isinstance(manifest.get("actions"), list):
+            scope_inputs = _build_scope_inference_endpoints_from_manifest(manifest)
+
+        scope_drafts = scope_engine_infer.infer(scope_inputs)
+        if scope_drafts:
+            scopes_payload = {
+                "version": "1.0",
+                "generated_at": generated_at.isoformat(),
+                "scope": scope.name,
+                "drafts": [d.model_dump(mode="json") for d in scope_drafts],
+            }
+            scopes_path = output_path / "scopes.suggested.yaml"
+            with open(scopes_path, "w") as f:
+                yaml.safe_dump(scopes_payload, f, sort_keys=False)
+            artifacts_created.append(("Scope Suggestions", scopes_path))
+            if verbose:
+                review_count = sum(1 for d in scope_drafts if d.review_required)
+                click.echo(f"  Scope drafts: {len(scope_drafts)} ({review_count} need review)")
+
     return CompileResult(
         artifact_id=artifact_id,
         output_path=output_path,
@@ -176,6 +273,8 @@ def compile_capture_session(
         endpoint_count=len(filtered_endpoints),
         generated_at=generated_at,
         artifacts_created=tuple(artifacts_created),
+        contracts_path=contracts_path,
+        coverage_report_path=coverage_report_path,
         contract_yaml_path=contract_yaml_path,
         contract_json_path=contract_json_path,
         tools_path=tools_path,
@@ -183,6 +282,173 @@ def compile_capture_session(
         policy_path=policy_path,
         baseline_path=baseline_path,
     )
+
+
+def _build_scope_inference_endpoints_from_manifest(manifest: dict[str, Any]) -> list[Any]:
+    """Convert published manifest actions into Endpoint-like objects for scope inference.
+
+    Scope suggestions should reference the published action `signature_id` values, not
+    the raw pre-compile endpoint signatures (GraphQL op splitting can change these).
+    """
+    from caskmcp.models.endpoint import Endpoint
+
+    actions = manifest.get("actions") or []
+    if not isinstance(actions, list):
+        return []
+
+    allowed_hosts_raw = manifest.get("allowed_hosts") or []
+    allowed_hosts = set()
+    if isinstance(allowed_hosts_raw, list):
+        allowed_hosts = {str(host).lower() for host in allowed_hosts_raw if host}
+
+    endpoints: list[Endpoint] = []
+    for action in actions:
+        if not isinstance(action, dict):
+            continue
+
+        host = str(action.get("host") or "").lower()
+        path = str(action.get("path") or "")
+        method = str(action.get("method") or "GET").upper()
+
+        tags_raw = action.get("tags") or []
+        tags: list[str] = []
+        if isinstance(tags_raw, list):
+            tags = [str(tag) for tag in tags_raw if tag is not None]
+
+        signature_id_raw = action.get("signature_id") or action.get("tool_id")
+        signature_id = str(signature_id_raw) if signature_id_raw else None
+
+        stable_id_raw = action.get("endpoint_id")
+        stable_id = str(stable_id_raw) if stable_id_raw else None
+
+        risk_tier = str(action.get("risk_tier") or "low").lower()
+
+        endpoints.append(
+            Endpoint(
+                method=method,
+                path=path,
+                host=host,
+                signature_id=signature_id,
+                stable_id=stable_id,
+                tags=tags,
+                is_first_party=(host in allowed_hosts) if allowed_hosts else True,
+                is_auth_related=("auth" in {t.lower() for t in tags}),
+                has_pii=("pii" in {t.lower() for t in tags}),
+                risk_tier=risk_tier,
+            )
+        )
+
+    return endpoints
+
+
+def _build_contracts_payload(
+    *,
+    scope_name: str,
+    capture_id: str,
+    generated_at: datetime,
+    endpoints: list[Any],
+) -> dict[str, Any]:
+    contracts: list[dict[str, Any]] = []
+    for endpoint in endpoints:
+        signature_id = str(endpoint.signature_id or endpoint.compute_signature_id())
+        scope_id = f"scope:{scope_name}"
+        contracts.append(
+            {
+                "request_fingerprint": signature_id,
+                "tool_id": str(endpoint.tool_id or signature_id),
+                "scope_id": scope_id,
+                "method": str(endpoint.method).upper(),
+                "host": str(endpoint.host).lower(),
+                "path": str(endpoint.path),
+                "request_schema": endpoint.request_body_schema or {"type": "object", "properties": {}},
+                "response_schema": endpoint.response_body_schema or {"type": "object", "properties": {}},
+                "invariants": [],
+                "confidence": float(endpoint.confidence),
+                "source": "observed",
+            }
+        )
+    return {
+        "version": "1.0.0",
+        "schema_version": "1.0",
+        "kind": "contracts",
+        "capture_id": capture_id,
+        "scope": scope_name,
+        "generated_at": generated_at.isoformat(),
+        "contracts": contracts,
+    }
+
+
+def _classify_capability(endpoint: Any) -> tuple[str, float]:
+    path = str(endpoint.path).lower()
+    params = {str(param.name).lower() for param in getattr(endpoint, "parameters", [])}
+    if "search" in path or {"q", "query", "search"} & params:
+        return "search_api", 0.92
+    if "facet" in path or "filter" in path:
+        return "facet_filter_api", 0.88
+    if any(token in path for token in ("page", "offset", "cursor")) or {"page", "offset", "cursor"} & params:
+        return "pagination_api", 0.84
+    if any(token in path for token in ("product", "item", "detail")):
+        return "product_detail_api", 0.86
+    return "generic_api", 0.65
+
+
+def _build_coverage_report_payload(
+    *,
+    scope_name: str,
+    capture_id: str,
+    generated_at: datetime,
+    endpoints: list[Any],
+) -> dict[str, Any]:
+    candidates: list[dict[str, Any]] = []
+    labels: list[str] = []
+    confidences: list[float] = []
+    for endpoint in endpoints:
+        label, confidence = _classify_capability(endpoint)
+        labels.append(label)
+        confidences.append(confidence)
+        candidates.append(
+            {
+                "request_fingerprint": str(endpoint.signature_id),
+                "tool_id": str(endpoint.tool_id or endpoint.signature_id),
+                "label": label,
+                "confidence": round(confidence, 3),
+                "review_required": confidence < 0.75,
+            }
+        )
+
+    expected_labels = {"search_api", "facet_filter_api", "pagination_api", "product_detail_api"}
+    discovered = set(labels)
+    matched = len(discovered.intersection(expected_labels))
+    recall = matched / len(expected_labels) if expected_labels else 1.0
+    classified = [label for label in labels if label != "generic_api"]
+    precision = (
+        len([label for label in classified if label in expected_labels]) / len(classified)
+        if classified
+        else (0.0 if labels else 1.0)
+    )
+    avg_confidence = (sum(confidences) / len(confidences)) if confidences else 1.0
+    return {
+        "version": "1.0.0",
+        "schema_version": "1.0",
+        "kind": "coverage_report",
+        "capture_id": capture_id,
+        "scope": scope_name,
+        "generated_at": generated_at.isoformat(),
+        "totals": {
+            "endpoint_count": len(endpoints),
+            "candidate_count": len(candidates),
+        },
+        "metrics": {
+            "precision": round(precision, 3),
+            "recall": round(recall, 3),
+            "confidence_avg": round(avg_confidence, 3),
+        },
+        "gate_thresholds": {
+            "precision_min": 0.90,
+            "recall_min": 0.85,
+        },
+        "candidates": candidates,
+    }
 
 
 def _generate_artifact_id(
@@ -209,9 +475,10 @@ def run_compile(
     output_dir: str,
     verbose: bool,
     deterministic: bool = True,
+    root_path: str = ".caskmcp",
 ) -> None:
     """Run the compile command."""
-    storage = Storage()
+    storage = Storage(base_path=root_path)
     session = storage.load_capture(capture_id)
 
     if not session:

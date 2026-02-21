@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 from click.testing import CliRunner
 
@@ -176,3 +178,90 @@ def test_capture_record_success_unchanged(monkeypatch) -> None:
     assert result.exit_code == 0
     assert "Capture saved: cap_demo" in result.stdout
     assert result.stderr == ""
+
+
+def _write_otel_export(tmp_path: Path) -> Path:
+    payload = {
+        "resourceSpans": [
+            {
+                "scopeSpans": [
+                    {
+                        "spans": [
+                            {
+                                "traceId": "trace-1",
+                                "spanId": "span-1",
+                                "attributes": [
+                                    {
+                                        "key": "http.request.method",
+                                        "value": {"stringValue": "GET"},
+                                    },
+                                    {
+                                        "key": "url.full",
+                                        "value": {
+                                            "stringValue": "https://api.example.com/users"
+                                        },
+                                    },
+                                    {
+                                        "key": "http.response.status_code",
+                                        "value": {"intValue": "200"},
+                                    },
+                                ],
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+    path = tmp_path / "otel-export.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def test_capture_import_otel_success(tmp_path: Path) -> None:
+    runner = CliRunner()
+    source = _write_otel_export(tmp_path)
+    root = tmp_path / ".caskmcp"
+
+    result = runner.invoke(
+        cli,
+        [
+            "--root",
+            str(root),
+            "capture",
+            "import",
+            str(source),
+            "--input-format",
+            "otel",
+            "-a",
+            "api.example.com",
+            "--name",
+            "OTEL Import",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Capture saved:" in result.stdout
+    assert "Exchanges: 1" in result.stdout
+    assert result.stderr == ""
+
+
+def test_capture_record_rejects_otel_input_format() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "capture",
+            "record",
+            "https://app.example.com",
+            "--input-format",
+            "otel",
+            "-a",
+            "api.example.com",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert result.stdout == ""
+    assert "only supported for 'import'" in result.stderr

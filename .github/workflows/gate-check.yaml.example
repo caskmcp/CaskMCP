@@ -1,0 +1,25 @@
+# Example workflow for lockfile governance and diff reporting.
+# Copy to .github/workflows/gate-check.yaml and customize paths.
+
+name: CaskMCP Gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run CaskMCP gate
+        uses: ./.github/actions/caskmcp-gate
+        with:
+          toolpack: ./.caskmcp/toolpacks/<toolpack-id>/toolpack.yaml
+          # Optional: scope checks to a specific toolset (defaults to all tools)
+          # toolset: readonly
+          # Optional: lockfile/baseline can be provided explicitly
+          # lockfile: ./.caskmcp/toolpacks/<toolpack-id>/lockfile/caskmcp.lock.approved.yaml
+          # baseline: ./.caskmcp/toolpacks/<toolpack-id>/artifact/baseline.json

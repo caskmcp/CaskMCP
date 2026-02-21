@@ -47,12 +47,15 @@ Thumbs.db
 # CaskMCP specific
 captures/
 *.har
+!caskmcp/assets/demo/sample.har
 *.session.json
 .caskmcp/
 outputs/
 output/
 tmp_magic_demo/
 examples/.demo_output/
+caskmcp.lock.yaml
+tests/e2e/results/
 
 # Secrets (never commit)
 .env
@@ -62,12 +65,18 @@ examples/.demo_output/
 credentials.json
 
 # MD Files
-API_SCOUT_TRANSITION_PLAN.md
-STRATEGY.md
 SPEC.md
-CLAUDE.md
-AGENTS.md
+*SPEC.md
 findings.md
 progress.md
 task_plan.md
-RELEASE_PLAN.md
+assessment.md
+*_VIEWPOINTS.md
+
+# Deprecated docs
+docs/archive/
+
+.caskmcp_tide_demo/
+
+# Worktrees
+.worktrees/

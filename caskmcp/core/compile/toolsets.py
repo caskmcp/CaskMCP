@@ -13,6 +13,17 @@ READ_METHODS = {"GET", "HEAD", "OPTIONS"}
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
+def _is_graphql_query_action(action: dict[str, Any]) -> bool:
+    """Return True for operation-scoped GraphQL query actions."""
+    operation_type = str(action.get("graphql_operation_type", "")).lower()
+    fixed_body = action.get("fixed_body")
+    if operation_type != "query":
+        return False
+    if not isinstance(fixed_body, dict):
+        return False
+    return isinstance(fixed_body.get("operationName"), str)
+
+
 class ToolsetGenerator:
     """Generate named toolsets from a compiled tools manifest."""
 
@@ -36,12 +47,18 @@ class ToolsetGenerator:
         readonly_actions = [
             a["name"]
             for a in actions_sorted
-            if str(a.get("method", "GET")).upper() in READ_METHODS and "name" in a
+            if "name" in a
+            and (
+                str(a.get("method", "GET")).upper() in READ_METHODS or _is_graphql_query_action(a)
+            )
+            and str(a.get("risk_tier", "low")).lower() not in {"high", "critical"}
         ]
         write_actions = [
             a["name"]
             for a in actions_sorted
-            if str(a.get("method", "GET")).upper() in WRITE_METHODS and "name" in a
+            if "name" in a
+            and str(a.get("method", "GET")).upper() in WRITE_METHODS
+            and not _is_graphql_query_action(a)
         ]
         high_risk_actions = [
             a["name"]

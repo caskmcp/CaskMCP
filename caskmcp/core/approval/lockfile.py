@@ -60,6 +60,11 @@ class ToolApproval(BaseModel):
     status: ApprovalStatus = ApprovalStatus.PENDING
     approved_at: datetime | None = None
     approved_by: str | None = None
+    approval_reason: str | None = None
+    approval_signature: str | None = None
+    approval_alg: str | None = None
+    approval_key_id: str | None = None
+    approval_mode: str = "1-of-1"
     rejection_reason: str | None = None
 
     # Change tracking
@@ -267,6 +272,7 @@ class LockfileManager:
         scope: str | None = None,
         toolsets: dict[str, Any] | None = None,
         deterministic: bool = False,
+        prune_removed: bool = False,
     ) -> dict[str, list[str]]:
         """Sync lockfile with a tools manifest.
 
@@ -281,6 +287,7 @@ class LockfileManager:
             scope: Optional scope name
             toolsets: Optional toolsets artifact payload (from toolsets.yaml)
             deterministic: If True, use deterministic timestamps
+            prune_removed: If True, remove tools no longer present in the manifest
 
         Returns:
             Dict with lists of: new, modified, removed, unchanged tool IDs
@@ -347,7 +354,11 @@ class LockfileManager:
                 existing_key = existing_by_signature[action_signature]
             elif action_tool_id in existing_by_tool_id:
                 existing_key = existing_by_tool_id[action_tool_id]
-            elif action_endpoint_id and action_endpoint_id in existing_by_endpoint:
+            elif (
+                not action_signature
+                and action_endpoint_id
+                and action_endpoint_id in existing_by_endpoint
+            ):
                 existing_key = existing_by_endpoint[action_endpoint_id]
             elif action_name in existing_by_name:
                 existing_key = existing_by_name[action_name]
@@ -443,10 +454,13 @@ class LockfileManager:
             else:
                 changes["unchanged"].append(action_name)
 
-        for key in sorted(original_existing_keys - matched_existing_keys):
+        removed_keys = sorted(original_existing_keys - matched_existing_keys)
+        for key in removed_keys:
             removed_tool = existing_tools.get(key)
             if removed_tool:
                 changes["removed"].append(removed_tool.name)
+            if prune_removed:
+                existing_tools.pop(key, None)
 
         self.lockfile.tools = {
             tool_id: self.lockfile.tools[tool_id]
@@ -478,11 +492,28 @@ class LockfileManager:
         new_level = risk_levels.get(new_risk, 0)
         return new_level > old_level
 
+    def _default_approval_root(self) -> Path:
+        """Resolve canonical root for approval signing key material."""
+        from caskmcp.core.approval.signing import resolve_approval_root
+
+        # When lockfiles live outside a `.caskmcp` tree (exports, temp dirs, tests),
+        # default to a sibling `.caskmcp` root next to the lockfile for portability.
+        fallback = self.lockfile_path.parent / ".caskmcp" / "state" / "confirmations.db"
+        return resolve_approval_root(
+            lockfile_path=self.lockfile_path,
+            fallback_root=fallback,
+        )
+
     def approve(
         self,
         tool_id: str,
         approved_by: str | None = None,
         toolset: str | None = None,
+        reason: str | None = None,
+        approval_signature: str | None = None,
+        approval_alg: str | None = None,
+        approval_key_id: str | None = None,
+        approved_at: datetime | None = None,
     ) -> bool:
         """Approve a tool.
 
@@ -504,7 +535,8 @@ class LockfileManager:
             return False
 
         tool = self.lockfile.tools[resolved_tool_id]
-        actor = approved_by or os.environ.get("USER", "unknown")
+        actor = approved_by if approved_by is not None else (os.environ.get("USER") or "unknown")
+        approval_time = approved_at or datetime.now(UTC)
 
         if toolset:
             if toolset not in tool.toolsets:
@@ -512,9 +544,6 @@ class LockfileManager:
             approved_toolsets = set(tool.approved_toolsets)
             approved_toolsets.add(toolset)
             tool.approved_toolsets = sorted(approved_toolsets)
-            tool.rejection_reason = None
-            tool.approved_at = datetime.now(UTC)
-            tool.approved_by = actor
             if set(tool.toolsets).issubset(approved_toolsets):
                 tool.status = ApprovalStatus.APPROVED
             elif tool.status == ApprovalStatus.REJECTED:
@@ -522,13 +551,38 @@ class LockfileManager:
         else:
             tool.status = ApprovalStatus.APPROVED
             tool.approved_toolsets = sorted(set(tool.toolsets))
-            tool.approved_at = datetime.now(UTC)
-            tool.approved_by = actor
-            tool.rejection_reason = None
+
+        tool.rejection_reason = None
+        tool.approved_at = approval_time
+        tool.approved_by = actor
+        tool.approval_reason = reason
+
+        if approval_signature is None:
+            from caskmcp.core.approval.signing import ApprovalSigner
+
+            signer = ApprovalSigner(root_path=self._default_approval_root())
+            approval_signature = signer.sign_approval(
+                tool=tool,
+                approved_by=actor,
+                approved_at=approval_time,
+                reason=reason,
+                mode=tool.approval_mode,
+            )
+            approval_alg = signer.algorithm
+            approval_key_id = signer.key_id
+
+        tool.approval_signature = approval_signature
+        tool.approval_alg = approval_alg
+        tool.approval_key_id = approval_key_id
 
         return True
 
-    def approve_all(self, approved_by: str | None = None, toolset: str | None = None) -> int:
+    def approve_all(
+        self,
+        approved_by: str | None = None,
+        toolset: str | None = None,
+        reason: str | None = None,
+    ) -> int:
         """Approve all pending tools.
 
         Args:
@@ -550,11 +604,11 @@ class LockfileManager:
             if toolset:
                 if toolset in tool.approved_toolsets:
                     continue
-                if self.approve(tool_id, approved_by, toolset=toolset):
+                if self.approve(tool_id, approved_by, toolset=toolset, reason=reason):
                     count += 1
                 continue
             if tool.status == ApprovalStatus.PENDING:
-                self.approve(tool_id, approved_by, toolset=None)
+                self.approve(tool_id, approved_by, toolset=None, reason=reason)
                 count += 1
 
         return count
@@ -588,6 +642,8 @@ class LockfileManager:
         tool.rejection_reason = reason
         tool.approved_at = None
         tool.approved_by = None
+        tool.approval_reason = None
+        tool.approval_signature = None
 
         return True
 
@@ -687,7 +743,7 @@ class LockfileManager:
         assert self.lockfile is not None
 
         if not self.lockfile.baseline_snapshot_dir or not self.lockfile.baseline_snapshot_digest:
-            return False, "baseline snapshot missing; run caskmcp approve snapshot"
+            return False, "baseline snapshot missing; run cask gate snapshot"
 
         from caskmcp.core.approval.snapshot import (
             load_snapshot_digest,
@@ -703,9 +759,9 @@ class LockfileManager:
         try:
             digest = load_snapshot_digest(snapshot_dir)
         except Exception:
-            return False, "baseline snapshot missing; run caskmcp approve snapshot"
+            return False, "baseline snapshot missing; run cask gate snapshot"
         if digest != self.lockfile.baseline_snapshot_digest:
-            return False, "baseline snapshot digest mismatch; re-run caskmcp approve snapshot"
+            return False, "baseline snapshot digest mismatch; re-run cask gate snapshot"
 
         toolpack_file = toolpack_root / "toolpack.yaml"
         try:

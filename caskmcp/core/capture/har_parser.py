@@ -288,6 +288,14 @@ class HARParser:
         self, url: str, method: str, content_type: str, entry: dict[str, Any]
     ) -> bool:
         """Determine if a request looks like an API call."""
+        from urllib.parse import urlparse
+
+        from caskmcp.core.capture.path_blocklist import is_blocked_path
+
+        path = urlparse(url).path
+        if is_blocked_path(path):
+            return False
+
         # Check resource type if available (Chrome DevTools includes this)
         resource_type = entry.get("_resourceType", "").lower()
         if resource_type in self.API_RESOURCE_TYPES:
@@ -318,13 +326,13 @@ class HARParser:
         # POST/PUT/PATCH/DELETE are more likely to be API calls
         return method in ("POST", "PUT", "PATCH", "DELETE") and "html" not in ct_lower
 
-    def _try_parse_json(self, text: str) -> dict[str, Any] | None:
-        """Try to parse text as JSON."""
+    def _try_parse_json(self, text: str) -> dict[str, Any] | list[Any] | None:
+        """Try to parse text as a JSON object or array."""
         if not text:
             return None
         try:
             result = json.loads(text)
-            if isinstance(result, dict):
+            if isinstance(result, dict | list):
                 return result
         except (json.JSONDecodeError, TypeError):
             pass

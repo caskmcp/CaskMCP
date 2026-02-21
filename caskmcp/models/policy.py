@@ -96,7 +96,12 @@ class MatchCondition(BaseModel):
             return False
 
         # Scope matching
-        return not (self.scopes is not None and scope is not None and scope not in self.scopes)
+        if self.scopes is not None:
+            if scope is None:
+                return False
+            return scope in self.scopes
+
+        return True
 
 
 class PolicyRule(BaseModel):
@@ -130,6 +135,7 @@ class StateChangingOverride(BaseModel):
     path: str | None = None
     host: str | None = None
     state_changing: bool
+    justification: str | None = None
 
 
 class Policy(BaseModel):

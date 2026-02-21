@@ -55,6 +55,13 @@ class TestMatchCondition:
         assert cond.matches(method="GET", path="/api", host="example.com", risk_tier="high")
         assert not cond.matches(method="GET", path="/api", host="example.com", risk_tier="low")
 
+    def test_match_scopes(self):
+        """Scope filters should only match when a scope is provided."""
+        cond = MatchCondition(scopes=["readonly"])
+        assert cond.matches(method="GET", path="/api", host="example.com", scope="readonly")
+        assert not cond.matches(method="GET", path="/api", host="example.com", scope="operator")
+        assert not cond.matches(method="GET", path="/api", host="example.com", scope=None)
+
     def test_match_multiple_conditions(self):
         """Test multiple conditions (AND logic)."""
         cond = MatchCondition(

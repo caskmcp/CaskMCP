@@ -46,7 +46,7 @@ def build_plan(
 
     lockfile_path = resolved.approved_lockfile_path or resolved.pending_lockfile_path
     if lockfile_path is None or not lockfile_path.exists():
-        raise ValueError("lockfile missing; run caskmcp approve sync")
+        raise ValueError("lockfile missing; run cask gate sync")
 
     manager = LockfileManager(lockfile_path)
     lockfile = manager.load()
@@ -209,6 +209,107 @@ def render_plan_md(plan: PlanReport) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_plan_github_md(plan: PlanReport) -> str:
+    """Render a GitHub-friendly markdown summary for PR comments."""
+    summary = plan.summary
+    status = "✅ No gated changes detected" if not summary.has_changes else "⚠️ Changes detected"
+    evidence_status = "changed" if summary.evidence_changed else "unchanged"
+
+    lines = [
+        "# CaskMCP Diff (GitHub)",
+        "",
+        f"**Toolpack:** `{plan.toolpack.id}`",
+        f"**Runtime:** `{plan.toolpack.runtime_mode}`",
+        f"**Baseline:** `{plan.baseline.snapshot_dir}`",
+        f"**Status:** {status}",
+        "",
+        "## Summary",
+        "",
+        "| Signal | Count |",
+        "| --- | ---: |",
+        f"| Tools added | {summary.tools_added} |",
+        f"| Tools removed | {summary.tools_removed} |",
+        f"| Tools modified | {summary.tools_modified} |",
+        f"| Schemas changed | {summary.schemas_changed} |",
+        f"| Policy rules changed | {summary.policy_changed} |",
+        f"| Toolsets changed | {summary.toolsets_changed} |",
+        f"| Evidence | {evidence_status} |",
+        "",
+        "## Tool Changes",
+    ]
+
+    if plan.changes.tools:
+        lines.extend(
+            [
+                "",
+                "| Change | Tool ID | Name |",
+                "| --- | --- | --- |",
+            ]
+        )
+        for tool_change in plan.changes.tools:
+            lines.append(
+                f"| `{tool_change.change_type}` | `{tool_change.tool_id}` | `{tool_change.name}` |"
+            )
+    else:
+        lines.extend(["", "- none"])
+
+    lines.append("")
+    lines.append("## Schema Changes")
+    if plan.changes.schemas:
+        lines.extend(
+            [
+                "",
+                "| Change | Tool ID |",
+                "| --- | --- |",
+            ]
+        )
+        for schema_change in plan.changes.schemas:
+            lines.append(f"| `{schema_change.change_type}` | `{schema_change.tool_id}` |")
+    else:
+        lines.extend(["", "- none"])
+
+    lines.append("")
+    lines.append("## Policy Changes")
+    if plan.changes.policy:
+        lines.extend(
+            [
+                "",
+                "| Change | Rule ID |",
+                "| --- | --- |",
+            ]
+        )
+        for policy_change in plan.changes.policy:
+            lines.append(f"| `{policy_change.change_type}` | `{policy_change.rule_id}` |")
+    else:
+        lines.extend(["", "- none"])
+
+    lines.append("")
+    lines.append("## Toolset Changes")
+    if plan.changes.toolsets:
+        lines.extend(
+            [
+                "",
+                "| Toolset | Added | Removed |",
+                "| --- | --- | --- |",
+            ]
+        )
+        for toolset_change in plan.changes.toolsets:
+            added = ", ".join(toolset_change.added_actions) if toolset_change.added_actions else "none"
+            removed = ", ".join(toolset_change.removed_actions) if toolset_change.removed_actions else "none"
+            lines.append(f"| `{toolset_change.toolset}` | `{added}` | `{removed}` |")
+    else:
+        lines.extend(["", "- none"])
+
+    lines.append("")
+    lines.append("## Evidence")
+    lines.append("")
+    lines.append(f"- expected: `{plan.evidence.expected_hash or 'none'}`")
+    lines.append(f"- actual: `{plan.evidence.actual_hash or 'none'}`")
+    lines.append(f"- changed: `{str(plan.evidence.changed).lower()}`")
+
+    return "\n".join(lines) + "\n"
+
+
 def _resolve_baseline(
     *,
     toolpack_root: Path,
@@ -223,15 +324,15 @@ def _resolve_baseline(
         return bundle, snapshot_dir_str, snapshot_digest
 
     if not lockfile_snapshot_dir or not lockfile_snapshot_digest:
-        raise ValueError("baseline snapshot missing; run caskmcp approve snapshot")
+        raise ValueError("baseline snapshot missing; run cask gate snapshot")
 
     snapshot_dir_path = toolpack_root / lockfile_snapshot_dir
     if not snapshot_dir_path.exists():
-        raise ValueError("baseline snapshot missing; run caskmcp approve snapshot")
+        raise ValueError("baseline snapshot missing; run cask gate snapshot")
 
     digest = load_snapshot_digest(snapshot_dir_path)
     if digest != lockfile_snapshot_digest:
-        raise ValueError("baseline snapshot digest mismatch; re-run caskmcp approve snapshot")
+        raise ValueError("baseline snapshot digest mismatch; re-run cask gate snapshot")
 
     bundle = ArtifactBundle(
         tools=snapshot_dir_path / "tools.json",
@@ -260,7 +361,7 @@ def _resolve_baseline_from_path(
         manager = LockfileManager(lockfile_path)
         lockfile = manager.load()
         if not lockfile.baseline_snapshot_dir or not lockfile.baseline_snapshot_digest:
-            raise ValueError("baseline snapshot missing; run caskmcp approve snapshot")
+            raise ValueError("baseline snapshot missing; run cask gate snapshot")
         snapshot_dir = baseline_path.parent / lockfile.baseline_snapshot_dir
         digest = load_snapshot_digest(snapshot_dir)
         if digest != lockfile.baseline_snapshot_digest:

@@ -24,8 +24,9 @@ def test_run_print_config_and_exit(tmp_path: Path) -> None:
     assert result.stderr == ""
     payload = json.loads(result.stdout)
     server = payload["mcpServers"]["tp_demo"]
-    assert server["command"] == "caskmcp"
-    assert server["args"][0] == "run"
+    assert str(server["command"]).endswith(("cask", "caskmcp"))
+    assert server["args"][0] == "--root"
+    assert "serve" in server["args"]
 
 
 def test_run_container_requires_docker(tmp_path: Path, monkeypatch) -> None:

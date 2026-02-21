@@ -18,6 +18,7 @@ class DriftType(StrEnum):
     ADDITIVE = "additive"  # New read-only endpoint
     SCHEMA = "schema"  # Schema change (non-breaking)
     PARAMETER = "parameter"  # Parameter added/removed/changed
+    CONTRACT = "contract"  # Verification contract assertion failed
     UNKNOWN = "unknown"  # Unclassified (default to block)
 
 
@@ -77,6 +78,7 @@ class DriftReport(BaseModel):
     additive_count: int = 0
     schema_count: int = 0
     parameter_count: int = 0
+    contract_count: int = 0
     unknown_count: int = 0
 
     # Drifts

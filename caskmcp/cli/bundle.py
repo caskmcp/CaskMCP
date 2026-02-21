@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import zipfile
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -50,6 +51,7 @@ def run_bundle(
     bundle_path.parent.mkdir(parents=True, exist_ok=True)
 
     files = _collect_toolpack_files(toolpack_root)
+    manifest = _bundle_manifest(files)
 
     with zipfile.ZipFile(
         bundle_path,
@@ -66,20 +68,54 @@ def run_bundle(
         _write_zip_file(zf, "plan.md", plan_md.encode("utf-8"), FILE_MODE)
         _write_zip_file(zf, "client-config.json", config_json.encode("utf-8"), FILE_MODE)
         _write_zip_file(zf, "RUN.md", run_md.encode("utf-8"), FILE_MODE)
+        _write_zip_file(
+            zf,
+            "BUNDLE_MANIFEST.json",
+            _json_dump(manifest).encode("utf-8"),
+            FILE_MODE,
+        )
 
     if verbose:
-        click.echo(f"Bundle created: {bundle_path}", err=True)
+        click.echo(f"Bundle created: {bundle_path}")
 
 
 def _collect_toolpack_files(root: Path) -> list[str]:
+    """Collect portable bundle files, excluding sensitive runtime state."""
+    allowed_roots = {
+        "artifact",
+        "lockfile",
+        "toolpack.yaml",
+        "Dockerfile",
+        "entrypoint.sh",
+        "caskmcp.run",
+        "requirements.lock",
+    }
+    sensitive_tokens = {
+        "storage_state",
+        "confirmations.db",
+        "approval_signing.key",
+        "auth",
+        ".caskmcp",
+        "state",
+    }
     files: list[str] = []
     for path in root.rglob("*"):
         if path.is_dir():
             continue
         rel = path.relative_to(root)
-        if rel.parts[:2] == (".caskmcp", "reports"):
+        rel_text = rel.as_posix()
+        if any(token in rel_text for token in sensitive_tokens):
             continue
-        files.append(rel.as_posix())
+        head = rel.parts[0] if rel.parts else rel_text
+        if head not in allowed_roots:
+            continue
+        if head == "lockfile" and rel.name not in {
+            "caskmcp.lock.yaml",
+            "caskmcp.lock.pending.yaml",
+            "caskmcp.lock.approved.yaml",
+        }:
+            continue
+        files.append(rel_text)
     return files
 
 
@@ -91,7 +127,28 @@ def _write_zip_file(zf: zipfile.ZipFile, arcname: str, data: bytes, mode: int) -
 
 def _render_run_md(_toolpack_id: str) -> str:
     return (
-        "# CaskMCP Bundle\n\n"
+        "# Cask Bundle\n\n"
         "Run this toolpack:\n\n"
-        "  caskmcp run --toolpack ./toolpack.yaml\n"
+        "  cask run --toolpack ./toolpack.yaml\n"
     )
+
+
+def _bundle_manifest(files: list[str]) -> dict[str, Any]:
+    return {
+        "format": "caskmcp.bundle.v1",
+        "portable": True,
+        "exports": sorted(files),
+        "excludes": [
+            "raw capture traffic",
+            "full request/response headers",
+            "auth storage state",
+            "confirmation databases",
+            "local signing keys",
+        ],
+    }
+
+
+def _json_dump(payload: dict[str, Any]) -> str:
+    import json
+
+    return json.dumps(payload, indent=2, sort_keys=True)

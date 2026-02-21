@@ -197,6 +197,47 @@ class TestLockfileManager:
         assert tool.previous_signature == "sig_get_users"
         assert tool.tool_version == 2
 
+    def test_sync_keeps_graphql_operation_split_distinct(
+        self,
+        tmp_lockfile: Path,
+    ) -> None:
+        """Distinct GraphQL operation tools sharing endpoint_id must not collapse."""
+        manager = LockfileManager(tmp_lockfile)
+        manager.load()
+
+        manifest = {
+            "actions": [
+                {
+                    "name": "query_recently_viewed_products",
+                    "signature_id": "sig_graphql_query",
+                    "tool_id": "sig_graphql_query",
+                    "endpoint_id": "ep_graphql_shared",
+                    "method": "POST",
+                    "path": "/api/graphql",
+                    "host": "stockx.com",
+                    "risk_tier": "low",
+                },
+                {
+                    "name": "mutate_update_bid",
+                    "signature_id": "sig_graphql_mutation",
+                    "tool_id": "sig_graphql_mutation",
+                    "endpoint_id": "ep_graphql_shared",
+                    "method": "POST",
+                    "path": "/api/graphql",
+                    "host": "stockx.com",
+                    "risk_tier": "high",
+                },
+            ]
+        }
+
+        changes = manager.sync_from_manifest(manifest)
+
+        assert len(changes["new"]) == 2
+        assert manager.lockfile is not None
+        assert len(manager.lockfile.tools) == 2
+        assert manager.get_tool("query_recently_viewed_products") is not None
+        assert manager.get_tool("mutate_update_bid") is not None
+
     def test_sync_records_toolset_membership(
         self,
         tmp_lockfile: Path,
@@ -256,6 +297,29 @@ class TestLockfileManager:
         assert "delete_user" in changes["removed"]
         # Tool should still exist in lockfile
         assert manager.get_tool("delete_user") is not None
+
+    def test_sync_from_manifest_prune_removed_deletes_tool(
+        self, tmp_lockfile: Path, sample_manifest: dict
+    ) -> None:
+        """Sync with prune_removed should delete removed tools from the lockfile."""
+        manager = LockfileManager(tmp_lockfile)
+        manager.load()
+
+        # First sync
+        manager.sync_from_manifest(sample_manifest)
+
+        # Remove a tool
+        next_manifest = {
+            "actions": [
+                action
+                for action in sample_manifest["actions"]
+                if action["name"] != "delete_user"
+            ]
+        }
+        changes = manager.sync_from_manifest(next_manifest, prune_removed=True)
+
+        assert "delete_user" in changes["removed"]
+        assert manager.get_tool("delete_user") is None
 
     def test_sync_from_manifest_stable_tool_order(
         self, tmp_lockfile: Path, sample_manifest: dict
@@ -523,7 +587,7 @@ class TestApprovalCLI:
 
         result = runner.invoke(
             cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
+            ["gate", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 1  # Pending tools
@@ -544,13 +608,13 @@ class TestApprovalCLI:
         # First sync
         runner.invoke(
             cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
+            ["gate", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
         )
 
         # Then list
         result = runner.invoke(
             cli,
-            ["approve", "list", "--lockfile", str(lockfile_path)],
+            ["gate", "status", "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 0
@@ -569,13 +633,13 @@ class TestApprovalCLI:
         # Sync
         runner.invoke(
             cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
+            ["gate", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
         )
 
         # Approve
         result = runner.invoke(
             cli,
-            ["approve", "tool", "get_users", "--lockfile", str(lockfile_path)],
+            ["gate", "allow", "get_users", "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 0
@@ -600,13 +664,13 @@ class TestApprovalCLI:
         # Sync
         runner.invoke(
             cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
+            ["gate", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
         )
 
         # Approve all
         result = runner.invoke(
             cli,
-            ["approve", "tool", "--all", "--lockfile", str(lockfile_path)],
+            ["gate", "allow", "--all", "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 0
@@ -624,13 +688,13 @@ class TestApprovalCLI:
         # Sync
         runner.invoke(
             cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
+            ["gate", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
         )
 
         # Reject
         result = runner.invoke(
             cli,
-            ["approve", "reject", "create_user", "--lockfile", str(lockfile_path), "--reason", "Too risky"],
+            ["gate", "block", "create_user", "--lockfile", str(lockfile_path), "--reason", "Too risky"],
         )
 
         assert result.exit_code == 0
@@ -648,13 +712,13 @@ class TestApprovalCLI:
         # Sync
         runner.invoke(
             cli,
-            ["approve", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
+            ["gate", "sync", "--tools", str(tools_path), "--lockfile", str(lockfile_path)],
         )
 
         # Check
         result = runner.invoke(
             cli,
-            ["approve", "check", "--lockfile", str(lockfile_path)],
+            ["gate", "check", "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 1
@@ -672,12 +736,12 @@ class TestApprovalCLI:
 
         runner.invoke(
             cli,
-            ["approve", "tool", "--all", "--lockfile", str(lockfile_path)],
+            ["gate", "allow", "--all", "--lockfile", str(lockfile_path)],
         )
 
         result = runner.invoke(
             cli,
-            ["approve", "check", "--lockfile", str(lockfile_path)],
+            ["gate", "check", "--lockfile", str(lockfile_path)],
         )
 
         assert result.exit_code == 0
@@ -695,7 +759,7 @@ class TestApprovalCLI:
 
         pending_check = runner.invoke(
             cli,
-            ["approve", "check", "--lockfile", str(lockfile_path), "--toolset", "readonly"],
+            ["gate", "check", "--lockfile", str(lockfile_path), "--toolset", "readonly"],
         )
         assert pending_check.exit_code == 1
         assert "Pending approval in 'readonly'" in pending_check.output
@@ -703,7 +767,7 @@ class TestApprovalCLI:
         approve_result = runner.invoke(
             cli,
             [
-                "approve", "tool", "get_users",
+                "gate", "allow", "get_users",
                 "--lockfile", str(lockfile_path),
                 "--toolset", "readonly",
             ],
@@ -712,7 +776,7 @@ class TestApprovalCLI:
 
         passed_check = runner.invoke(
             cli,
-            ["approve", "check", "--lockfile", str(lockfile_path), "--toolset", "readonly"],
+            ["gate", "check", "--lockfile", str(lockfile_path), "--toolset", "readonly"],
         )
         assert passed_check.exit_code == 0
         assert "All tools approved in 'readonly'" in passed_check.output
