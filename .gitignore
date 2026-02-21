@@ -77,3 +77,6 @@ assessment.md
 docs/archive/
 
 .caskmcp_tide_demo/
+
+# Worktrees
+.worktrees/
