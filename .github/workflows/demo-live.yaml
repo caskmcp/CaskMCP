@@ -1,4 +1,4 @@
-name: Wow Live
+name: Demo Live
 
 on:
   schedule:
@@ -9,8 +9,8 @@ on:
     types: [labeled]
 
 jobs:
-  wow-live:
-    if: github.event_name != 'pull_request' || github.event.label.name == 'wow-live'
+  demo-live:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'demo-live'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,10 +28,10 @@ jobs:
       - name: Install browser runtime
         run: python -m playwright install --with-deps chromium
 
-      - name: Run live wow flow
+      - name: Run live demo flow
         run: |
           set -euo pipefail
-          caskmcp wow --live --out /tmp/caskmcp-wow-live
-          test -f /tmp/caskmcp-wow-live/prove_twice_report.md
-          test -f /tmp/caskmcp-wow-live/prove_twice_diff.json
-          test -f /tmp/caskmcp-wow-live/prove_summary.json
+          caskmcp demo --live --out /tmp/caskmcp-demo-live
+          test -f /tmp/caskmcp-demo-live/prove_twice_report.md
+          test -f /tmp/caskmcp-demo-live/prove_twice_diff.json
+          test -f /tmp/caskmcp-demo-live/prove_summary.json

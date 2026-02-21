@@ -236,18 +236,18 @@ assert_readonly_excludes_write "$TOOLSETS_BASE" "$WRITE_TOOL"
 
 log "3) Show blocked state-changing call (pending approval)"
 set +e
-"$AF_BIN" approve sync --tools "$TOOLS_BASE" --policy "$POLICY_BASE" --toolsets "$TOOLSETS_BASE" --lockfile caskmcp.lock.yaml >/tmp/af_sync1.log 2>&1
+"$AF_BIN" gate sync --tools "$TOOLS_BASE" --policy "$POLICY_BASE" --toolsets "$TOOLSETS_BASE" --lockfile caskmcp.lock.yaml >/tmp/af_sync1.log 2>&1
 SYNC1_EXIT=$?
 set -e
 if [[ $SYNC1_EXIT -eq 0 ]]; then
-  fail "expected approve sync to fail with pending tools"
+  fail "expected gate sync to fail with pending tools"
 fi
 
 BLOCKED_PAYLOAD="$(gateway_execute "$TOOLS_BASE" "$TOOLSETS_BASE" "$POLICY_BASE" "caskmcp.lock.yaml" "$WRITE_TOOL" '{"name":"Jane"}')"
 assert_reason "$BLOCKED_PAYLOAD" "denied_not_approved"
 
 log "4) Approve via lockfile"
-"$AF_BIN" approve tool --all --lockfile caskmcp.lock.yaml --by "ci@caskmcp"
+"$AF_BIN" gate allow --all --lockfile caskmcp.lock.yaml --by "ci@caskmcp"
 
 # Build minimal toolpack structure for snapshot
 TOOLPACK_DIR="$WORKDIR/.caskmcp/toolpack_ci"
@@ -281,8 +281,8 @@ tp = {
 }
 Path(sys.argv[1]).write_text(yaml.dump(tp, default_flow_style=False))
 PY
-"$AF_BIN" approve snapshot --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
-"$AF_BIN" approve check --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
+"$AF_BIN" gate snapshot --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
+"$AF_BIN" gate check --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
 # Copy back updated lockfile
 cp "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml" caskmcp.lock.yaml
 
@@ -345,30 +345,30 @@ if [[ $DRIFT_EXIT -eq 0 ]]; then
 fi
 
 set +e
-"$AF_BIN" approve sync --tools "$TOOLS_DRIFT" --policy "$POLICY_DRIFT" --toolsets "$TOOLSETS_DRIFT" --lockfile caskmcp.lock.yaml >/tmp/af_sync2.log 2>&1
+"$AF_BIN" gate sync --tools "$TOOLS_DRIFT" --policy "$POLICY_DRIFT" --toolsets "$TOOLSETS_DRIFT" --lockfile caskmcp.lock.yaml >/tmp/af_sync2.log 2>&1
 SYNC2_EXIT=$?
 cp caskmcp.lock.yaml "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
 set -e
 if [[ $SYNC2_EXIT -eq 0 ]]; then
-  fail "expected second approve sync to fail with pending approvals"
+  fail "expected second gate sync to fail with pending approvals"
 fi
 
 set +e
-"$AF_BIN" approve check --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml" >/tmp/af_check_fail.log 2>&1
+"$AF_BIN" gate check --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml" >/tmp/af_check_fail.log 2>&1
 CHECK_EXIT=$?
 set -e
 if [[ $CHECK_EXIT -eq 0 ]]; then
-  fail "expected approve check to fail until re-approval"
+  fail "expected gate check to fail until re-approval"
 fi
 
-# Update toolpack with drifted artifacts for final approve+check
+# Update toolpack with drifted artifacts for final gate allow+check
 cp "$TOOLS_DRIFT" "$TOOLPACK_DIR/artifact/tools.json"
 cp "$TOOLSETS_DRIFT" "$TOOLPACK_DIR/artifact/toolsets.yaml"
 cp "$POLICY_DRIFT" "$TOOLPACK_DIR/artifact/policy.yaml"
 cp caskmcp.lock.yaml "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
 
-"$AF_BIN" approve tool --all --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml" --by "ci@caskmcp"
-"$AF_BIN" approve snapshot --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
-"$AF_BIN" approve check --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
+"$AF_BIN" gate allow --all --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml" --by "ci@caskmcp"
+"$AF_BIN" gate snapshot --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
+"$AF_BIN" gate check --lockfile "$TOOLPACK_DIR/lockfile/caskmcp.lock.yaml"
 
 log "Magic moment harness passed"
