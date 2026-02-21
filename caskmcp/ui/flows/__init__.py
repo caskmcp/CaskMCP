@@ -34,10 +34,12 @@ def _register_default_flows() -> None:
     from caskmcp.ui.flows.config import config_flow
     from caskmcp.ui.flows.doctor import doctor_flow
     from caskmcp.ui.flows.init import init_flow
+    from caskmcp.ui.flows.repair import repair_flow
 
     register_flow("doctor", doctor_flow)
     register_flow("config", config_flow)
     register_flow("init", init_flow)
+    register_flow("repair", repair_flow)
 
 
 _register_default_flows()
