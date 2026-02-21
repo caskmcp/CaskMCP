@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from caskmcp.cli.enforce import EnforcementGateway
-from caskmcp.core.network_safety import RuntimeBlockError
 from caskmcp.core.approval import LockfileManager
+from caskmcp.core.network_safety import RuntimeBlockError
 from caskmcp.models.decision import ReasonCode
 
 
@@ -692,7 +692,7 @@ class TestEnforcementGatewayNetworkSafety:
         with pytest.raises(RuntimeBlockError, match="Unsupported URL scheme"):
             await gateway._execute_upstream(gateway.actions["get_user"], {"id": "123"})
 
-    def test_validate_network_target_blocks_metadata_ip(self, temp_files, approved_lockfile):
+    def test_validate_network_target_blocks_metadata_ip(self, temp_files, approved_lockfile):  # noqa: ARG002
         from caskmcp.core.network_safety import validate_network_target
 
         with (

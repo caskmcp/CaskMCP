@@ -347,7 +347,7 @@ class TestMCPServerDryRun:
 class TestMCPRuntimeSafety:
     """Tests for MCP runtime network safety checks."""
 
-    def test_validate_url_scheme_blocks_non_http(self, tools_file: Path) -> None:
+    def test_validate_url_scheme_blocks_non_http(self, tools_file: Path) -> None:  # noqa: ARG002
         from caskmcp.core.network_safety import validate_url_scheme
 
         with pytest.raises(RuntimeBlockError, match="Unsupported URL scheme"):
@@ -404,7 +404,7 @@ class TestMCPRuntimeSafety:
 
     def test_validate_network_target_allows_loopback_when_cidr_allowlisted(
         self,
-        tmp_path: Path,
+        tmp_path: Path,  # noqa: ARG002
     ) -> None:
         import ipaddress
 

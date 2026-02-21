@@ -22,7 +22,6 @@ from caskmcp.core.network_safety import (
     validate_url_scheme,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -94,7 +93,7 @@ class TestResolvedIps:
         assert result == [_ip("::1")]
 
     def test_hostname_resolves_via_dns(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def fake_getaddrinfo(host: str, port, **kwargs):
+        def fake_getaddrinfo(_host: str, _port, **_kwargs):
             return [
                 (socket.AF_INET, 0, 0, "", ("93.184.216.34", 0)),
             ]
@@ -104,7 +103,7 @@ class TestResolvedIps:
         assert _ip("93.184.216.34") in result
 
     def test_dns_failure_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def failing_getaddrinfo(host: str, port, **kwargs):
+        def failing_getaddrinfo(_host: str, _port, **_kwargs):
             raise socket.gaierror("Name resolution failed")
 
         monkeypatch.setattr(socket, "getaddrinfo", failing_getaddrinfo)
@@ -113,7 +112,7 @@ class TestResolvedIps:
         assert "denied_host_resolution_failed" in str(exc_info.value.reason_code)
 
     def test_empty_resolution_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def empty_getaddrinfo(host: str, port, **kwargs):
+        def empty_getaddrinfo(_host: str, _port, **_kwargs):
             return []
 
         monkeypatch.setattr(socket, "getaddrinfo", empty_getaddrinfo)
@@ -132,7 +131,7 @@ class TestValidateNetworkTarget:
     def test_blocks_if_any_ip_disallowed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Mixed public + private IPs → block (fail-closed)."""
 
-        def fake_getaddrinfo(host: str, port, **kwargs):
+        def fake_getaddrinfo(_host: str, _port, **_kwargs):
             return [
                 (socket.AF_INET, 0, 0, "", ("8.8.8.8", 0)),
                 (socket.AF_INET, 0, 0, "", ("10.0.0.1", 0)),
@@ -145,7 +144,7 @@ class TestValidateNetworkTarget:
     def test_blocks_metadata_ip_always(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Cloud metadata endpoint is always blocked, even with private CIDRs allowed."""
 
-        def fake_getaddrinfo(host: str, port, **kwargs):
+        def fake_getaddrinfo(_host: str, _port, **_kwargs):
             return [
                 (socket.AF_INET, 0, 0, "", ("169.254.169.254", 0)),
             ]
@@ -156,7 +155,7 @@ class TestValidateNetworkTarget:
         assert "metadata" in exc_info.value.message.lower()
 
     def test_allows_all_public_ips(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def fake_getaddrinfo(host: str, port, **kwargs):
+        def fake_getaddrinfo(_host: str, _port, **_kwargs):
             return [
                 (socket.AF_INET, 0, 0, "", ("93.184.216.34", 0)),
                 (socket.AF_INET, 0, 0, "", ("93.184.216.35", 0)),
