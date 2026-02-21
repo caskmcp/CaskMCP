@@ -7,7 +7,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from caskmcp.cli.enforce import EnforcementGateway, RuntimeBlockError
+from caskmcp.cli.enforce import EnforcementGateway
+from caskmcp.core.network_safety import RuntimeBlockError
 from caskmcp.core.approval import LockfileManager
 from caskmcp.models.decision import ReasonCode
 
@@ -374,7 +375,7 @@ class TestEnforcementGatewayExecute:
 
         with (
             patch.object(gateway, "_get_http_client", mock_get_client),
-            patch.object(gateway, "_validate_network_target"),
+            patch("caskmcp.cli.enforce.validate_network_target"),
         ):
             response = await gateway._execute_upstream(
                 gateway.actions["get_user"],
@@ -444,7 +445,7 @@ default_action: deny
 
         with (
             patch.object(gateway, "_get_http_client", mock_get_client),
-            patch.object(gateway, "_validate_network_target"),
+            patch("caskmcp.cli.enforce.validate_network_target"),
         ):
             await gateway._execute_upstream(
                 gateway.actions_by_name["query_get_product"],
@@ -528,7 +529,7 @@ default_action: deny
 
         with (
             patch.object(gateway, "_get_http_client", mock_get_client),
-            patch.object(gateway, "_validate_network_target"),
+            patch("caskmcp.cli.enforce.validate_network_target"),
         ):
             await gateway._execute_upstream(
                 gateway.actions_by_name["get_next_data_search"],
@@ -692,22 +693,16 @@ class TestEnforcementGatewayNetworkSafety:
             await gateway._execute_upstream(gateway.actions["get_user"], {"id": "123"})
 
     def test_validate_network_target_blocks_metadata_ip(self, temp_files, approved_lockfile):
-        tools_path, policy_path = temp_files
-        gateway = EnforcementGateway(
-            tools_path=tools_path,
-            policy_path=policy_path,
-            mode="proxy",
-            lockfile_path=approved_lockfile,
-        )
+        from caskmcp.core.network_safety import validate_network_target
 
         with (
             patch(
-                "socket.getaddrinfo",
+                "caskmcp.core.network_safety.socket.getaddrinfo",
                 return_value=[(None, None, None, None, ("169.254.169.254", 443))],
             ),
-            pytest.raises(RuntimeBlockError, match="blocked address"),
+            pytest.raises(RuntimeBlockError, match="metadata"),
         ):
-            gateway._validate_network_target("api.example.com")
+            validate_network_target("api.example.com", [])
 
     def test_idp_hosts_are_not_runtime_allowlisted(self, tmp_path: Path, approved_lockfile):
         tools_path = tmp_path / "tools.json"

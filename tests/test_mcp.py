@@ -9,7 +9,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from caskmcp.core.approval import LockfileManager
-from caskmcp.mcp.server import CaskMCPMCPServer, RuntimeBlockError
+from caskmcp.core.network_safety import RuntimeBlockError
+from caskmcp.mcp.server import CaskMCPMCPServer
 
 
 @pytest.fixture
@@ -347,9 +348,10 @@ class TestMCPRuntimeSafety:
     """Tests for MCP runtime network safety checks."""
 
     def test_validate_url_scheme_blocks_non_http(self, tools_file: Path) -> None:
-        server = CaskMCPMCPServer(tools_path=tools_file)
+        from caskmcp.core.network_safety import validate_url_scheme
+
         with pytest.raises(RuntimeBlockError, match="Unsupported URL scheme"):
-            server._validate_url_scheme("ftp://api.example.com/resource")
+            validate_url_scheme("ftp://api.example.com/resource")
 
     def test_idp_hosts_are_not_runtime_allowlisted(self, tmp_path: Path) -> None:
         manifest = {
@@ -404,28 +406,13 @@ class TestMCPRuntimeSafety:
         self,
         tmp_path: Path,
     ) -> None:
-        manifest = {
-            "version": "1.0.0",
-            "schema_version": "1.0",
-            "allowed_hosts": ["127.0.0.1:8443"],
-            "actions": [
-                {
-                    "name": "get_products",
-                    "method": "GET",
-                    "path": "/api/products",
-                    "host": "127.0.0.1:8443",
-                    "risk_tier": "low",
-                }
-            ],
-        }
-        tools_path = tmp_path / "tools.json"
-        tools_path.write_text(json.dumps(manifest), encoding="utf-8")
-        server = CaskMCPMCPServer(
-            tools_path=tools_path,
-            allow_private_cidrs=["127.0.0.0/8"],
-        )
+        import ipaddress
 
-        server._validate_network_target("127.0.0.1")
+        from caskmcp.core.network_safety import validate_network_target
+
+        allow_private = [ipaddress.ip_network("127.0.0.0/8")]
+        # Should not raise — loopback is allowed when CIDR covers it
+        validate_network_target("127.0.0.1", allow_private)
 
     @pytest.mark.asyncio
     async def test_execute_request_applies_fixed_graphql_operation(self, tmp_path: Path) -> None:
@@ -480,7 +467,7 @@ class TestMCPRuntimeSafety:
 
         with (
             patch.object(server, "_get_http_client", mock_get_client),
-            patch.object(server, "_validate_network_target"),
+            patch("caskmcp.mcp.server.validate_network_target"),
         ):
             await server._execute_request(
                 server.actions["query_get_product"],
@@ -553,7 +540,7 @@ class TestMCPRuntimeSafety:
 
         with (
             patch.object(server, "_get_http_client", mock_get_client),
-            patch.object(server, "_validate_network_target"),
+            patch("caskmcp.mcp.server.validate_network_target"),
         ):
             await server._execute_request(
                 server.actions["get_next_data_search"],
@@ -612,7 +599,7 @@ class TestMCPRuntimeSafety:
 
         with (
             patch.object(server, "_get_http_client", mock_get_client),
-            patch.object(server, "_validate_network_target"),
+            patch("caskmcp.mcp.server.validate_network_target"),
             patch.object(
                 server,
                 "_resolve_nextjs_build_id",
@@ -687,7 +674,7 @@ class TestMCPRuntimeSafety:
         resolver = AsyncMock(return_value=refreshed_build_id)
         with (
             patch.object(server, "_get_http_client", mock_get_client),
-            patch.object(server, "_validate_network_target"),
+            patch("caskmcp.mcp.server.validate_network_target"),
             patch.object(server, "_resolve_nextjs_build_id", resolver),
         ):
             result = await server._execute_request(

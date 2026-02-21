@@ -8,7 +8,6 @@ import ipaddress
 import json
 import logging
 import re
-import socket
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode, urljoin, urlparse
@@ -47,6 +46,13 @@ from caskmcp.models.decision import (
     NetworkSafetyConfig,
     ReasonCode,
 )
+from caskmcp.core.network_safety import (
+    RuntimeBlockError,
+    host_matches_allowlist,
+    normalize_host_for_allowlist,
+    validate_network_target,
+    validate_url_scheme,
+)
 from caskmcp.utils.schema_version import resolve_schema_version
 
 logger = logging.getLogger(__name__)
@@ -56,15 +62,6 @@ _NEXTJS_NEXT_DATA_RE = re.compile(
     r'<script[^>]+id="__NEXT_DATA__"[^>]*>(.*?)</script>',
     re.IGNORECASE | re.DOTALL,
 )
-
-
-class RuntimeBlockError(Exception):
-    """Raised when runtime network controls deny execution."""
-
-    def __init__(self, reason_code: ReasonCode, message: str) -> None:
-        super().__init__(message)
-        self.reason_code = reason_code
-        self.message = message
 
 
 class CaskMCPMCPServer:
@@ -595,11 +592,11 @@ class CaskMCPMCPServer:
         client = await self._get_http_client()
         current_url = probe_url
         for _ in range(2):
-            self._validate_url_scheme(current_url)
+            validate_url_scheme(current_url)
             parsed = urlparse(current_url)
             target_host = parsed.hostname or action_host
             self._validate_host_allowlist(target_host, action_host)
-            self._validate_network_target(target_host)
+            validate_network_target(target_host, self.allow_private_networks)
 
             response = await client.request(
                 "GET",
@@ -616,7 +613,7 @@ class CaskMCPMCPServer:
                 if not next_host:
                     break
                 self._validate_host_allowlist(next_host, action_host)
-                self._validate_network_target(next_host)
+                validate_network_target(next_host, self.allow_private_networks)
                 current_url = next_url
                 continue
 
@@ -682,53 +679,11 @@ class CaskMCPMCPServer:
             return "/" + parts[0]
         return "/"
 
-    def _resolved_ips(self, host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
-        try:
-            infos = socket.getaddrinfo(host, None)
-        except OSError as exc:
-            raise RuntimeBlockError(
-                ReasonCode.DENIED_HOST_RESOLUTION_FAILED,
-                f"Failed to resolve host '{host}': {exc}",
-            ) from exc
-
-        ips: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
-        for info in infos:
-            addr = info[4][0]
-            try:
-                ips.append(ipaddress.ip_address(addr))
-            except ValueError:
-                continue
-
-        if not ips:
-            raise RuntimeBlockError(
-                ReasonCode.DENIED_HOST_RESOLUTION_FAILED,
-                f"No valid IPs resolved for host '{host}'",
-            )
-        return ips
-
-    def _is_ip_allowed(self, ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-        if ip.is_loopback:
-            return any(ip in network for network in self.allow_private_networks)
-        if ip.is_link_local or ip.is_multicast or ip.is_unspecified:
-            return False
-        if ip.is_private:
-            return any(ip in network for network in self.allow_private_networks)
-        return True
-
-    def _validate_network_target(self, host: str) -> None:
-        for ip in self._resolved_ips(host):
-            if not self._is_ip_allowed(ip):
-                raise RuntimeBlockError(
-                    ReasonCode.DENIED_HOST_RESOLUTION_FAILED,
-                    f"Resolved host '{host}' to blocked address {ip}",
-                )
-
     def _validate_host_allowlist(self, target_host: str, action_host: str) -> None:
         allowed_hosts = self._allowed_app_hosts()
-        target_host_l = target_host.lower()
-        if self._host_matches_allowlist(target_host_l, allowed_hosts):
+        if host_matches_allowlist(target_host, allowed_hosts):
             return
-        if not allowed_hosts and target_host_l == action_host.lower():
+        if not allowed_hosts and normalize_host_for_allowlist(target_host) == normalize_host_for_allowlist(action_host):
             return
         raise RuntimeBlockError(
             ReasonCode.DENIED_REDIRECT_NOT_ALLOWLISTED,
@@ -745,56 +700,6 @@ class CaskMCPMCPServer:
         if isinstance(raw_allowed, list):
             return {str(host).lower() for host in raw_allowed}
         return set()
-
-    def _host_matches_allowlist(self, host: str, allowed_hosts: set[str]) -> bool:
-        normalized_host = self._normalize_host_for_allowlist(host)
-        for pattern in allowed_hosts:
-            normalized_pattern = self._normalize_host_for_allowlist(pattern)
-            if not normalized_pattern:
-                continue
-
-            pattern = normalized_pattern
-            if pattern.startswith("*."):
-                suffix = pattern[2:]
-                if not suffix:
-                    continue
-                if (
-                    normalized_host.endswith(f".{suffix}")
-                    and normalized_host.count(".") == suffix.count(".") + 1
-                ):
-                    return True
-                continue
-            if normalized_host == pattern:
-                return True
-        return False
-
-    def _normalize_host_for_allowlist(self, value: str) -> str:
-        raw = value.strip().lower()
-        if not raw:
-            return ""
-
-        # Bracketed IPv6 literal, optionally with port (e.g. [::1]:8443).
-        if raw.startswith("["):
-            closing = raw.find("]")
-            if closing > 0:
-                return raw[1:closing]
-            return raw
-
-        if raw.count(":") == 1:
-            host, port = raw.rsplit(":", 1)
-            if port.isdigit():
-                return host
-
-        return raw
-
-    def _validate_url_scheme(self, url: str) -> None:
-        parsed = urlparse(url)
-        scheme = (parsed.scheme or "").lower()
-        if scheme not in {"http", "https"}:
-            raise RuntimeBlockError(
-                ReasonCode.DENIED_SCHEME_NOT_ALLOWED,
-                f"Unsupported URL scheme '{scheme or '<empty>'}' for runtime request",
-            )
 
     async def _execute_request(
         self,
@@ -870,11 +775,11 @@ class CaskMCPMCPServer:
             current_url = url
 
             for _ in range(4):
-                self._validate_url_scheme(current_url)
+                validate_url_scheme(current_url)
                 parsed = urlparse(current_url)
                 target_host = parsed.hostname or action_host
                 self._validate_host_allowlist(target_host, action_host)
-                self._validate_network_target(target_host)
+                validate_network_target(target_host, self.allow_private_networks)
 
                 response = await client.request(method.upper(), current_url, **kwargs)
                 if response.status_code in {301, 302, 303, 307, 308}:
@@ -887,7 +792,7 @@ class CaskMCPMCPServer:
                             f"Redirect blocked for {current_url} -> {location}",
                         )
                     next_url = urljoin(current_url, location)
-                    self._validate_url_scheme(next_url)
+                    validate_url_scheme(next_url)
                     next_host = urlparse(next_url).hostname
                     if not next_host:
                         raise RuntimeBlockError(
@@ -895,7 +800,7 @@ class CaskMCPMCPServer:
                             f"Redirect target '{location}' has no host",
                         )
                     self._validate_host_allowlist(next_host, action_host)
-                    self._validate_network_target(next_host)
+                    validate_network_target(next_host, self.allow_private_networks)
                     current_url = next_url
                     continue
 
