@@ -71,7 +71,13 @@ class CaskGroup(click.Group):
             cmd_name = ctx.invoked_subcommand
             if ctx.obj and ctx.obj.get("interactive") and cmd_name in INTERACTIVE_COMMANDS:
                 flow = INTERACTIVE_COMMANDS[cmd_name]
-                flow(ctx=ctx, missing_param=exc.param_hint)
+                hint = exc.param_hint
+                param_str: str | None = None
+                if isinstance(hint, str):
+                    param_str = hint
+                elif hint:
+                    param_str = ", ".join(hint)
+                flow(ctx=ctx, missing_param=param_str)
                 return
             raise
 

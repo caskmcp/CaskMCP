@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from caskmcp.ui.console import err_console
@@ -31,14 +32,14 @@ def init_flow(
     # Detect project
     con.print(f"[info]Detecting project at {directory}...[/info]")
     try:
-        from caskmcp.cli.init import detect_project
+        from caskmcp.core.init.detector import detect_project
 
-        detection = detect_project(directory)
+        detection = detect_project(Path(directory))
         if detection:
-            con.print(f"  Type: {detection.get('type', 'unknown')}")
-            con.print(f"  Language: {detection.get('language', 'unknown')}")
-            if detection.get("frameworks"):
-                con.print(f"  Frameworks: {', '.join(detection['frameworks'])}")
+            con.print(f"  Type: {detection.project_type}")
+            con.print(f"  Language: {detection.language}")
+            if detection.frameworks:
+                con.print(f"  Frameworks: {', '.join(detection.frameworks)}")
     except Exception:
         con.print("[muted]Could not detect project type.[/muted]")
 

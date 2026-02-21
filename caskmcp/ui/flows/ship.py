@@ -159,15 +159,15 @@ def _stage_capture(*, root: Path, verbose: bool) -> str | None:
 
         run_mint(
             start_url=start_url,
-            allowed_hosts=tuple(hosts),
+            allowed_hosts=list(hosts),
             name=name or None,
-            scope="first_party_only",
+            scope_name="first_party_only",
             headless=True,
-            script=None,
-            duration=30,
-            output=str(root),
+            script_path=None,
+            duration_seconds=30,
+            output_root=str(root),
             deterministic=True,
-            runtime="local",
+            runtime_mode="local",
             runtime_build=False,
             runtime_tag=None,
             runtime_version_pin=None,
@@ -265,8 +265,15 @@ def _stage_verify(*, toolpack_path: str, root: Path, verbose: bool) -> None:
         run_verify(
             toolpack_path=toolpack_path,
             mode="all",
+            lockfile_path=None,
+            playbook_path=None,
+            ui_assertions_path=None,
+            output_dir=str(root / "reports"),
+            strict=True,
+            top_k=5,
+            min_confidence=0.70,
+            unknown_budget=0.20,
             verbose=verbose,
-            root_path=str(root),
         )
         con.print("[success]Verification passed.[/success]")
     except SystemExit:

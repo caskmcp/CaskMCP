@@ -13,7 +13,7 @@ from pathlib import Path
 
 from caskmcp.core.approval import LockfileManager
 from caskmcp.core.approval.lockfile import ApprovalStatus, Lockfile, ToolApproval
-from caskmcp.core.approval.signing import ApprovalSigner, resolve_approver
+from caskmcp.core.approval.signing import resolve_approver
 from caskmcp.core.approval.snapshot import materialize_snapshot
 from caskmcp.core.toolpack import load_toolpack, resolve_toolpack_paths
 from caskmcp.utils.deps import has_mcp_dependency
@@ -206,7 +206,6 @@ def run_gate_approve(
         raise FileNotFoundError(f"No lockfile found at: {manager.lockfile_path}")
 
     manager.load()
-    signer = ApprovalSigner(root_path=root_path)
     actor = resolve_approver(approved_by)
 
     if all_pending:
@@ -224,9 +223,8 @@ def run_gate_approve(
     for tid in ids_to_approve:
         tool = manager.get_tool(tid)
         if tool and tool.status == ApprovalStatus.PENDING:
-            manager.approve_tool(
+            manager.approve(
                 tool_id=tid,
-                signer=signer,
                 approved_by=actor,
                 reason=reason,
             )
@@ -262,7 +260,7 @@ def run_gate_reject(
     for tid in tool_ids:
         tool = manager.get_tool(tid)
         if tool:
-            manager.reject_tool(tool_id=tid, reason=reason)
+            manager.reject(tool_id=tid, reason=reason)
             rejected.append(tid)
     manager.save()
     return rejected
@@ -270,7 +268,7 @@ def run_gate_reject(
 
 def run_gate_snapshot(
     lockfile_path: str,
-    root_path: str,
+    root_path: str = ".caskmcp",  # noqa: ARG001
 ) -> str | None:
     """Materialize baseline snapshot. Returns snapshot path or None."""
     manager = LockfileManager(lockfile_path)
@@ -281,8 +279,8 @@ def run_gate_snapshot(
     if manager.get_pending():
         raise ValueError("Cannot snapshot: pending tools exist")
 
-    result = materialize_snapshot(lockfile_path=lockfile_path, root_path=root_path)
-    return result
+    result = materialize_snapshot(lockfile_path=Path(lockfile_path))
+    return str(result.snapshot_dir) if result.snapshot_dir else None
 
 
 def load_lockfile_tools(lockfile_path: str) -> tuple[Lockfile, list[ToolApproval]]:
