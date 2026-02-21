@@ -31,6 +31,13 @@ from caskmcp.core.audit import (
     MemoryAuditBackend,
 )
 from caskmcp.core.enforce import ConfirmationStore, DecisionEngine, PolicyEngine
+from caskmcp.core.network_safety import (
+    RuntimeBlockError,
+    host_matches_allowlist,
+    normalize_host_for_allowlist,
+    validate_network_target,
+    validate_url_scheme,
+)
 from caskmcp.models.decision import (
     DecisionContext,
     DecisionRequest,
@@ -38,13 +45,6 @@ from caskmcp.models.decision import (
     DecisionType,
     NetworkSafetyConfig,
     ReasonCode,
-)
-from caskmcp.core.network_safety import (
-    RuntimeBlockError,
-    host_matches_allowlist,
-    normalize_host_for_allowlist,
-    validate_network_target,
-    validate_url_scheme,
 )
 from caskmcp.utils.schema_version import resolve_schema_version
 

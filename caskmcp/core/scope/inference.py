@@ -15,7 +15,6 @@ from caskmcp.core.risk_keywords import CRITICAL_PATH_KEYWORDS, HIGH_RISK_PATH_KE
 from caskmcp.models.endpoint import Endpoint
 from caskmcp.models.scope import RiskReason, ScopeDraft
 
-
 # Search-like POST patterns (POST but semantically read-only)
 _SEARCH_PATH_PATTERN = re.compile(
     r"(search|query|graphql|lookup|filter|autocomplete|suggest)",

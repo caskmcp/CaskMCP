@@ -22,7 +22,6 @@ from urllib.parse import urlparse
 
 from caskmcp.models.decision import ReasonCode
 
-
 # ---------------------------------------------------------------------------
 # Exception
 # ---------------------------------------------------------------------------
