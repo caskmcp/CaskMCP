@@ -9,7 +9,7 @@ import yaml
 
 from caskmcp.utils.schema_version import CURRENT_SCHEMA_VERSION
 
-READ_METHODS = {"GET", "HEAD", "OPTIONS"}
+READ_METHODS = {"GET", "HEAD"}
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 

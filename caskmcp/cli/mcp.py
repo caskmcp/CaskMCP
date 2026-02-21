@@ -57,6 +57,10 @@ def run_mcp_serve(
             click.echo(f"Error: {e}", err=True)
             sys.exit(1)
 
+        from caskmcp.utils.state import warn_if_sandboxed_path
+
+        warn_if_sandboxed_path(Path(toolpack_path))
+
     resolved_tools_path = Path(tools_path) if tools_path else None
     if resolved_tools_path is None and resolved_toolpack_paths is not None:
         resolved_tools_path = resolved_toolpack_paths.tools_path
@@ -145,17 +149,36 @@ def run_mcp_serve(
                 resolved_toolpack is not None
                 and resolved_toolpack.paths.lockfiles.get("pending")
             ):
+                pending_rel = resolved_toolpack.paths.lockfiles["pending"]
+                pending_abs = (
+                    resolved_toolpack_paths.pending_lockfile_path
+                    if resolved_toolpack_paths
+                    else pending_rel
+                )
+                tp = toolpack_path or "toolpack.yaml"
                 click.echo(
-                    "Error: approved lockfile required for runtime. "
-                    "Toolpack contains pending approvals only. "
-                    "Run `cask gate allow ...` then use an approved lockfile "
-                    "or pass --unsafe-no-lockfile (unsafe).",
+                    "Error: approved lockfile required.\n"
+                    "\n"
+                    "Your toolpack has pending approvals. Run:\n"
+                    "\n"
+                    f"  cask gate allow --all --lockfile {pending_abs}\n"
+                    f"  cask gate check --lockfile {pending_abs}\n"
+                    "\n"
+                    "Then start the server with:\n"
+                    "\n"
+                    f"  cask serve --toolpack {tp} --lockfile {pending_abs}",
                     err=True,
                 )
             else:
+                tp = toolpack_path or "toolpack.yaml"
                 click.echo(
-                    "Error: runtime requires --lockfile with approved tools "
-                    "(or use --unsafe-no-lockfile for local unsafe mode).",
+                    "Error: no lockfile found.\n"
+                    "\n"
+                    "Run cask gate allow to approve your tools first, "
+                    "then pass the approved lockfile:\n"
+                    "\n"
+                    f"  cask gate allow --all --lockfile <path-to-lockfile>\n"
+                    f"  cask serve --toolpack {tp} --lockfile <path-to-approved-lockfile>",
                     err=True,
                 )
             sys.exit(1)

@@ -111,6 +111,8 @@ def register_mcp_commands(
         safely, with policy enforcement, confirmation requirements, and
         audit logging.
 
+        For production use with automatic validation, see `cask run`.
+
         \b
         Examples:
           # Resolve all paths from a toolpack

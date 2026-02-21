@@ -172,6 +172,11 @@ def run_mint(
             click.echo()
 
     output_base = Path(output_root)
+
+    from caskmcp.utils.state import warn_if_sandboxed_path
+
+    warn_if_sandboxed_path(output_base)
+
     storage = Storage(base_path=output_base)
     capture_path = storage.save_capture(session)
 
@@ -331,7 +336,8 @@ def run_mint(
         "  cask gate allow --all --toolset readonly "
         f"--lockfile {pending_lockfile}"
     )
-    click.echo(f"  cask serve --toolpack {toolpack_file}")
+    click.echo(f"  cask run --toolpack {toolpack_file}        # production (with doctor check)")
+    click.echo(f"  cask serve --toolpack {toolpack_file}      # development (fine-grained control)")
     click.echo(
         f"  cask drift --baseline {copied_baseline} --capture-path {capture_path}"
     )

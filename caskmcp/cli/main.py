@@ -699,7 +699,10 @@ def run(
     allow_redirects: bool,
     unsafe_no_lockfile: bool,
 ) -> None:
-    """Execute a toolpack with policy enforcement."""
+    """Execute a toolpack with policy enforcement.
+
+    For development with fine-grained path control, see `cask serve`.
+    """
     from caskmcp.cli.run import run_run
 
     resolved_confirm_store = confirm_store or str(
