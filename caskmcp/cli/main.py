@@ -51,6 +51,7 @@ CORE_COMMANDS = [
     "config",
     "verify",
     "drift",
+    "repair",
     "diff",
     "run",
     "demo",
@@ -767,6 +768,71 @@ def drift(
         output_format=output_format,
         verbose=ctx.obj.get("verbose", False),
         deterministic=deterministic,
+        root_path=str(ctx.obj.get("root", resolve_root())),
+    )
+
+
+@cli.command(
+    epilog="""\b
+Examples:
+  cask repair --toolpack toolpack.yaml
+  cask repair --toolpack toolpack.yaml --from audit.log.jsonl
+  cask repair --toolpack toolpack.yaml --from audit.log.jsonl --from drift.json
+  cask repair --toolpack toolpack.yaml --no-auto-discover
+""",
+)
+@click.option(
+    "--toolpack",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to toolpack.yaml",
+)
+@click.option(
+    "--from",
+    "from_",
+    multiple=True,
+    type=click.Path(),
+    help="Context file(s) to diagnose (audit log, drift report, verify report). Repeatable.",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    help="Output directory for repair artifacts (defaults to <root>/repairs/<timestamp>_repair/)",
+)
+@click.option(
+    "--auto-discover/--no-auto-discover",
+    default=True,
+    show_default=True,
+    help="Auto-discover context files near the toolpack",
+)
+@click.pass_context
+def repair(
+    ctx: click.Context,
+    toolpack: str,
+    from_: tuple[str, ...],
+    output: str | None,
+    auto_discover: bool,
+) -> None:
+    """Diagnose issues and propose fixes for a governed toolpack.
+
+    Parses audit logs, drift reports, and verify reports to diagnose problems,
+    then proposes copy-pasteable remediation commands classified by safety level.
+
+    \b
+    Safety levels:
+      safe              Read-only, zero capability expansion
+      approval_required Changes approved state or grants new capability
+      manual            Requires investigation or new capture
+    """
+    from caskmcp.cli.repair import run_repair
+
+    run_repair(
+        toolpack_path=toolpack,
+        context_paths=list(from_),
+        output_dir=output,
+        auto_discover=auto_discover,
+        verbose=ctx.obj.get("verbose", False),
         root_path=str(ctx.obj.get("root", resolve_root())),
     )
 

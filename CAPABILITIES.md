@@ -849,6 +849,42 @@ Compare two endpoint sets or an endpoint set against a baseline to detect breaki
 
 ---
 
+## Core Domain -- Repair
+
+### CAP-REPAIR-001: Repair Engine
+
+Diagnose toolpack issues from audit logs, drift reports, and verify reports. Propose copy-pasteable remediation commands classified by safety level (SAFE / APPROVAL_REQUIRED / MANUAL). Never auto-executes — outputs commands for human review.
+
+| Field | Value |
+|---|---|
+| Module | `caskmcp/core/repair/engine.py` |
+| Class | `RepairEngine` |
+| Methods | `run(context_paths, auto_discover)` |
+| Models | `caskmcp/models/repair.py` :: `RepairReport`, `DiagnosisItem`, `PatchItem`, `PatchKind`, `PatchAction` |
+| Safety model | `SAFE` (zero capability expansion), `APPROVAL_REQUIRED` (changes state), `MANUAL` (requires investigation) |
+| Diagnosis sources | Audit JSONL (DENY entries), drift reports (actionable types), verify reports (fail/unknown sections) |
+| Patch actions | `gate_allow`, `gate_sync`, `gate_reseal`, `verify_contracts`, `verify_provenance`, `investigate`, `re_mint`, `review_policy`, `add_host` |
+| Redaction | Strips Authorization, Cookie, API key headers from all evidence before output |
+| Exit codes | 0 (healthy), 1 (report generated), 2 (CLI error) |
+| Schema version | `0.1` |
+
+---
+
+### CAP-REPAIR-002: Repair CLI
+
+CLI entry point for repair. Reads toolpack, parses context files, writes structured output artifacts.
+
+| Field | Value |
+|---|---|
+| Module | `caskmcp/cli/repair.py` |
+| Function | `run_repair()` |
+| CLI command | `cask repair --toolpack <path> [--from <context>...] [-o <dir>] [--no-auto-discover]` |
+| Outputs | `repair.json`, `repair.md`, `diagnosis.json`, `patch.commands.sh` |
+| Default output | `<root>/repairs/<YYYYMMDD_HHMMSSZ>_repair/` |
+| Flags | `--from` (repeatable), `--auto-discover/--no-auto-discover`, `--output/-o` |
+
+---
+
 ## Core Domain -- Policy Enforcement
 
 ### CAP-ENFORCE-001: Policy Engine
