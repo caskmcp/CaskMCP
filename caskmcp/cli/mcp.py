@@ -149,11 +149,13 @@ def run_mcp_serve(
                 resolved_toolpack is not None
                 and resolved_toolpack.paths.lockfiles.get("pending")
             ):
-                pending_abs = (
-                    resolved_toolpack_paths.pending_lockfile_path
-                    if resolved_toolpack_paths
-                    else Path(toolpack_path).parent / resolved_toolpack.paths.lockfiles["pending"]
-                )
+                pending_ref = resolved_toolpack.paths.lockfiles["pending"]
+                if resolved_toolpack_paths and resolved_toolpack_paths.pending_lockfile_path:
+                    pending_abs = resolved_toolpack_paths.pending_lockfile_path
+                elif toolpack_path:
+                    pending_abs = Path(toolpack_path).parent / pending_ref
+                else:
+                    pending_abs = Path(pending_ref)
                 # Approved path: same name with .pending. removed
                 approved_name = pending_abs.name.replace(".pending.", ".")
                 approved_abs = pending_abs.with_name(approved_name)
