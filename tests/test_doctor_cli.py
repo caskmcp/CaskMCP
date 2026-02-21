@@ -46,7 +46,7 @@ def test_doctor_container_requires_docker(tmp_path: Path, monkeypatch) -> None:
     toolpack_file = write_demo_toolpack(tmp_path)
     runner = CliRunner()
 
-    monkeypatch.setattr("caskmcp.cli.doctor.docker_available", lambda: False)
+    monkeypatch.setattr("caskmcp.ui.runner.docker_available", lambda: False)
     result = runner.invoke(
         cli,
         ["doctor", "--toolpack", str(toolpack_file), "--runtime", "container"],
@@ -71,7 +71,7 @@ def test_doctor_auto_container_requires_docker(tmp_path: Path, monkeypatch) -> N
         (toolpack_dir / name).write_text("stub\n")
 
     runner = CliRunner()
-    monkeypatch.setattr("caskmcp.cli.doctor.docker_available", lambda: False)
+    monkeypatch.setattr("caskmcp.ui.runner.docker_available", lambda: False)
     result = runner.invoke(
         cli,
         ["doctor", "--toolpack", str(toolpack_file), "--runtime", "auto"],
