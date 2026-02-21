@@ -1,4 +1,4 @@
-"""Redaction profiles — configurable redaction levels per ARCHITECTURE.md §5.1.1."""
+"""Redaction profiles — configurable redaction levels per docs/architecture.md §5.1.1."""
 
 from __future__ import annotations
 

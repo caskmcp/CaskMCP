@@ -157,7 +157,7 @@ class RiskReason(StrEnum):
 class ScopeDraft(BaseModel):
     """A draft scope assignment with confidence scoring.
 
-    Per ARCHITECTURE.md §6.3: confidence scoring based on signal strength.
+    Per docs/architecture.md §6.3: confidence scoring based on signal strength.
     When confidence < 0.7 and risk >= high, review_required is set.
     """
 

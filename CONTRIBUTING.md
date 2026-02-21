@@ -77,7 +77,7 @@ Even under exceptions, add regression tests if the change risks behavior, and ru
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design spec.
+See [docs/architecture.md](docs/architecture.md) for the full design spec.
 
 Key directories:
 - `caskmcp/cli/` — Click commands
@@ -101,7 +101,7 @@ Key directories:
 
 - Public behavior changes must update the user-facing docs in the same PR (`README.md`, `docs/user-guide.md`, and relevant specs).
 - `CHANGELOG.md` is the canonical release history. Treat `docs/releases/` as historical archive material.
-- Architecture and boundary changes must update `ARCHITECTURE.md`.
+- Architecture and boundary changes must update `docs/architecture.md`.
 
 ## Reporting issues
 

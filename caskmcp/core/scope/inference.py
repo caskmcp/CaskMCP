@@ -1,6 +1,6 @@
 """Scope inference engine — compute ScopeDraft entries from endpoints.
 
-4-stage pipeline per ARCHITECTURE.md §6.3:
+4-stage pipeline per docs/architecture.md §6.3:
 1. Structural classification (HTTP method → scope)
 2. Semantic signal scoring (path keywords, auth, PII, tags)
 3. Risk tier assignment (critical/high/medium/low/safe)

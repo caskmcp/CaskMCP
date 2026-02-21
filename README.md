@@ -201,7 +201,7 @@ Cask provides the missing governance layer: local, deterministic, auditable, fai
 
 ## Documentation
 
-- [Architecture](ARCHITECTURE.md)
+- [Architecture](docs/architecture.md)
 - [User Guide](docs/user-guide.md)
 - [Known Limitations](docs/known-limitations.md)
 - [Publishing](docs/publishing.md)
