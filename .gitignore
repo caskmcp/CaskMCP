@@ -86,3 +86,4 @@ docs/archive/
 # TUI Studio build artifacts
 .terminal_demo_studio_runs/
 cask-studio/outputs/
+cask-studio/screenplays/.terminal_demo_studio_runs/

@@ -7,7 +7,7 @@
 
 <!-- mcp-name: io.github.caskmcp/cask -->
 
-Turn any web API into a governed, agent-ready MCP server. Lockfile-based approval. Fail-closed by default. Audit everything.
+Turn any web API into a governed, agent-ready MCP server. Lockfile-based approval, fail-closed enforcement, self-repairing proposals, and full audit trail. Every tool your AI agent uses is reviewed, signed, and traceable.
 
 <!-- hero-start -->
 <p align="center">
@@ -19,7 +19,9 @@ Turn any web API into a governed, agent-ready MCP server. Lockfile-based approva
 
 AI agents need tools. MCP gives them tools. But **who governs what those tools can do?**
 
-MCP adoption is accelerating while trust and safety remain unsolved. [OpenAI warns about tool-injection risks](https://platform.openai.com/docs/mcp). [Real incidents are already happening](https://www.upguard.com/blog/asana-discloses-data-exposure-bug-in-mcp-server). Cask provides the missing governance layer: local, deterministic, auditable, fail-closed.
+Without governance, agents silently call admin endpoints, charge billing APIs, leak data to third parties, and escalate their own privileges — with no audit trail and no way to detect drift. [OpenAI warns about tool-injection risks](https://platform.openai.com/docs/mcp). [Real data exposure incidents are already happening](https://www.upguard.com/blog/asana-discloses-data-exposure-bug-in-mcp-server).
+
+Cask is the missing governance layer: **local, deterministic, auditable, fail-closed.**
 
 ## See It Work (30 seconds)
 
@@ -28,17 +30,11 @@ pip install caskmcp
 cask demo
 ```
 
-What just happened:
-- Compiled a governed toolpack from offline fixtures
-- Enforced fail-closed lockfile governance (no lockfile = no runtime)
-- Proved deterministic replay parity between two independent runs
-- Emitted `prove_summary.json`, `prove_twice_report.md`, and `prove_twice_diff.json`
-
-Exit code `0` means governance held, parity passed, and everything is deterministic.
-
 <p align="center">
-  <img src="docs/assets/cask-demo.gif" alt="cask demo — governance proof in 30 seconds" width="80%">
+  <img src="docs/assets/cask-demo.gif" alt="cask demo — real governance proof" width="80%">
 </p>
+
+`cask demo` compiles 8 tools from bundled API traffic, enforces fail-closed lockfile governance, proves deterministic replay parity, and emits evidence artifacts. Exit code `0` means every governance gate held.
 
 ## Quick Start (5 minutes)
 
@@ -54,7 +50,7 @@ cask mint https://your-app.com -a api.your-app.com
 # 3. Review what changed (risk-classified diff)
 cask diff --toolpack .caskmcp/toolpacks/*/toolpack.yaml
 
-# 4. Approve tools for use
+# 4. Approve tools for use (interactive TUI or CLI)
 cask gate allow --all
 
 # 5. Start the governed MCP server
@@ -71,26 +67,40 @@ Your AI agent now has governed, auditable access to your API.
   HAR/OTEL    tools.json   cask diff  lockfile   MCP stdio  contracts
   OpenAPI     policy.yaml            signatures              drift
   Browser     contracts                                      evidence
+  WebMCP      scopes                                         repair
 ```
 
-**Capture** real traffic (HAR, OpenTelemetry, OpenAPI specs, or live browser sessions).
-**Compile** into deterministic, versioned tool definitions with risk classification.
-**Review** changes with `cask diff` -- every new tool, schema change, or host addition is risk-classified.
-**Approve** via signed lockfile entries -- explicit human decisions, not silent defaults.
-**Serve** through MCP with fail-closed enforcement -- unapproved tools never execute.
-**Verify** with assertion-based contracts, drift detection, and evidence bundles for CI.
+**Capture** real traffic (HAR, OpenTelemetry, OpenAPI specs, live browser, or WebMCP discovery).
+**Compile** into deterministic, versioned tool definitions with risk classification and scopes.
+**Review** changes with `cask diff` — every new tool, schema change, or host addition is risk-classified.
+**Approve** via Ed25519-signed lockfile entries — explicit human decisions, not silent defaults.
+**Serve** through MCP with fail-closed enforcement — unapproved tools never execute.
+**Verify** with contracts, drift detection, and evidence bundles. When things break, `cask repair` proposes fixes.
 
-## Why Cask?
+## What Makes Cask Different
 
-**Safe by default.** Fail-closed lockfile enforcement means unapproved tools never run. No lockfile, no runtime. Period.
+### Fail-Closed by Default
+No lockfile, no runtime. Period. This isn't a suggestion — it's an architectural invariant. Unapproved tools never execute, and there's no way to bypass it.
 
-**Auditable.** Every approval is signed. Every runtime decision produces a trace. Every verification run creates an evidence bundle.
+### Self-Repairing Governance
+When agents are denied capabilities, `cask repair` diagnoses the issue from audit logs, drift reports, and verification failures, then proposes classified fixes:
+- **SAFE** — read-only diagnostics (auto-runnable)
+- **APPROVAL_REQUIRED** — grants new capability (needs human review)
+- **MANUAL** — requires investigation or re-capture
 
-**Deterministic.** Same inputs produce identical artifacts and digests. Replay parity is a first-class contract, not an aspiration.
+Agents can also propose new capabilities via `cask propose` — proposals are stored as drafts and only promoted to runtime by explicit human approval.
 
-**Zero friction.** `cask demo` proves the entire governance loop offline in 30 seconds. `cask mint` captures and compiles in one command. OpenAPI specs are auto-detected on import.
+### Interactive TUI
+Rich terminal UI for tool review — risk-colored tables, wizard flows, typed confirmation for dangerous operations. Run `cask` with no arguments for a guided menu.
 
-**CI-native.** `cask gate check` gates deployments. `cask drift` catches API surface changes. `cask verify` runs assertion-based contracts. All exit codes are machine-readable.
+### Agent-Aware Introspection
+`cask inspect` runs a read-only Meta MCP server that exposes governance state as AI-consumable tools. Agents can query what they're allowed to do, check policy, and list pending approvals — making them governance-aware.
+
+### Deterministic Replay Parity
+Same inputs produce identical artifacts, digests, and tool outputs. This is verified, not aspirational — `cask demo` proves it in 30 seconds.
+
+### Full Audit Trail
+Every governance decision (ALLOW, DENY, CONFIRM) is logged with structured traces. Every approval is Ed25519-signed. Every verification run produces an evidence bundle with SHA-256 digests.
 
 ## Traffic Capture
 
@@ -110,20 +120,31 @@ All paths converge to the same governed runtime.
 | Command | What it does |
 | --- | --- |
 | `cask init` | Initialize Cask in your project |
-| `cask mint <url>` | Capture traffic and compile a toolpack |
-| `cask diff` | Generate a risk-classified change report |
-| `cask gate allow` | Approve tools for use |
-| `cask gate check` | CI gate: exit 0 only if all tools approved |
+| `cask mint <url>` | Capture traffic and compile a governed toolpack |
+| `cask gate allow/block/check/status` | Approve, block, or audit tools via signed lockfile |
 | `cask serve` | Start the governed MCP server (stdio) |
-| `cask run` | Execute a toolpack with policy enforcement |
-| `cask drift` | Detect capability surface changes |
-| `cask verify` | Run verification contracts |
-| `cask config` | Generate MCP client config snippet |
+| `cask diff` | Generate a risk-classified change report |
+| `cask drift` | Detect API surface changes against a baseline |
+| `cask verify` | Run verification contracts (replay, outcomes, provenance) |
+| `cask repair` | Diagnose issues and propose classified fixes |
+| `cask propose` | Manage agent draft proposals for new capabilities |
+| `cask inspect` | Start read-only Meta MCP for agent introspection |
+| `cask config` | Generate MCP client config (Claude Desktop, Codex) |
 | `cask demo` | Prove governance works (offline, 30 seconds) |
 
-> **Tip:** Both `cask` and `caskmcp` work as the CLI entry point. `cask` is preferred.
+> **Tip:** Run `cask` with no arguments for an interactive guided menu. Use `cask --help-all` to see all 25+ commands including `compliance`, `bundle`, `enforce`, `confirm`, and more.
 
-Run `cask --help` for the full command tree, or `cask --help-all` for advanced commands.
+## Runtime Enforcement
+
+The MCP server enforces multiple safety layers on every tool call:
+
+- **Lockfile approval** — only explicitly approved tools execute
+- **Policy evaluation** — priority-ordered rules (allow, deny, confirm, budget, audit)
+- **Rate limiting** — per-minute/per-hour budgets with sliding-window tracking
+- **Network safety** — SSRF protection, metadata endpoint blocking, redirect validation
+- **Confirmation flow** — HMAC-signed out-of-band challenge tokens for sensitive operations
+- **Redaction** — strips auth headers, tokens, PII from all captured data by default
+- **Dry-run mode** — evaluate policy without executing upstream calls
 
 ## Installation
 

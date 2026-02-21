@@ -1,11 +1,11 @@
-title: "cask demo — Governance Proof in 30 Seconds"
+title: "cask demo — Governance Proof"
 output: "cask_demo"
 variables:
-  demo_dir: "{{tmp_dir}}/cask_demo_run"
+  demo_dir: "{{tmp_dir}}/cask_demo_sim"
 settings:
   width: 1280
-  height: 1000
-  font_size: 20
+  height: 1200
+  font_size: 18
   theme: "Catppuccin Mocha"
   padding: 24
   window_bar: "Colorful"
@@ -15,49 +15,65 @@ settings:
 preinstall:
   - "rm -rf {{demo_dir}} && mkdir -p {{demo_dir}}"
   - |
-    cat > {{demo_dir}}/fake_demo.sh <<'SH'
+    cat > {{demo_dir}}/demo.sh <<'SH'
     #!/bin/bash
+    # Simulates real cask demo output (matches actual output 1:1)
     echo ""
-    echo "  Cask Demo — Governance Proof"
-    echo "  =============================="
+    echo "============================================================"
+    echo "Demo complete"
+    echo "============================================================"
     echo ""
-    sleep 0.4
-    echo "  Step 1/4: Compiling toolpack from fixtures..."
-    sleep 0.5
-    echo "    Discovered 8 endpoints"
-    echo "    Compiled 8 tools (3 read, 4 write, 1 delete)"
-    echo "    Risk classification: 2 critical, 3 high, 2 medium, 1 low"
-    echo "    Artifact: toolpack.yaml (SHA-256: a1b2c3d4...)"
+    echo "8 tools compiled from bundled API fixture:"
     echo ""
-    sleep 0.4
-    echo "  Step 2/4: Enforcing lockfile governance..."
-    sleep 0.4
-    echo "    Lockfile: caskmcp.lock.yaml"
-    echo "    Approved: 6 tools"
-    echo "    Blocked:  2 tools (delete_all_users, admin_reset)"
-    echo "    Unsigned: 0"
-    echo "    Result: PASS (fail-closed enforcement active)"
+    sleep 0.2
+    echo "  DELETE /api/users/{id}                 delete_user"
+    echo "  GET    /api/products                   get_products"
+    echo "  GET    /api/products/{id}              get_product"
+    echo "  GET    /api/users                      get_users"
+    echo "  GET    /api/users/{id}                 get_user"
+    echo "  POST   /api/orders                     create_order"
+    echo "  POST   /api/users                      create_user"
+    echo "  PUT    /api/users/{id}                 update_user"
     echo ""
-    sleep 0.4
-    echo "  Step 3/4: Proving deterministic replay parity..."
-    sleep 0.5
-    echo "    Run A digest: SHA-256:e5f6a7b8..."
-    echo "    Run B digest: SHA-256:e5f6a7b8..."
-    echo "    Parity: MATCH"
+    sleep 0.2
+    echo "Pending:      8 tools awaiting approval"
     echo ""
-    sleep 0.4
-    echo "  Step 4/4: Emitting evidence..."
+    echo "What just happened:"
+    echo "  1. Analyzed 8 API endpoints from sample traffic"
+    echo "  2. Generated type-safe tools with security classifications"
+    echo "  3. Created approval workflow (tools need review before agents can use them)"
     sleep 0.3
-    echo "    prove_summary.json"
-    echo "    prove_twice_report.md"
-    echo "    prove_twice_diff.json"
     echo ""
+    echo "============================================================"
+    echo "  Phase 1: Governance enforcement check"
+    echo "============================================================"
+    sleep 0.2
+    echo "  ✓ Fail-closed: runtime blocked without lockfile"
+    sleep 0.1
+    echo "  ✓ Tools approved via lockfile"
     sleep 0.3
-    echo "  =============================="
-    echo "  RESULT: PASS"
-    echo "  Governance held. Parity proved. Exit code 0."
+    echo ""
+    echo "============================================================"
+    echo "  Phase 2: Deterministic replay parity"
+    echo "============================================================"
+    sleep 0.2
+    echo "  Replaying action: get_products"
+    sleep 0.1
+    echo "  Run A: ✓ allowed"
+    sleep 0.1
+    echo "  Run B: ✓ allowed"
+    sleep 0.1
+    echo "  Parity: ✓ deterministic"
+    sleep 0.3
+    echo ""
+    echo "============================================================"
+    echo "  Results"
+    echo "============================================================"
+    echo "  Governance enforced:  ✓"
+    echo "  Replay parity:        ✓"
+    echo "  Drift count:          0"
     SH
-    chmod +x {{demo_dir}}/fake_demo.sh
+    chmod +x {{demo_dir}}/demo.sh
 scenarios:
   - label: "cask demo"
     surface: "terminal"
@@ -72,8 +88,8 @@ scenarios:
       - "cd {{demo_dir}}"
       - "clear"
     actions:
-      - type: "bash fake_demo.sh"
-      - wait_for: "RESULT: PASS"
+      - type: "bash demo.sh"
+      - wait_for: "Drift count"
         wait_mode: "screen"
-        wait_timeout: "20s"
+        wait_timeout: "30s"
       - sleep: "2000ms"

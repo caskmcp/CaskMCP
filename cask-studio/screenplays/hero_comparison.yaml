@@ -4,7 +4,7 @@ variables:
   demo_dir: "{{tmp_dir}}/cask_hero"
 settings:
   width: 1400
-  height: 700
+  height: 800
   font_size: 20
   theme: "Catppuccin Mocha"
   padding: 24
@@ -17,28 +17,24 @@ preinstall:
   - |
     cat > {{demo_dir}}/ungoverned.sh <<'SH'
     #!/bin/bash
+    # Simulate a typical unprotected MCP agent session
     echo ""
-    echo "  Agent starting workflow..."
+    echo "  Agent session started — no governance layer"
     echo ""
     sleep 0.3
-    echo "  [agent] Discovering tools..."
-    sleep 0.3
-    echo "  [agent] Found 47 tools (no review needed)"
+    echo "  → POST /api/admin/delete-all      200 OK"
+    sleep 0.2
+    echo "  → POST /api/billing/charge         200 OK"
+    sleep 0.2
+    echo "  → GET  /api/users/export           200 OK"
+    sleep 0.2
+    echo "  → POST /ext/analytics.io/track     200 OK"
     echo ""
     sleep 0.4
-    echo "  [agent] POST /api/admin/delete-all  .... ok"
-    sleep 0.3
-    echo "  [agent] POST /api/billing/charge     .... ok"
-    sleep 0.3
-    echo "  [agent] GET  /api/users/export        .... ok"
-    sleep 0.3
-    echo "  [agent] POST /ext/analytics.io/track  .... ok"
-    echo ""
-    sleep 0.5
-    echo "  No approval required."
-    echo "  No audit trail."
-    echo "  No drift detection."
-    echo "  Third-party calls invisible."
+    echo "  ✗ No approval required"
+    echo "  ✗ No audit trail"
+    echo "  ✗ No drift detection"
+    echo "  ✗ Third-party calls invisible"
     echo ""
     sleep 0.3
     echo '  "It worked... but what did it do?"'
@@ -47,27 +43,25 @@ preinstall:
   - |
     cat > {{demo_dir}}/governed.sh <<'SH'
     #!/bin/bash
+    # Simulate real cask serve enforcement (matches actual runtime behavior)
     echo ""
-    echo "  Starting governed MCP server..."
+    echo "  Lockfile loaded: 8 tools (6 approved, 2 blocked)"
+    echo "  Enforcement: fail-closed"
+    echo "  Redaction: default_safe"
     echo ""
     sleep 0.3
-    echo "  [cask] Lockfile loaded: 12 tools approved, 3 blocked"
-    echo "  [cask] Enforcement: fail-closed"
-    echo "  [cask] Redaction: on (default_safe profile)"
-    echo ""
-    sleep 0.4
-    echo "  [cask] get_users .............. APPROVED   (read, low risk)"
-    sleep 0.3
-    echo "  [cask] delete_all ............. BLOCKED    (delete, critical)"
-    sleep 0.3
-    echo "  [cask] charge_card ............ BLOCKED    (write, critical)"
-    sleep 0.3
-    echo "  [cask] list_orders ............ APPROVED   (read, low risk)"
+    echo "  → get_users        GET  /api/users          ✓ APPROVED  (low)"
+    sleep 0.2
+    echo "  → get_products     GET  /api/products        ✓ APPROVED  (low)"
+    sleep 0.2
+    echo "  → delete_user      DELETE /api/users/{id}    ✗ BLOCKED   (high)"
+    sleep 0.2
+    echo "  → create_order     POST /api/orders          ✓ APPROVED  (medium)"
     echo ""
     sleep 0.4
-    echo "  Drift check: 0 surface changes"
-    echo "  Audit: 4 decisions logged"
-    echo "  Evidence: SHA-256 bundle emitted"
+    echo "  ✓ 3 calls executed, 1 blocked"
+    echo "  ✓ 4 decisions logged to audit trail"
+    echo "  ✓ Drift check: 0 surface changes"
     echo ""
     sleep 0.3
     echo "  Every tool governed. Every call audited."
