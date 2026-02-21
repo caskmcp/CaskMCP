@@ -9,6 +9,7 @@ from urllib.parse import parse_qsl, urlparse
 
 from caskmcp.core.normalize.path_normalizer import PathNormalizer, VarianceNormalizer
 from caskmcp.core.normalize.tagger import AutoTagger
+from caskmcp.core.risk_keywords import CRITICAL_PATH_KEYWORDS, HIGH_RISK_PATH_KEYWORDS
 from caskmcp.models.capture import CaptureSession, HttpExchange
 from caskmcp.models.endpoint import AuthType, Endpoint, Parameter, ParameterLocation
 
@@ -21,17 +22,6 @@ _STATIC_ASSET_EXTENSIONS = re.compile(
 
 _PLACEHOLDER_RE = re.compile(r"\{([^}]+)\}")
 
-# Path keywords that indicate sensitive/risky endpoints.
-# Kept in sync with scope inference so risk tiers and confirmation behavior
-# are consistent across the pipeline.
-_CRITICAL_PATH_KEYWORDS = re.compile(
-    r"(admin|payment|payments|refund|refunds|billing|checkout|settle|payout)",
-    re.IGNORECASE,
-)
-_HIGH_RISK_PATH_KEYWORDS = re.compile(
-    r"(delete|destroy|remove|purge|revoke|suspend|deactivate|terminate)",
-    re.IGNORECASE,
-)
 
 
 def _is_static_asset(path: str) -> bool:
@@ -634,10 +624,10 @@ class EndpointAggregator:
         if is_auth_related:
             return "critical"
 
-        if _CRITICAL_PATH_KEYWORDS.search(path):
+        if CRITICAL_PATH_KEYWORDS.search(path):
             return "critical"
 
-        if _HIGH_RISK_PATH_KEYWORDS.search(path):
+        if HIGH_RISK_PATH_KEYWORDS.search(path):
             return "high"
 
         if method in ("DELETE",):

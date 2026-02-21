@@ -11,18 +11,10 @@ from __future__ import annotations
 
 import re
 
+from caskmcp.core.risk_keywords import CRITICAL_PATH_KEYWORDS, HIGH_RISK_PATH_KEYWORDS
 from caskmcp.models.endpoint import Endpoint
 from caskmcp.models.scope import RiskReason, ScopeDraft
 
-# Path keywords that indicate sensitive/risky endpoints
-_CRITICAL_PATH_KEYWORDS = re.compile(
-    r"(admin|payment|payments|refund|refunds|billing|checkout|settle|payout)",
-    re.IGNORECASE,
-)
-_HIGH_RISK_PATH_KEYWORDS = re.compile(
-    r"(delete|destroy|remove|purge|revoke|suspend|deactivate|terminate)",
-    re.IGNORECASE,
-)
 
 # Search-like POST patterns (POST but semantically read-only)
 _SEARCH_PATH_PATTERN = re.compile(
@@ -108,12 +100,12 @@ class ScopeInferenceEngine:
             score += 0.15
 
         # Signal 1: Path keywords (weight 0.3)
-        if _CRITICAL_PATH_KEYWORDS.search(ep.path):
+        if CRITICAL_PATH_KEYWORDS.search(ep.path):
             signals.append(f"critical path keyword in {ep.path}")
             risk_reasons.append(RiskReason.SENSITIVE_PATH)
             score += 0.15  # We're more certain about the classification
 
-        if _HIGH_RISK_PATH_KEYWORDS.search(ep.path):
+        if HIGH_RISK_PATH_KEYWORDS.search(ep.path):
             signals.append(f"high-risk path keyword in {ep.path}")
             risk_reasons.append(RiskReason.SENSITIVE_PATH)
             score += 0.1
@@ -170,7 +162,7 @@ class ScopeInferenceEngine:
         if RiskReason.AUTH_RELATED in reason_set:
             inferred = "critical"
         elif RiskReason.SENSITIVE_PATH in reason_set and (
-            method_upper != "GET" or _CRITICAL_PATH_KEYWORDS.search(ep.path)
+            method_upper != "GET" or CRITICAL_PATH_KEYWORDS.search(ep.path)
         ):
             # GET on admin/payment is still critical.
             inferred = "critical"
