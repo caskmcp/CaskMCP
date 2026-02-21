@@ -267,7 +267,6 @@ class ContractCompiler:
             "PATCH": "Partially update",
             "DELETE": "Delete",
             "HEAD": "Check",
-            "OPTIONS": "Get options for",
         }
 
         verb = verb_map.get(method, method.title())

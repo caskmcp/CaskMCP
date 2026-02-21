@@ -1,0 +1,8 @@
+# Full spec cache (large, downloaded on demand)
+.full-spec-cache.yaml
+
+# Local CaskMCP state (approval snapshots, keys)
+.caskmcp/
+
+# macOS metadata
+.DS_Store

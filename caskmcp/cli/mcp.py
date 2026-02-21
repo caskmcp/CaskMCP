@@ -57,6 +57,10 @@ def run_mcp_serve(
             click.echo(f"Error: {e}", err=True)
             sys.exit(1)
 
+        from caskmcp.utils.state import warn_if_sandboxed_path
+
+        warn_if_sandboxed_path(Path(toolpack_path))
+
     resolved_tools_path = Path(tools_path) if tools_path else None
     if resolved_tools_path is None and resolved_toolpack_paths is not None:
         resolved_tools_path = resolved_toolpack_paths.tools_path
@@ -145,17 +149,45 @@ def run_mcp_serve(
                 resolved_toolpack is not None
                 and resolved_toolpack.paths.lockfiles.get("pending")
             ):
+                pending_ref = resolved_toolpack.paths.lockfiles["pending"]
+                if resolved_toolpack_paths and resolved_toolpack_paths.pending_lockfile_path:
+                    pending_abs = resolved_toolpack_paths.pending_lockfile_path
+                elif toolpack_path:
+                    pending_abs = Path(toolpack_path).parent / pending_ref
+                else:
+                    pending_abs = Path(pending_ref)
+                # Approved path: same name with .pending. removed
+                approved_name = pending_abs.name.replace(".pending.", ".")
+                approved_abs = pending_abs.with_name(approved_name)
+                tp = toolpack_path or "toolpack.yaml"
                 click.echo(
-                    "Error: approved lockfile required for runtime. "
-                    "Toolpack contains pending approvals only. "
-                    "Run `cask gate allow ...` then use an approved lockfile "
-                    "or pass --unsafe-no-lockfile (unsafe).",
+                    "Error: approved lockfile required.\n"
+                    "\n"
+                    "Your toolpack has pending approvals. Run:\n"
+                    "\n"
+                    f"  cask gate allow --all --lockfile {pending_abs}\n"
+                    f"  cask gate check --lockfile {approved_abs}\n"
+                    "\n"
+                    "Then start the server with:\n"
+                    "\n"
+                    f"  cask serve --toolpack {tp} --lockfile {approved_abs}",
                     err=True,
                 )
             else:
+                tp = toolpack_path or "toolpack.yaml"
+                tp_dir = Path(tp).resolve().parent if toolpack_path else Path.cwd()
+                default_lockfile = tp_dir / "lockfile" / "caskmcp.lock.yaml"
                 click.echo(
-                    "Error: runtime requires --lockfile with approved tools "
-                    "(or use --unsafe-no-lockfile for local unsafe mode).",
+                    "Error: no lockfile found.\n"
+                    "\n"
+                    "Create and approve a lockfile first:\n"
+                    "\n"
+                    f"  cask gate sync --tools {resolved_tools_path}\n"
+                    f"  cask gate allow --all\n"
+                    "\n"
+                    "Then start the server with:\n"
+                    "\n"
+                    f"  cask serve --toolpack {tp} --lockfile {default_lockfile}",
                     err=True,
                 )
             sys.exit(1)

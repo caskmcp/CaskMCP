@@ -42,7 +42,7 @@ class HARParser:
     )
 
     # Resource types that are typically APIs
-    API_RESOURCE_TYPES = ("xhr", "fetch", "websocket", "other")
+    API_RESOURCE_TYPES = ("xhr", "fetch", "other")
 
     def __init__(self, allowed_hosts: list[str] | None = None) -> None:
         """Initialize parser with allowed hosts.
@@ -200,11 +200,40 @@ class HARParser:
         # Get method
         method_str = request.get("method", "GET").upper()
 
-        # Get content type
+        # Filter CORS preflight requests (OPTIONS produces noise endpoints)
+        if method_str == "OPTIONS":
+            self.stats["filtered_options"] = self.stats.get("filtered_options", 0) + 1
+            return None
+
+        # Get response headers
         response_headers = {
             h["name"].lower(): h["value"] for h in response.get("headers", [])
         }
         content_type = response_headers.get("content-type", "")
+
+        # Filter WebSocket entries (cannot be replayed as MCP tools)
+        resource_type = entry.get("_resourceType", "").lower()
+        is_websocket = (
+            resource_type == "websocket"
+            or response_headers.get("upgrade", "").lower() == "websocket"
+        )
+        if is_websocket:
+            self.warnings.append(
+                f"WebSocket entry skipped: {url} "
+                "-- streaming connections cannot be replayed as MCP tools."
+            )
+            self.stats["filtered_streaming"] = self.stats.get("filtered_streaming", 0) + 1
+            return None
+
+        # Filter SSE entries (cannot be replayed as MCP tools)
+        ct_lower = content_type.lower()
+        if ct_lower.startswith("text/event-stream"):
+            self.warnings.append(
+                f"SSE endpoint skipped: {url} "
+                "-- Server-Sent Events streams cannot be replayed as MCP tools."
+            )
+            self.stats["filtered_streaming"] = self.stats.get("filtered_streaming", 0) + 1
+            return None
 
         # Filter non-API responses
         if not self._is_api_request(url, method_str, content_type, entry):

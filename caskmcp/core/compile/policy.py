@@ -121,7 +121,7 @@ class PolicyGenerator:
             "priority": rule_priority,
             "match": {
                 "hosts": hosts,
-                "methods": ["GET", "HEAD", "OPTIONS"],
+                "methods": ["GET", "HEAD"],
             },
         })
         rule_priority -= 10
