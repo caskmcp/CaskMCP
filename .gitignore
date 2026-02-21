@@ -82,3 +82,7 @@ docs/archive/
 
 # Worktrees
 .worktrees/
+
+# TUI Studio build artifacts
+.terminal_demo_studio_runs/
+cask-studio/outputs/

@@ -1,6 +1,6 @@
 # Cask User Guide
 
-This guide covers the unified CLI experience for Cask.
+This guide covers the unified CLI experience for Cask. See the [Glossary](glossary.md) for definitions of key terms.
 
 ## Install
 
@@ -208,6 +208,10 @@ cask config --toolpack .caskmcp/toolpacks/<id>/toolpack.yaml --format codex
 - Drift checks for capability surface changes
 - Audit logs for governance decisions (DecisionTrace)
 - Export boundary excluding auth state, signing keys, and raw secrets
+
+## Troubleshooting
+
+See [Troubleshooting](troubleshooting.md) for common issues and fixes.
 
 ## Known Limitations
 

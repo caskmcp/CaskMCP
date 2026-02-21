@@ -1,0 +1,112 @@
+title: "Cask: Ungoverned vs Governed Agent Tools"
+output: "hero_comparison"
+variables:
+  demo_dir: "{{tmp_dir}}/cask_hero"
+settings:
+  width: 1400
+  height: 700
+  font_size: 20
+  theme: "Catppuccin Mocha"
+  padding: 24
+  window_bar: "Colorful"
+  framerate: 60
+  line_height: 1.15
+  letter_spacing: 0
+preinstall:
+  - "rm -rf {{demo_dir}} && mkdir -p {{demo_dir}}"
+  - |
+    cat > {{demo_dir}}/ungoverned.sh <<'SH'
+    #!/bin/bash
+    echo ""
+    echo "  Agent starting workflow..."
+    echo ""
+    sleep 0.3
+    echo "  [agent] Discovering tools..."
+    sleep 0.3
+    echo "  [agent] Found 47 tools (no review needed)"
+    echo ""
+    sleep 0.4
+    echo "  [agent] POST /api/admin/delete-all  .... ok"
+    sleep 0.3
+    echo "  [agent] POST /api/billing/charge     .... ok"
+    sleep 0.3
+    echo "  [agent] GET  /api/users/export        .... ok"
+    sleep 0.3
+    echo "  [agent] POST /ext/analytics.io/track  .... ok"
+    echo ""
+    sleep 0.5
+    echo "  No approval required."
+    echo "  No audit trail."
+    echo "  No drift detection."
+    echo "  Third-party calls invisible."
+    echo ""
+    sleep 0.3
+    echo '  "It worked... but what did it do?"'
+    SH
+    chmod +x {{demo_dir}}/ungoverned.sh
+  - |
+    cat > {{demo_dir}}/governed.sh <<'SH'
+    #!/bin/bash
+    echo ""
+    echo "  Starting governed MCP server..."
+    echo ""
+    sleep 0.3
+    echo "  [cask] Lockfile loaded: 12 tools approved, 3 blocked"
+    echo "  [cask] Enforcement: fail-closed"
+    echo "  [cask] Redaction: on (default_safe profile)"
+    echo ""
+    sleep 0.4
+    echo "  [cask] get_users .............. APPROVED   (read, low risk)"
+    sleep 0.3
+    echo "  [cask] delete_all ............. BLOCKED    (delete, critical)"
+    sleep 0.3
+    echo "  [cask] charge_card ............ BLOCKED    (write, critical)"
+    sleep 0.3
+    echo "  [cask] list_orders ............ APPROVED   (read, low risk)"
+    echo ""
+    sleep 0.4
+    echo "  Drift check: 0 surface changes"
+    echo "  Audit: 4 decisions logged"
+    echo "  Evidence: SHA-256 bundle emitted"
+    echo ""
+    sleep 0.3
+    echo "  Every tool governed. Every call audited."
+    SH
+    chmod +x {{demo_dir}}/governed.sh
+scenarios:
+  - label: "Without Cask"
+    surface: "terminal"
+    prompt:
+      style: "venv"
+      env: ".venv"
+      user: "user"
+      host: "dev"
+      path: "basename"
+      symbol: "$"
+    setup:
+      - "cd {{demo_dir}}"
+      - "clear"
+    actions:
+      - type: "bash ungoverned.sh"
+      - wait_for: "what did it do"
+        wait_mode: "screen"
+        wait_timeout: "15s"
+      - sleep: "1500ms"
+  - label: "With Cask"
+    surface: "terminal"
+    prompt:
+      style: "venv"
+      env: ".venv"
+      user: "user"
+      host: "dev"
+      path: "basename"
+      symbol: "$"
+    setup:
+      - "cd {{demo_dir}}"
+      - "clear"
+    actions:
+      - type: "bash governed.sh"
+      - wait_for: "Every call audited"
+        wait_mode: "screen"
+        wait_timeout: "15s"
+      - sleep: "1500ms"
