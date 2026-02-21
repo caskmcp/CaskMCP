@@ -69,7 +69,7 @@ def test_run_container_sets_caskmcp_env_vars(tmp_path: Path, monkeypatch) -> Non
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr("caskmcp.cli.run.docker_available", lambda: True)
-    monkeypatch.setattr("caskmcp.cli.doctor.docker_available", lambda: True)
+    monkeypatch.setattr("caskmcp.ui.runner.docker_available", lambda: True)
     monkeypatch.setattr("caskmcp.cli.run.subprocess.run", _fake_run)
 
     runner = CliRunner()

@@ -179,6 +179,17 @@ def register_approval_commands(
           cask gate allow --all
           cask gate allow get_users --by security@example.com
         """
+        # Interactive: no tool_ids, no --all, no --toolset → review flow
+        if not tool_ids and not all_pending and not toolset and ctx.obj.get("interactive"):
+            from caskmcp.ui.flows.gate_review import gate_review_flow
+
+            gate_review_flow(
+                lockfile_path=lockfile,
+                root_path=str(ctx.obj.get("root", resolve_root())),
+                verbose=ctx.obj.get("verbose", False),
+            )
+            return
+
         from caskmcp.cli.approve import run_approve_tool
 
         run_with_lock(
@@ -279,6 +290,16 @@ def register_approval_commands(
     @click.pass_context
     def gate_snapshot(ctx: click.Context, lockfile: str | None) -> None:
         """Materialize a baseline snapshot for an approved lockfile."""
+        # Interactive: no --lockfile → snapshot flow
+        if lockfile is None and ctx.obj.get("interactive"):
+            from caskmcp.ui.flows.gate_snapshot import gate_snapshot_flow
+
+            gate_snapshot_flow(
+                root_path=str(ctx.obj.get("root", resolve_root())),
+                verbose=ctx.obj.get("verbose", False),
+            )
+            return
+
         from caskmcp.cli.approve import run_approve_snapshot
 
         run_with_lock(

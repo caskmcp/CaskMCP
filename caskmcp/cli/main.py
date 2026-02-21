@@ -59,7 +59,21 @@ CORE_COMMANDS = [
 
 
 class CaskGroup(click.Group):
-    """Custom group with sectioned help output."""
+    """Custom group with sectioned help output and interactive flow dispatch."""
+
+    def invoke(self, ctx: click.Context) -> None:
+        """Override invoke to intercept MissingParameter for allowlisted commands."""
+        try:
+            super().invoke(ctx)
+        except click.MissingParameter as exc:
+            from caskmcp.ui.flows import INTERACTIVE_COMMANDS
+
+            cmd_name = ctx.invoked_subcommand
+            if ctx.obj and ctx.obj.get("interactive") and cmd_name in INTERACTIVE_COMMANDS:
+                flow = INTERACTIVE_COMMANDS[cmd_name]
+                flow(ctx=ctx, missing_param=exc.param_hint)
+                return
+            raise
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         """Write command sections: Core, More."""
@@ -126,7 +140,7 @@ def _show_help_all(
     ctx.exit()
 
 
-@click.group(cls=CaskGroup)
+@click.group(cls=CaskGroup, invoke_without_command=True)
 @click.version_option(version=__version__, prog_name=CLI_PRIMARY_COMMAND)
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
 @click.option(
@@ -144,9 +158,17 @@ def _show_help_all(
     show_default=True,
     help="Canonical state root for captures, artifacts, reports, and locks",
 )
+@click.option(
+    "--no-interactive",
+    is_flag=True,
+    envvar="CASK_NON_INTERACTIVE",
+    help="Disable interactive prompts (same as CASK_NON_INTERACTIVE=1)",
+)
 @click.pass_context
-def cli(ctx: click.Context, verbose: bool, root: Path) -> None:
+def cli(ctx: click.Context, verbose: bool, root: Path, no_interactive: bool) -> None:
     """Turn observed web/API traffic into safe, versioned, agent-ready MCP tools."""
+    from caskmcp.ui.policy import should_interact
+
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
     ctx.obj["root"] = root
@@ -154,6 +176,17 @@ def cli(ctx: click.Context, verbose: bool, root: Path) -> None:
         "product": PRODUCT_NAME,
         "primary_command": CLI_PRIMARY_COMMAND,
     }
+    ctx.obj["interactive"] = should_interact(
+        force=False if no_interactive else None,
+    )
+
+    if ctx.invoked_subcommand is None:
+        if ctx.obj["interactive"]:
+            from caskmcp.ui.flows.quickstart import wizard_flow
+
+            wizard_flow(root=root, verbose=verbose)
+        else:
+            click.echo(ctx.get_help())
 
 
 def _default_root_path(ctx: click.Context, *parts: str) -> Path:
