@@ -6,6 +6,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0-rc.1] - 2026-02-21
+
+### Fixed
+
+- **Security: unified SSRF network safety module.** The HTTP proxy gateway (`enforce.py`) and MCP stdio server (`server.py`) independently implemented network safety functions with divergent behavior — the proxy unconditionally blocked loopback addresses while the server correctly allowed them when matching a configured CIDR. Both consumers now delegate to a shared `caskmcp/core/network_safety.py` module with identical, fail-closed behavior.
+- IP literal fast path: raw IP hosts skip DNS resolution (avoids rebinding edge cases).
+- Hardcoded cloud metadata endpoint block (`169.254.169.254`) regardless of allowlist.
+- Consistent host normalization across both consumers (IPv6 bracket stripping, port stripping, trailing dot removal, lowercasing).
+
+### Changed
+
+- Extracted shared risk-tier path keyword patterns (`CRITICAL_PATH_KEYWORDS`, `HIGH_RISK_PATH_KEYWORDS`) into `caskmcp/core/risk_keywords.py` — single source of truth for both the endpoint aggregator and scope inference engine.
+- Version metadata synchronized across packaging manifests.
+
 ## [0.2.0-beta.6] - 2026-02-17
 
 ### Changed
