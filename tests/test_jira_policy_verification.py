@@ -5,6 +5,7 @@ Runs the same checks as dogfood/jira/verify_policy.py but as pytest assertions.
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -23,10 +24,20 @@ def _skip_if_missing():
 
 def _load_verify_module():
     """Import verify_policy from the dogfood/jira directory."""
-    sys.path.insert(0, str(JIRA_DIR))
-    from verify_policy import load_tools, verify_confirmation_coverage
+    module_name = "jira_verify_policy"
+    if module_name in sys.modules:
+        mod = sys.modules[module_name]
+        return mod.verify_confirmation_coverage, mod.load_tools
 
-    return verify_confirmation_coverage, load_tools
+    spec = importlib.util.spec_from_file_location(
+        module_name, JIRA_DIR / "verify_policy.py"
+    )
+    if spec is None or spec.loader is None:
+        pytest.skip("verify_policy.py not found")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = mod
+    spec.loader.exec_module(mod)
+    return mod.verify_confirmation_coverage, mod.load_tools
 
 
 class TestJiraPolicyVerification:

@@ -7,6 +7,7 @@ filters to an allowlist of paths+methods, and stores content-hash metadata.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import subprocess
 import sys
@@ -20,8 +21,25 @@ CURATE_SCRIPT = JIRA_DIR / "curate_spec.py"
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers: import Jira's curate_spec as a uniquely-named module to avoid
+# collisions with GitHub's curate_spec in sys.modules
 # ---------------------------------------------------------------------------
+
+
+def _load_jira_curate_spec():
+    """Load dogfood/jira/curate_spec.py as 'jira_curate_spec' module."""
+    module_name = "jira_curate_spec"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+
+    spec = importlib.util.spec_from_file_location(module_name, CURATE_SCRIPT)
+    if spec is None or spec.loader is None:
+        pytest.skip("Jira curate_spec.py not found")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
 
 MOCK_JIRA_SPEC = {
     "openapi": "3.0.1",
@@ -98,21 +116,13 @@ class TestAllowedPaths:
 
     def test_allowed_paths_exist(self):
         """The curate_spec module should export ALLOWED_PATHS."""
-        sys.path.insert(0, str(JIRA_DIR))
-        try:
-            from curate_spec import ALLOWED_PATHS
-        except ImportError:
-            pytest.skip("Jira curate_spec not implemented yet")
-
-        assert isinstance(ALLOWED_PATHS, set | dict)
+        mod = _load_jira_curate_spec()
+        assert isinstance(mod.ALLOWED_PATHS, set | dict)
 
     def test_allowed_paths_contains_core_issue_endpoints(self):
         """Must include issue CRUD, comments, transitions."""
-        sys.path.insert(0, str(JIRA_DIR))
-        try:
-            from curate_spec import ALLOWED_PATHS
-        except ImportError:
-            pytest.skip("Jira curate_spec not implemented yet")
+        mod = _load_jira_curate_spec()
+        allowed = mod.ALLOWED_PATHS
 
         required_paths = {
             "/rest/api/3/issue",
@@ -121,18 +131,15 @@ class TestAllowedPaths:
             "/rest/api/3/issue/{issueIdOrKey}/comment/{id}",
             "/rest/api/3/issue/{issueIdOrKey}/transitions",
         }
-        if isinstance(ALLOWED_PATHS, dict):
-            assert required_paths.issubset(set(ALLOWED_PATHS.keys()))
+        if isinstance(allowed, dict):
+            assert required_paths.issubset(set(allowed.keys()))
         else:
-            assert required_paths.issubset(ALLOWED_PATHS)
+            assert required_paths.issubset(allowed)
 
     def test_allowed_paths_contains_project_and_user_endpoints(self):
         """Must include project list/get and user search."""
-        sys.path.insert(0, str(JIRA_DIR))
-        try:
-            from curate_spec import ALLOWED_PATHS
-        except ImportError:
-            pytest.skip("Jira curate_spec not implemented yet")
+        mod = _load_jira_curate_spec()
+        allowed = mod.ALLOWED_PATHS
 
         required_paths = {
             "/rest/api/3/project",
@@ -141,10 +148,10 @@ class TestAllowedPaths:
             "/rest/api/3/user",
             "/rest/api/3/search/jql",
         }
-        if isinstance(ALLOWED_PATHS, dict):
-            assert required_paths.issubset(set(ALLOWED_PATHS.keys()))
+        if isinstance(allowed, dict):
+            assert required_paths.issubset(set(allowed.keys()))
         else:
-            assert required_paths.issubset(ALLOWED_PATHS)
+            assert required_paths.issubset(allowed)
 
 
 # ---------------------------------------------------------------------------
@@ -157,42 +164,30 @@ class TestContentHashMetadata:
 
     def test_curate_adds_metadata(self):
         """curate() should add x-caskmcp-dogfood metadata to info."""
-        sys.path.insert(0, str(JIRA_DIR))
-        try:
-            from curate_spec import curate
-        except ImportError:
-            pytest.skip("Jira curate_spec not implemented yet")
+        mod = _load_jira_curate_spec()
 
         spec = json.loads(json.dumps(MOCK_JIRA_SPEC))
-        result = curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag='"abc123"')
+        result = mod.curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag='"abc123"')
 
         metadata = result.get("info", {}).get("x-caskmcp-dogfood", {})
         assert metadata, "x-caskmcp-dogfood metadata missing"
 
     def test_content_hash_is_sha256_of_raw_bytes(self):
         """content_sha256 must be SHA-256 of raw bytes BEFORE JSON parsing."""
-        sys.path.insert(0, str(JIRA_DIR))
-        try:
-            from curate_spec import curate
-        except ImportError:
-            pytest.skip("Jira curate_spec not implemented yet")
+        mod = _load_jira_curate_spec()
 
         spec = json.loads(json.dumps(MOCK_JIRA_SPEC))
-        result = curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
+        result = mod.curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
 
         metadata = result["info"]["x-caskmcp-dogfood"]
         assert metadata["content_sha256"] == MOCK_CONTENT_HASH
 
     def test_metadata_includes_http_status_and_etag(self):
         """Metadata must include http_status and etag fields."""
-        sys.path.insert(0, str(JIRA_DIR))
-        try:
-            from curate_spec import curate
-        except ImportError:
-            pytest.skip("Jira curate_spec not implemented yet")
+        mod = _load_jira_curate_spec()
 
         spec = json.loads(json.dumps(MOCK_JIRA_SPEC))
-        result = curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag='"etag-val"')
+        result = mod.curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag='"etag-val"')
 
         metadata = result["info"]["x-caskmcp-dogfood"]
         assert metadata["http_status"] == 200
@@ -200,32 +195,24 @@ class TestContentHashMetadata:
 
     def test_metadata_etag_null_when_absent(self):
         """When ETag header is absent, etag field should be null."""
-        sys.path.insert(0, str(JIRA_DIR))
-        try:
-            from curate_spec import curate
-        except ImportError:
-            pytest.skip("Jira curate_spec not implemented yet")
+        mod = _load_jira_curate_spec()
 
         spec = json.loads(json.dumps(MOCK_JIRA_SPEC))
-        result = curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
+        result = mod.curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
 
         metadata = result["info"]["x-caskmcp-dogfood"]
         assert metadata["etag"] is None
 
     def test_metadata_includes_download_url(self):
         """Metadata must include the download URL."""
-        sys.path.insert(0, str(JIRA_DIR))
-        try:
-            from curate_spec import SPEC_URL, curate
-        except ImportError:
-            pytest.skip("Jira curate_spec not implemented yet")
+        mod = _load_jira_curate_spec()
 
         spec = json.loads(json.dumps(MOCK_JIRA_SPEC))
-        result = curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
+        result = mod.curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
 
         metadata = result["info"]["x-caskmcp-dogfood"]
         assert "download_url" in metadata
-        assert metadata["download_url"] == SPEC_URL
+        assert metadata["download_url"] == mod.SPEC_URL
 
 
 # ---------------------------------------------------------------------------
@@ -238,28 +225,20 @@ class TestPathMethodFiltering:
 
     def test_curate_removes_non_allowlisted_paths(self):
         """Paths like /rest/api/3/dashboard should be removed."""
-        sys.path.insert(0, str(JIRA_DIR))
-        try:
-            from curate_spec import curate
-        except ImportError:
-            pytest.skip("Jira curate_spec not implemented yet")
+        mod = _load_jira_curate_spec()
 
         spec = json.loads(json.dumps(MOCK_JIRA_SPEC))
-        result = curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
+        result = mod.curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
 
         assert "/rest/api/3/dashboard" not in result["paths"]
         assert "/rest/api/3/field" not in result["paths"]
 
     def test_curate_filters_methods_on_multi_method_paths(self):
         """Only allowed methods should remain on each path."""
-        sys.path.insert(0, str(JIRA_DIR))
-        try:
-            from curate_spec import curate
-        except ImportError:
-            pytest.skip("Jira curate_spec not implemented yet")
+        mod = _load_jira_curate_spec()
 
         spec = json.loads(json.dumps(MOCK_JIRA_SPEC))
-        result = curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
+        result = mod.curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
 
         # /rest/api/3/issue/{issueIdOrKey} has GET, PUT, DELETE in mock
         # but we only want GET
@@ -275,14 +254,10 @@ class TestPathMethodFiltering:
 
     def test_curate_preserves_components(self):
         """components/schemas and components/securitySchemes should be kept."""
-        sys.path.insert(0, str(JIRA_DIR))
-        try:
-            from curate_spec import curate
-        except ImportError:
-            pytest.skip("Jira curate_spec not implemented yet")
+        mod = _load_jira_curate_spec()
 
         spec = json.loads(json.dumps(MOCK_JIRA_SPEC))
-        result = curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
+        result = mod.curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
 
         assert "components" in result
         assert "schemas" in result["components"]
