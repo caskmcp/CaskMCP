@@ -1,0 +1,2182 @@
+{
+  "version": "1.0.0",
+  "schema_version": "1.0",
+  "generated_at": "2026-02-22T03:26:12.379202+00:00",
+  "endpoint_count": 12,
+  "endpoints": [
+    {
+      "stable_id": "c13dab101bd7bc98",
+      "signature_id": "f63a39bf663dd8dd",
+      "tool_id": "get_issue",
+      "tool_version": 1,
+      "method": "GET",
+      "path": "/rest/api/{id}/issue/{issueIdOrKey}",
+      "host": "your-domain.atlassian.net",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "issueIdOrKey",
+          "location": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_content_type": null,
+      "request_schema": null,
+      "response_status_codes": [
+        200
+      ],
+      "response_content_type": "application/json",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "changelog": {
+            "type": "string"
+          },
+          "editmeta": {
+            "type": "string"
+          },
+          "expand": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "properties": {}
+          },
+          "fieldsToInclude": {
+            "type": "object",
+            "properties": {
+              "actuallyIncluded": {
+                "type": "array"
+              },
+              "excluded": {
+                "type": "array"
+              },
+              "included": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "actuallyIncluded",
+              "excluded",
+              "included"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "names": {
+            "type": "object",
+            "properties": {}
+          },
+          "operations": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {}
+          },
+          "renderedFields": {
+            "type": "object",
+            "properties": {}
+          },
+          "schema": {
+            "type": "object",
+            "properties": {}
+          },
+          "self": {
+            "type": "string"
+          },
+          "transitions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "expand": {
+                  "type": "string"
+                },
+                "fields": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "hasScreen": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "isAvailable": {
+                  "type": "boolean"
+                },
+                "isConditional": {
+                  "type": "boolean"
+                },
+                "isGlobal": {
+                  "type": "boolean"
+                },
+                "isInitial": {
+                  "type": "boolean"
+                },
+                "looped": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "to": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expand",
+                "fields",
+                "hasScreen",
+                "id",
+                "isAvailable",
+                "isConditional",
+                "isGlobal",
+                "isInitial",
+                "looped",
+                "name",
+                "to"
+              ]
+            }
+          },
+          "versionedRepresentations": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        "required": [
+          "changelog",
+          "editmeta",
+          "expand",
+          "fields",
+          "fieldsToInclude",
+          "id",
+          "key",
+          "names",
+          "operations",
+          "properties",
+          "renderedFields",
+          "schema",
+          "self",
+          "transitions",
+          "versionedRepresentations"
+        ]
+      },
+      "auth_type": "none",
+      "is_first_party": true,
+      "is_state_changing": false,
+      "is_auth_related": false,
+      "has_pii": false,
+      "risk_tier": "safe",
+      "observation_count": 1
+    },
+    {
+      "stable_id": "9b9b4a233b933918",
+      "signature_id": "422df923b0e6089b",
+      "tool_id": "get_issue_comment",
+      "tool_version": 1,
+      "method": "GET",
+      "path": "/rest/api/{id}/issue/{issueIdOrKey}/comment",
+      "host": "your-domain.atlassian.net",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "issueIdOrKey",
+          "location": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_content_type": null,
+      "request_schema": null,
+      "response_status_codes": [
+        200
+      ],
+      "response_content_type": "application/json",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "comments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "author": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "created": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "jsdAuthorCanSeeRequest": {
+                  "type": "boolean"
+                },
+                "jsdPublic": {
+                  "type": "boolean"
+                },
+                "properties": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "value"
+                    ]
+                  }
+                },
+                "renderedBody": {
+                  "type": "string"
+                },
+                "self": {
+                  "type": "string"
+                },
+                "updateAuthor": {
+                  "type": "string"
+                },
+                "updated": {
+                  "type": "string"
+                },
+                "visibility": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "author",
+                "body",
+                "created",
+                "id",
+                "jsdAuthorCanSeeRequest",
+                "jsdPublic",
+                "properties",
+                "renderedBody",
+                "self",
+                "updateAuthor",
+                "updated",
+                "visibility"
+              ]
+            }
+          },
+          "maxResults": {
+            "type": "integer"
+          },
+          "startAt": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "comments",
+          "maxResults",
+          "startAt",
+          "total"
+        ]
+      },
+      "auth_type": "none",
+      "is_first_party": true,
+      "is_state_changing": false,
+      "is_auth_related": false,
+      "has_pii": false,
+      "risk_tier": "safe",
+      "observation_count": 1
+    },
+    {
+      "stable_id": "3cbf4172dad28182",
+      "signature_id": "2003885e28279575",
+      "tool_id": "get_issue_comment",
+      "tool_version": 1,
+      "method": "GET",
+      "path": "/rest/api/{id}/issue/{issueIdOrKey}/comment/{id}",
+      "host": "your-domain.atlassian.net",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "issueIdOrKey",
+          "location": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_content_type": null,
+      "request_schema": null,
+      "response_status_codes": [
+        200
+      ],
+      "response_content_type": "application/json",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "created": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "jsdAuthorCanSeeRequest": {
+            "type": "boolean"
+          },
+          "jsdPublic": {
+            "type": "boolean"
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "value"
+              ]
+            }
+          },
+          "renderedBody": {
+            "type": "string"
+          },
+          "self": {
+            "type": "string"
+          },
+          "updateAuthor": {
+            "type": "string"
+          },
+          "updated": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "author",
+          "body",
+          "created",
+          "id",
+          "jsdAuthorCanSeeRequest",
+          "jsdPublic",
+          "properties",
+          "renderedBody",
+          "self",
+          "updateAuthor",
+          "updated",
+          "visibility"
+        ]
+      },
+      "auth_type": "none",
+      "is_first_party": true,
+      "is_state_changing": false,
+      "is_auth_related": false,
+      "has_pii": false,
+      "risk_tier": "safe",
+      "observation_count": 1
+    },
+    {
+      "stable_id": "460558f440a83490",
+      "signature_id": "99b97c9b62ad3fbe",
+      "tool_id": "get_issue_transitions",
+      "tool_version": 1,
+      "method": "GET",
+      "path": "/rest/api/{id}/issue/{issueIdOrKey}/transitions",
+      "host": "your-domain.atlassian.net",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "issueIdOrKey",
+          "location": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_content_type": null,
+      "request_schema": null,
+      "response_status_codes": [
+        200
+      ],
+      "response_content_type": "application/json",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "expand": {
+            "type": "string"
+          },
+          "transitions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "expand": {
+                  "type": "string"
+                },
+                "fields": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "hasScreen": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "isAvailable": {
+                  "type": "boolean"
+                },
+                "isConditional": {
+                  "type": "boolean"
+                },
+                "isGlobal": {
+                  "type": "boolean"
+                },
+                "isInitial": {
+                  "type": "boolean"
+                },
+                "looped": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "to": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "expand",
+                "fields",
+                "hasScreen",
+                "id",
+                "isAvailable",
+                "isConditional",
+                "isGlobal",
+                "isInitial",
+                "looped",
+                "name",
+                "to"
+              ]
+            }
+          }
+        },
+        "required": [
+          "expand",
+          "transitions"
+        ]
+      },
+      "auth_type": "none",
+      "is_first_party": true,
+      "is_state_changing": false,
+      "is_auth_related": false,
+      "has_pii": false,
+      "risk_tier": "safe",
+      "observation_count": 1
+    },
+    {
+      "stable_id": "d5091b013de9895d",
+      "signature_id": "8e9680e022c5e208",
+      "tool_id": "get_project",
+      "tool_version": 1,
+      "method": "GET",
+      "path": "/rest/api/{id}/project",
+      "host": "your-domain.atlassian.net",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_content_type": null,
+      "request_schema": null,
+      "response_status_codes": [
+        200
+      ],
+      "response_content_type": "application/json",
+      "response_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "archived": {
+              "type": "boolean"
+            },
+            "archivedBy": {
+              "type": "string"
+            },
+            "archivedDate": {
+              "type": "string"
+            },
+            "assigneeType": {
+              "type": "string"
+            },
+            "avatarUrls": {
+              "type": "string"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ari": {
+                    "type": "string"
+                  },
+                  "assignee": {
+                    "type": "string"
+                  },
+                  "assigneeType": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "isAssigneeTypeValid": {
+                    "type": "boolean"
+                  },
+                  "lead": {
+                    "type": "string"
+                  },
+                  "leadAccountId": {
+                    "type": "string"
+                  },
+                  "leadUserName": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "properties": {}
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "project": {
+                    "type": "string"
+                  },
+                  "projectId": {
+                    "type": "integer"
+                  },
+                  "realAssignee": {
+                    "type": "string"
+                  },
+                  "realAssigneeType": {
+                    "type": "string"
+                  },
+                  "self": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "ari",
+                  "assignee",
+                  "assigneeType",
+                  "description",
+                  "id",
+                  "isAssigneeTypeValid",
+                  "lead",
+                  "leadAccountId",
+                  "leadUserName",
+                  "metadata",
+                  "name",
+                  "project",
+                  "projectId",
+                  "realAssignee",
+                  "realAssigneeType",
+                  "self"
+                ]
+              }
+            },
+            "deleted": {
+              "type": "boolean"
+            },
+            "deletedBy": {
+              "type": "string"
+            },
+            "deletedDate": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            },
+            "expand": {
+              "type": "string"
+            },
+            "favourite": {
+              "type": "boolean"
+            },
+            "id": {
+              "type": "string"
+            },
+            "insight": {
+              "type": "string"
+            },
+            "isPrivate": {
+              "type": "boolean"
+            },
+            "issueTypeHierarchy": {
+              "type": "string"
+            },
+            "issueTypes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "avatarId": {
+                    "type": "integer"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "entityId": {
+                    "type": "string"
+                  },
+                  "hierarchyLevel": {
+                    "type": "integer"
+                  },
+                  "iconUrl": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "string"
+                  },
+                  "self": {
+                    "type": "string"
+                  },
+                  "subtask": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "avatarId",
+                  "description",
+                  "entityId",
+                  "hierarchyLevel",
+                  "iconUrl",
+                  "id",
+                  "name",
+                  "scope",
+                  "self",
+                  "subtask"
+                ]
+              }
+            },
+            "key": {
+              "type": "string"
+            },
+            "landingPageInfo": {
+              "type": "string"
+            },
+            "lead": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "permissions": {
+              "type": "string"
+            },
+            "projectCategory": {
+              "type": "string"
+            },
+            "projectTypeKey": {
+              "type": "string"
+            },
+            "properties": {
+              "type": "object",
+              "properties": {}
+            },
+            "retentionTillDate": {
+              "type": "string"
+            },
+            "roles": {
+              "type": "object",
+              "properties": {}
+            },
+            "self": {
+              "type": "string"
+            },
+            "simplified": {
+              "type": "boolean"
+            },
+            "style": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            },
+            "versions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "approvers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "accountId": {
+                          "type": "string"
+                        },
+                        "declineReason": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "accountId",
+                        "declineReason",
+                        "description",
+                        "status"
+                      ]
+                    }
+                  },
+                  "archived": {
+                    "type": "boolean"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "driver": {
+                    "type": "string"
+                  },
+                  "expand": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "issuesStatusForFixVersion": {
+                    "type": "string"
+                  },
+                  "moveUnfixedIssuesTo": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "operations": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "href": {
+                          "type": "string"
+                        },
+                        "iconClass": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "styleClass": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "weight": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "href",
+                        "iconClass",
+                        "id",
+                        "label",
+                        "styleClass",
+                        "title",
+                        "weight"
+                      ]
+                    }
+                  },
+                  "overdue": {
+                    "type": "boolean"
+                  },
+                  "project": {
+                    "type": "string"
+                  },
+                  "projectId": {
+                    "type": "integer"
+                  },
+                  "releaseDate": {
+                    "type": "string"
+                  },
+                  "released": {
+                    "type": "boolean"
+                  },
+                  "self": {
+                    "type": "string"
+                  },
+                  "startDate": {
+                    "type": "string"
+                  },
+                  "userReleaseDate": {
+                    "type": "string"
+                  },
+                  "userStartDate": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "approvers",
+                  "archived",
+                  "description",
+                  "driver",
+                  "expand",
+                  "id",
+                  "issuesStatusForFixVersion",
+                  "moveUnfixedIssuesTo",
+                  "name",
+                  "operations",
+                  "overdue",
+                  "project",
+                  "projectId",
+                  "releaseDate",
+                  "released",
+                  "self",
+                  "startDate",
+                  "userReleaseDate",
+                  "userStartDate"
+                ]
+              }
+            }
+          },
+          "required": [
+            "archived",
+            "archivedBy",
+            "archivedDate",
+            "assigneeType",
+            "avatarUrls",
+            "components",
+            "deleted",
+            "deletedBy",
+            "deletedDate",
+            "description",
+            "email",
+            "expand",
+            "favourite",
+            "id",
+            "insight",
+            "isPrivate",
+            "issueTypeHierarchy",
+            "issueTypes",
+            "key",
+            "landingPageInfo",
+            "lead",
+            "name",
+            "permissions",
+            "projectCategory",
+            "projectTypeKey",
+            "properties",
+            "retentionTillDate",
+            "roles",
+            "self",
+            "simplified",
+            "style",
+            "url",
+            "uuid",
+            "versions"
+          ]
+        }
+      },
+      "auth_type": "none",
+      "is_first_party": true,
+      "is_state_changing": false,
+      "is_auth_related": false,
+      "has_pii": true,
+      "risk_tier": "low",
+      "observation_count": 1
+    },
+    {
+      "stable_id": "eddf76d9b5961a4a",
+      "signature_id": "3134eb021d5d78d7",
+      "tool_id": "get_project",
+      "tool_version": 1,
+      "method": "GET",
+      "path": "/rest/api/{id}/project/{projectIdOrKey}",
+      "host": "your-domain.atlassian.net",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "projectIdOrKey",
+          "location": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_content_type": null,
+      "request_schema": null,
+      "response_status_codes": [
+        200
+      ],
+      "response_content_type": "application/json",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "archived": {
+            "type": "boolean"
+          },
+          "archivedBy": {
+            "type": "string"
+          },
+          "archivedDate": {
+            "type": "string"
+          },
+          "assigneeType": {
+            "type": "string"
+          },
+          "avatarUrls": {
+            "type": "string"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ari": {
+                  "type": "string"
+                },
+                "assignee": {
+                  "type": "string"
+                },
+                "assigneeType": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "isAssigneeTypeValid": {
+                  "type": "boolean"
+                },
+                "lead": {
+                  "type": "string"
+                },
+                "leadAccountId": {
+                  "type": "string"
+                },
+                "leadUserName": {
+                  "type": "string"
+                },
+                "metadata": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "name": {
+                  "type": "string"
+                },
+                "project": {
+                  "type": "string"
+                },
+                "projectId": {
+                  "type": "integer"
+                },
+                "realAssignee": {
+                  "type": "string"
+                },
+                "realAssigneeType": {
+                  "type": "string"
+                },
+                "self": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "ari",
+                "assignee",
+                "assigneeType",
+                "description",
+                "id",
+                "isAssigneeTypeValid",
+                "lead",
+                "leadAccountId",
+                "leadUserName",
+                "metadata",
+                "name",
+                "project",
+                "projectId",
+                "realAssignee",
+                "realAssigneeType",
+                "self"
+              ]
+            }
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "deletedBy": {
+            "type": "string"
+          },
+          "deletedDate": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "expand": {
+            "type": "string"
+          },
+          "favourite": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "insight": {
+            "type": "string"
+          },
+          "isPrivate": {
+            "type": "boolean"
+          },
+          "issueTypeHierarchy": {
+            "type": "string"
+          },
+          "issueTypes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "avatarId": {
+                  "type": "integer"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "entityId": {
+                  "type": "string"
+                },
+                "hierarchyLevel": {
+                  "type": "integer"
+                },
+                "iconUrl": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "scope": {
+                  "type": "string"
+                },
+                "self": {
+                  "type": "string"
+                },
+                "subtask": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "avatarId",
+                "description",
+                "entityId",
+                "hierarchyLevel",
+                "iconUrl",
+                "id",
+                "name",
+                "scope",
+                "self",
+                "subtask"
+              ]
+            }
+          },
+          "key": {
+            "type": "string"
+          },
+          "landingPageInfo": {
+            "type": "string"
+          },
+          "lead": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "string"
+          },
+          "projectCategory": {
+            "type": "string"
+          },
+          "projectTypeKey": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {}
+          },
+          "retentionTillDate": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "object",
+            "properties": {}
+          },
+          "self": {
+            "type": "string"
+          },
+          "simplified": {
+            "type": "boolean"
+          },
+          "style": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "uuid": {
+            "type": "string"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "approvers": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "accountId": {
+                        "type": "string"
+                      },
+                      "declineReason": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "accountId",
+                      "declineReason",
+                      "description",
+                      "status"
+                    ]
+                  }
+                },
+                "archived": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "driver": {
+                  "type": "string"
+                },
+                "expand": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "issuesStatusForFixVersion": {
+                  "type": "string"
+                },
+                "moveUnfixedIssuesTo": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "operations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "href": {
+                        "type": "string"
+                      },
+                      "iconClass": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "styleClass": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "weight": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "href",
+                      "iconClass",
+                      "id",
+                      "label",
+                      "styleClass",
+                      "title",
+                      "weight"
+                    ]
+                  }
+                },
+                "overdue": {
+                  "type": "boolean"
+                },
+                "project": {
+                  "type": "string"
+                },
+                "projectId": {
+                  "type": "integer"
+                },
+                "releaseDate": {
+                  "type": "string"
+                },
+                "released": {
+                  "type": "boolean"
+                },
+                "self": {
+                  "type": "string"
+                },
+                "startDate": {
+                  "type": "string"
+                },
+                "userReleaseDate": {
+                  "type": "string"
+                },
+                "userStartDate": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "approvers",
+                "archived",
+                "description",
+                "driver",
+                "expand",
+                "id",
+                "issuesStatusForFixVersion",
+                "moveUnfixedIssuesTo",
+                "name",
+                "operations",
+                "overdue",
+                "project",
+                "projectId",
+                "releaseDate",
+                "released",
+                "self",
+                "startDate",
+                "userReleaseDate",
+                "userStartDate"
+              ]
+            }
+          }
+        },
+        "required": [
+          "archived",
+          "archivedBy",
+          "archivedDate",
+          "assigneeType",
+          "avatarUrls",
+          "components",
+          "deleted",
+          "deletedBy",
+          "deletedDate",
+          "description",
+          "email",
+          "expand",
+          "favourite",
+          "id",
+          "insight",
+          "isPrivate",
+          "issueTypeHierarchy",
+          "issueTypes",
+          "key",
+          "landingPageInfo",
+          "lead",
+          "name",
+          "permissions",
+          "projectCategory",
+          "projectTypeKey",
+          "properties",
+          "retentionTillDate",
+          "roles",
+          "self",
+          "simplified",
+          "style",
+          "url",
+          "uuid",
+          "versions"
+        ]
+      },
+      "auth_type": "none",
+      "is_first_party": true,
+      "is_state_changing": false,
+      "is_auth_related": false,
+      "has_pii": true,
+      "risk_tier": "low",
+      "observation_count": 1
+    },
+    {
+      "stable_id": "33a5a64bc343df3b",
+      "signature_id": "6cb954eaff76738e",
+      "tool_id": "search_jql",
+      "tool_version": 1,
+      "method": "GET",
+      "path": "/rest/api/{id}/search/jql",
+      "host": "your-domain.atlassian.net",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_content_type": null,
+      "request_schema": null,
+      "response_status_codes": [
+        200
+      ],
+      "response_content_type": "application/json",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "isLast": {
+            "type": "boolean"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "changelog": {
+                  "type": "string"
+                },
+                "editmeta": {
+                  "type": "string"
+                },
+                "expand": {
+                  "type": "string"
+                },
+                "fields": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "fieldsToInclude": {
+                  "type": "object",
+                  "properties": {
+                    "actuallyIncluded": {
+                      "type": "array"
+                    },
+                    "excluded": {
+                      "type": "array"
+                    },
+                    "included": {
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "actuallyIncluded",
+                    "excluded",
+                    "included"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "names": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "operations": {
+                  "type": "string"
+                },
+                "properties": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "renderedFields": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "self": {
+                  "type": "string"
+                },
+                "transitions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "expand": {
+                        "type": "string"
+                      },
+                      "fields": {
+                        "type": "object",
+                        "properties": {}
+                      },
+                      "hasScreen": {
+                        "type": "boolean"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "isAvailable": {
+                        "type": "boolean"
+                      },
+                      "isConditional": {
+                        "type": "boolean"
+                      },
+                      "isGlobal": {
+                        "type": "boolean"
+                      },
+                      "isInitial": {
+                        "type": "boolean"
+                      },
+                      "looped": {
+                        "type": "boolean"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "to": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "expand",
+                      "fields",
+                      "hasScreen",
+                      "id",
+                      "isAvailable",
+                      "isConditional",
+                      "isGlobal",
+                      "isInitial",
+                      "looped",
+                      "name",
+                      "to"
+                    ]
+                  }
+                },
+                "versionedRepresentations": {
+                  "type": "object",
+                  "properties": {}
+                }
+              },
+              "required": [
+                "changelog",
+                "editmeta",
+                "expand",
+                "fields",
+                "fieldsToInclude",
+                "id",
+                "key",
+                "names",
+                "operations",
+                "properties",
+                "renderedFields",
+                "schema",
+                "self",
+                "transitions",
+                "versionedRepresentations"
+              ]
+            }
+          },
+          "names": {
+            "type": "object",
+            "properties": {}
+          },
+          "nextPageToken": {
+            "type": "string"
+          },
+          "schema": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        "required": [
+          "isLast",
+          "issues",
+          "names",
+          "nextPageToken",
+          "schema"
+        ]
+      },
+      "auth_type": "none",
+      "is_first_party": true,
+      "is_state_changing": false,
+      "is_auth_related": false,
+      "has_pii": false,
+      "risk_tier": "safe",
+      "observation_count": 1
+    },
+    {
+      "stable_id": "0414ca4fa2b6f9ad",
+      "signature_id": "d400a679c00790e2",
+      "tool_id": "get_user",
+      "tool_version": 1,
+      "method": "GET",
+      "path": "/rest/api/{id}/user",
+      "host": "your-domain.atlassian.net",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_content_type": null,
+      "request_schema": null,
+      "response_status_codes": [
+        200
+      ],
+      "response_content_type": "application/json",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "accountType": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "appType": {
+            "type": "string"
+          },
+          "applicationRoles": {
+            "type": "string"
+          },
+          "avatarUrls": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "emailAddress": {
+            "type": "string"
+          },
+          "expand": {
+            "type": "string"
+          },
+          "groups": {
+            "type": "string"
+          },
+          "guest": {
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "self": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountId",
+          "accountType",
+          "active",
+          "appType",
+          "applicationRoles",
+          "avatarUrls",
+          "displayName",
+          "emailAddress",
+          "expand",
+          "groups",
+          "guest",
+          "key",
+          "locale",
+          "name",
+          "self",
+          "timeZone"
+        ]
+      },
+      "auth_type": "none",
+      "is_first_party": true,
+      "is_state_changing": false,
+      "is_auth_related": false,
+      "has_pii": false,
+      "risk_tier": "safe",
+      "observation_count": 1
+    },
+    {
+      "stable_id": "4d4f60d70e02de0c",
+      "signature_id": "2ec2f38616f5b6f2",
+      "tool_id": "search_users",
+      "tool_version": 1,
+      "method": "GET",
+      "path": "/rest/api/{id}/users/search",
+      "host": "your-domain.atlassian.net",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_content_type": null,
+      "request_schema": null,
+      "response_status_codes": [
+        200
+      ],
+      "response_content_type": "application/json",
+      "response_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "accountId": {
+              "type": "string"
+            },
+            "accountType": {
+              "type": "string"
+            },
+            "active": {
+              "type": "boolean"
+            },
+            "appType": {
+              "type": "string"
+            },
+            "applicationRoles": {
+              "type": "string"
+            },
+            "avatarUrls": {
+              "type": "string"
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "emailAddress": {
+              "type": "string"
+            },
+            "expand": {
+              "type": "string"
+            },
+            "groups": {
+              "type": "string"
+            },
+            "guest": {
+              "type": "boolean"
+            },
+            "key": {
+              "type": "string"
+            },
+            "locale": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "self": {
+              "type": "string"
+            },
+            "timeZone": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "accountId",
+            "accountType",
+            "active",
+            "appType",
+            "applicationRoles",
+            "avatarUrls",
+            "displayName",
+            "emailAddress",
+            "expand",
+            "groups",
+            "guest",
+            "key",
+            "locale",
+            "name",
+            "self",
+            "timeZone"
+          ]
+        }
+      },
+      "auth_type": "none",
+      "is_first_party": true,
+      "is_state_changing": false,
+      "is_auth_related": false,
+      "has_pii": false,
+      "risk_tier": "safe",
+      "observation_count": 1
+    },
+    {
+      "stable_id": "75396bb31a9f62ec",
+      "signature_id": "68f343b2c97a0842",
+      "tool_id": "create_issue",
+      "tool_version": 1,
+      "method": "POST",
+      "path": "/rest/api/{id}/issue",
+      "host": "your-domain.atlassian.net",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_content_type": null,
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "object",
+            "properties": {}
+          },
+          "historyMetadata": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "value"
+              ]
+            }
+          },
+          "transition": {
+            "type": "string"
+          },
+          "update": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        "required": [
+          "fields",
+          "historyMetadata",
+          "properties",
+          "transition",
+          "update"
+        ]
+      },
+      "response_status_codes": [
+        201
+      ],
+      "response_content_type": "application/json",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "self": {
+            "type": "string"
+          },
+          "transition": {
+            "type": "string"
+          },
+          "watchers": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "self",
+          "transition",
+          "watchers"
+        ]
+      },
+      "auth_type": "none",
+      "is_first_party": true,
+      "is_state_changing": true,
+      "is_auth_related": false,
+      "has_pii": false,
+      "risk_tier": "medium",
+      "observation_count": 1
+    },
+    {
+      "stable_id": "7893c6fccd3e6342",
+      "signature_id": "22279a101e6504a9",
+      "tool_id": "create_issue_comment",
+      "tool_version": 1,
+      "method": "POST",
+      "path": "/rest/api/{id}/issue/{issueIdOrKey}/comment",
+      "host": "your-domain.atlassian.net",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "issueIdOrKey",
+          "location": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_content_type": null,
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "created": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "jsdAuthorCanSeeRequest": {
+            "type": "boolean"
+          },
+          "jsdPublic": {
+            "type": "boolean"
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "value"
+              ]
+            }
+          },
+          "renderedBody": {
+            "type": "string"
+          },
+          "self": {
+            "type": "string"
+          },
+          "updateAuthor": {
+            "type": "string"
+          },
+          "updated": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "author",
+          "body",
+          "created",
+          "id",
+          "jsdAuthorCanSeeRequest",
+          "jsdPublic",
+          "properties",
+          "renderedBody",
+          "self",
+          "updateAuthor",
+          "updated",
+          "visibility"
+        ]
+      },
+      "response_status_codes": [
+        201
+      ],
+      "response_content_type": "application/json",
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "created": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "jsdAuthorCanSeeRequest": {
+            "type": "boolean"
+          },
+          "jsdPublic": {
+            "type": "boolean"
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "value"
+              ]
+            }
+          },
+          "renderedBody": {
+            "type": "string"
+          },
+          "self": {
+            "type": "string"
+          },
+          "updateAuthor": {
+            "type": "string"
+          },
+          "updated": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "author",
+          "body",
+          "created",
+          "id",
+          "jsdAuthorCanSeeRequest",
+          "jsdPublic",
+          "properties",
+          "renderedBody",
+          "self",
+          "updateAuthor",
+          "updated",
+          "visibility"
+        ]
+      },
+      "auth_type": "none",
+      "is_first_party": true,
+      "is_state_changing": true,
+      "is_auth_related": false,
+      "has_pii": false,
+      "risk_tier": "medium",
+      "observation_count": 1
+    },
+    {
+      "stable_id": "bf43394e02e928a5",
+      "signature_id": "981c65ea0f9bdd0e",
+      "tool_id": "create_issue_transition",
+      "tool_version": 1,
+      "method": "POST",
+      "path": "/rest/api/{id}/issue/{issueIdOrKey}/transitions",
+      "host": "your-domain.atlassian.net",
+      "parameters": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "issueIdOrKey",
+          "location": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_content_type": null,
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "object",
+            "properties": {}
+          },
+          "historyMetadata": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "value"
+              ]
+            }
+          },
+          "transition": {
+            "type": "string"
+          },
+          "update": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        "required": [
+          "fields",
+          "historyMetadata",
+          "properties",
+          "transition",
+          "update"
+        ]
+      },
+      "response_status_codes": [
+        204
+      ],
+      "response_content_type": "application/json",
+      "response_schema": null,
+      "auth_type": "none",
+      "is_first_party": true,
+      "is_state_changing": true,
+      "is_auth_related": false,
+      "has_pii": false,
+      "risk_tier": "medium",
+      "observation_count": 1
+    }
+  ],
+  "capture_id": "cap_20260222_80414220",
+  "scope": "first_party_only",
+  "summary": {
+    "host_count": 1,
+    "hosts": [
+      "your-domain.atlassian.net"
+    ],
+    "methods": {
+      "GET": 9,
+      "POST": 3
+    },
+    "risk_tiers": {
+      "low": 2,
+      "medium": 3,
+      "safe": 7
+    },
+    "state_changing_count": 3,
+    "auth_related_count": 0,
+    "pii_count": 2
+  }
+}
