@@ -2,33 +2,29 @@
   "version": "1.0.0",
   "schema_version": "1.0",
   "name": "The Jira Cloud platform REST API",
-  "generated_at": "2026-02-22T03:26:12.379202+00:00",
+  "generated_at": "2026-02-22T04:03:55.728143+00:00",
   "allowed_hosts": [
     "your-domain.atlassian.net"
   ],
   "actions": [
     {
       "id": "get_issue",
-      "tool_id": "f63a39bf663dd8dd",
+      "tool_id": "5af7d1833c77d88e",
       "name": "get_issue",
-      "description": "Retrieve an issue by {issueIdOrKey}. Returns: changelog, editmeta, expand, fields, fieldsToInclude (Call get_issue_comment__your_domain_atlassian_net first to obtain id) (Call create_issue_comment first to obtain id) (Call get_project__your_domain_atlassian_net first to obtain id) (Call get_issue_comment first to obtain id) (Call create_issue first to obtain id) (Call search_jql first to obtain id) (Call get_project first to obtain id) (Call get_issue_transitions first to obtain id)",
-      "endpoint_id": "c13dab101bd7bc98",
-      "signature_id": "f63a39bf663dd8dd",
+      "description": "Retrieve an issue by {issueIdOrKey}. Returns: changelog, editmeta, expand, fields, fieldsToInclude",
+      "endpoint_id": "3d655fa0793f5a67",
+      "signature_id": "5af7d1833c77d88e",
       "method": "GET",
-      "path": "/rest/api/{id}/issue/{issueIdOrKey}",
+      "path": "/issue/{issueIdOrKey}",
       "host": "your-domain.atlassian.net",
       "input_schema": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
           "issueIdOrKey": {
             "type": "string"
           }
         },
         "required": [
-          "id",
           "issueIdOrKey"
         ]
       },
@@ -183,52 +179,31 @@
       "scopes": [
         "first_party_only"
       ],
-      "depends_on": [
-        "get_issue_comment__your_domain_atlassian_net",
-        "create_issue_comment",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
-        "create_issue",
-        "search_jql",
-        "get_project",
-        "get_issue_transitions"
-      ],
       "enables": [
-        "get_issue_comment__your_domain_atlassian_net",
         "create_issue_comment",
-        "search_users",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
         "create_issue",
-        "search_jql",
-        "get_project",
         "create_issue_transition",
-        "get_issue_transitions",
-        "get_user"
+        "get_issue_comment__your_domain_atlassian_net"
       ]
     },
     {
       "id": "get_issue_comment",
-      "tool_id": "422df923b0e6089b",
+      "tool_id": "de4c133d5a01ae1c",
       "name": "get_issue_comment",
-      "description": "Use this to access or manage content. List comment for an issue. Returns: comments, maxResults, startAt, total (Call get_issue_comment__your_domain_atlassian_net first to obtain id) (Call create_issue_comment first to obtain id) (Call get_project__your_domain_atlassian_net first to obtain id) (Call create_issue first to obtain id) (Call search_jql first to obtain id) (Call get_project first to obtain id) (Call get_issue_transitions first to obtain id) (Call get_issue first to obtain id)",
-      "endpoint_id": "9b9b4a233b933918",
-      "signature_id": "422df923b0e6089b",
+      "description": "Use this to access or manage content. List comment for an issue. Returns: comments, maxResults, startAt, total",
+      "endpoint_id": "cd13d7d71988fe91",
+      "signature_id": "de4c133d5a01ae1c",
       "method": "GET",
-      "path": "/rest/api/{id}/issue/{issueIdOrKey}/comment",
+      "path": "/issue/{issueIdOrKey}/comment",
       "host": "your-domain.atlassian.net",
       "input_schema": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
           "issueIdOrKey": {
             "type": "string"
           }
         },
         "required": [
-          "id",
           "issueIdOrKey"
         ]
       },
@@ -335,39 +310,22 @@
       "scopes": [
         "first_party_only"
       ],
-      "depends_on": [
-        "get_issue_comment__your_domain_atlassian_net",
-        "create_issue_comment",
-        "get_project__your_domain_atlassian_net",
-        "create_issue",
-        "search_jql",
-        "get_project",
-        "get_issue_transitions",
-        "get_issue"
-      ],
       "enables": [
-        "get_issue_comment__your_domain_atlassian_net",
         "create_issue_comment",
-        "search_users",
-        "get_project__your_domain_atlassian_net",
         "create_issue",
-        "search_jql",
-        "get_project",
         "create_issue_transition",
-        "get_issue_transitions",
-        "get_user",
-        "get_issue"
+        "get_issue_comment__your_domain_atlassian_net"
       ]
     },
     {
       "id": "get_issue_comment__your_domain_atlassian_net",
-      "tool_id": "2003885e28279575",
+      "tool_id": "c445a7c4a19a2ef6",
       "name": "get_issue_comment__your_domain_atlassian_net",
-      "description": "Use this to access or manage content. Retrieve a comment by {id}. Returns: author, body, created, id, jsdAuthorCanSeeRequest (Call create_issue_comment first to obtain id) (Call get_project__your_domain_atlassian_net first to obtain id) (Call get_issue_comment first to obtain id) (Call create_issue first to obtain id) (Call search_jql first to obtain id) (Call get_project first to obtain id) (Call get_issue_transitions first to obtain id) (Call get_issue first to obtain id)",
-      "endpoint_id": "3cbf4172dad28182",
-      "signature_id": "2003885e28279575",
+      "description": "Use this to access or manage content. Retrieve a comment by {id}. Returns: author, body, created, id, jsdAuthorCanSeeRequest (Call get_project first to obtain id) (Call get_issue_transitions first to obtain id) (Call create_issue_comment first to obtain id) (Call get_issue first to obtain id) (Call get_project__your_domain_atlassian_net first to obtain id) (Call create_issue first to obtain id) (Call get_issue_comment first to obtain id) (Call search_jql first to obtain id)",
+      "endpoint_id": "be713b35e2b84e1c",
+      "signature_id": "c445a7c4a19a2ef6",
       "method": "GET",
-      "path": "/rest/api/{id}/issue/{issueIdOrKey}/comment/{id}",
+      "path": "/issue/{issueIdOrKey}/comment/{id}",
       "host": "your-domain.atlassian.net",
       "input_schema": {
         "type": "object",
@@ -464,52 +422,40 @@
       "scopes": [
         "first_party_only"
       ],
+      "depends_on": [
+        "get_project",
+        "get_issue_transitions",
+        "create_issue_comment",
+        "get_issue",
+        "get_project__your_domain_atlassian_net",
+        "create_issue",
+        "get_issue_comment",
+        "search_jql"
+      ],
       "enables": [
         "create_issue_comment",
-        "search_users",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
         "create_issue",
-        "search_jql",
-        "get_project",
-        "create_issue_transition",
-        "get_issue_transitions",
-        "get_user",
-        "get_issue"
-      ],
-      "depends_on": [
-        "create_issue_comment",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
-        "create_issue",
-        "search_jql",
-        "get_project",
-        "get_issue_transitions",
-        "get_issue"
+        "create_issue_transition"
       ]
     },
     {
       "id": "get_issue_transitions",
-      "tool_id": "99b97c9b62ad3fbe",
+      "tool_id": "1fd041cf89305574",
       "name": "get_issue_transitions",
-      "description": "List transitions for an issue. Returns: expand, transitions (Call get_issue_comment__your_domain_atlassian_net first to obtain id) (Call create_issue_comment first to obtain id) (Call get_project__your_domain_atlassian_net first to obtain id) (Call get_issue_comment first to obtain id) (Call create_issue first to obtain id) (Call search_jql first to obtain id) (Call get_project first to obtain id) (Call get_issue first to obtain id)",
-      "endpoint_id": "460558f440a83490",
-      "signature_id": "99b97c9b62ad3fbe",
+      "description": "List transitions for an issue. Returns: expand, transitions",
+      "endpoint_id": "1c822b4c562a17c6",
+      "signature_id": "1fd041cf89305574",
       "method": "GET",
-      "path": "/rest/api/{id}/issue/{issueIdOrKey}/transitions",
+      "path": "/issue/{issueIdOrKey}/transitions",
       "host": "your-domain.atlassian.net",
       "input_schema": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
           "issueIdOrKey": {
             "type": "string"
           }
         },
         "required": [
-          "id",
           "issueIdOrKey"
         ]
       },
@@ -590,50 +536,26 @@
       "scopes": [
         "first_party_only"
       ],
-      "depends_on": [
-        "get_issue_comment__your_domain_atlassian_net",
-        "create_issue_comment",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
-        "create_issue",
-        "search_jql",
-        "get_project",
-        "get_issue"
-      ],
       "enables": [
-        "get_issue_comment__your_domain_atlassian_net",
         "create_issue_comment",
-        "search_users",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
         "create_issue",
-        "search_jql",
-        "get_project",
         "create_issue_transition",
-        "get_user",
-        "get_issue"
+        "get_issue_comment__your_domain_atlassian_net"
       ]
     },
     {
       "id": "get_project",
-      "tool_id": "8e9680e022c5e208",
+      "tool_id": "0cadd0d0b1a99c4b",
       "name": "get_project",
-      "description": "List project for an api (Call get_issue_comment__your_domain_atlassian_net first to obtain id) (Call create_issue_comment first to obtain id) (Call get_project__your_domain_atlassian_net first to obtain id) (Call get_issue_comment first to obtain id) (Call create_issue first to obtain id) (Call search_jql first to obtain id) (Call get_issue_transitions first to obtain id) (Call get_issue first to obtain id)",
-      "endpoint_id": "d5091b013de9895d",
-      "signature_id": "8e9680e022c5e208",
+      "description": "List all project",
+      "endpoint_id": "28995d6de52c5b43",
+      "signature_id": "0cadd0d0b1a99c4b",
       "method": "GET",
-      "path": "/rest/api/{id}/project",
+      "path": "/project",
       "host": "your-domain.atlassian.net",
       "input_schema": {
         "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ]
+        "properties": {}
       },
       "risk_tier": "low",
       "confirmation_required": "never",
@@ -1054,52 +976,31 @@
       "scopes": [
         "first_party_only"
       ],
-      "depends_on": [
-        "get_issue_comment__your_domain_atlassian_net",
-        "create_issue_comment",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
-        "create_issue",
-        "search_jql",
-        "get_issue_transitions",
-        "get_issue"
-      ],
       "enables": [
-        "get_issue_comment__your_domain_atlassian_net",
         "create_issue_comment",
-        "search_users",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
         "create_issue",
-        "search_jql",
         "create_issue_transition",
-        "get_issue_transitions",
-        "get_user",
-        "get_issue"
+        "get_issue_comment__your_domain_atlassian_net"
       ]
     },
     {
       "id": "get_project__your_domain_atlassian_net",
-      "tool_id": "3134eb021d5d78d7",
+      "tool_id": "622a54704cb65f6c",
       "name": "get_project__your_domain_atlassian_net",
-      "description": "Use this to access or manage user information. Retrieve a project by {projectIdOrKey}. Returns: archived, archivedBy, archivedDate, assigneeType, avatarUrls (Call get_issue_comment__your_domain_atlassian_net first to obtain id) (Call create_issue_comment first to obtain id) (Call get_issue_comment first to obtain id) (Call create_issue first to obtain id) (Call search_jql first to obtain id) (Call get_project first to obtain id) (Call get_issue_transitions first to obtain id) (Call get_issue first to obtain id)",
-      "endpoint_id": "eddf76d9b5961a4a",
-      "signature_id": "3134eb021d5d78d7",
+      "description": "Use this to access or manage user information. Retrieve a project by {projectIdOrKey}. Returns: archived, archivedBy, archivedDate, assigneeType, avatarUrls",
+      "endpoint_id": "5cb8c51d67f15e9f",
+      "signature_id": "622a54704cb65f6c",
       "method": "GET",
-      "path": "/rest/api/{id}/project/{projectIdOrKey}",
+      "path": "/project/{projectIdOrKey}",
       "host": "your-domain.atlassian.net",
       "input_schema": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
           "projectIdOrKey": {
             "type": "string"
           }
         },
         "required": [
-          "id",
           "projectIdOrKey"
         ]
       },
@@ -1519,50 +1420,26 @@
       "scopes": [
         "first_party_only"
       ],
-      "depends_on": [
-        "get_issue_comment__your_domain_atlassian_net",
-        "create_issue_comment",
-        "get_issue_comment",
-        "create_issue",
-        "search_jql",
-        "get_project",
-        "get_issue_transitions",
-        "get_issue"
-      ],
       "enables": [
-        "get_issue_comment__your_domain_atlassian_net",
         "create_issue_comment",
-        "search_users",
-        "get_issue_comment",
         "create_issue",
-        "search_jql",
-        "get_project",
         "create_issue_transition",
-        "get_issue_transitions",
-        "get_user",
-        "get_issue"
+        "get_issue_comment__your_domain_atlassian_net"
       ]
     },
     {
       "id": "search_jql",
-      "tool_id": "6cb954eaff76738e",
+      "tool_id": "e10f8a0ca51e5205",
       "name": "search_jql",
-      "description": "Use this to search or query data. List jql for an api. Returns: isLast, issues, names, nextPageToken, schema (Call get_issue_comment__your_domain_atlassian_net first to obtain id) (Call create_issue_comment first to obtain id) (Call get_project__your_domain_atlassian_net first to obtain id) (Call get_issue_comment first to obtain id) (Call create_issue first to obtain id) (Call get_project first to obtain id) (Call get_issue_transitions first to obtain id) (Call get_issue first to obtain id)",
-      "endpoint_id": "33a5a64bc343df3b",
-      "signature_id": "6cb954eaff76738e",
+      "description": "Use this to search or query data. List all jql. Returns: isLast, issues, names, nextPageToken, schema",
+      "endpoint_id": "0a0bd24c79b8fa31",
+      "signature_id": "e10f8a0ca51e5205",
       "method": "GET",
-      "path": "/rest/api/{id}/search/jql",
+      "path": "/search/jql",
       "host": "your-domain.atlassian.net",
       "input_schema": {
         "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ]
+        "properties": {}
       },
       "risk_tier": "safe",
       "confirmation_required": "never",
@@ -1744,50 +1621,26 @@
       "scopes": [
         "first_party_only"
       ],
-      "depends_on": [
-        "get_issue_comment__your_domain_atlassian_net",
-        "create_issue_comment",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
-        "create_issue",
-        "get_project",
-        "get_issue_transitions",
-        "get_issue"
-      ],
       "enables": [
-        "get_issue_comment__your_domain_atlassian_net",
         "create_issue_comment",
-        "search_users",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
         "create_issue",
-        "get_project",
         "create_issue_transition",
-        "get_issue_transitions",
-        "get_user",
-        "get_issue"
+        "get_issue_comment__your_domain_atlassian_net"
       ]
     },
     {
       "id": "get_user",
-      "tool_id": "d400a679c00790e2",
+      "tool_id": "68f758c8a929ced5",
       "name": "get_user",
-      "description": "Use this to access or manage user information. List user for an api. Returns: accountId, accountType, active, appType, applicationRoles (Call get_issue_comment__your_domain_atlassian_net first to obtain id) (Call create_issue_comment first to obtain id) (Call get_project__your_domain_atlassian_net first to obtain id) (Call get_issue_comment first to obtain id) (Call create_issue first to obtain id) (Call search_jql first to obtain id) (Call get_project first to obtain id) (Call get_issue_transitions first to obtain id) (Call get_issue first to obtain id)",
-      "endpoint_id": "0414ca4fa2b6f9ad",
-      "signature_id": "d400a679c00790e2",
+      "description": "Use this to access or manage user information. List all user. Returns: accountId, accountType, active, appType, applicationRoles",
+      "endpoint_id": "725bd70fb52e00b7",
+      "signature_id": "68f758c8a929ced5",
       "method": "GET",
-      "path": "/rest/api/{id}/user",
+      "path": "/user",
       "host": "your-domain.atlassian.net",
       "input_schema": {
         "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ]
+        "properties": {}
       },
       "risk_tier": "safe",
       "confirmation_required": "never",
@@ -1870,41 +1723,23 @@
       "scopes": [
         "first_party_only"
       ],
-      "depends_on": [
-        "get_issue_comment__your_domain_atlassian_net",
-        "create_issue_comment",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
-        "create_issue",
-        "search_jql",
-        "get_project",
-        "get_issue_transitions",
-        "get_issue"
-      ],
       "enables": [
         "create_issue_comment"
       ]
     },
     {
       "id": "search_users",
-      "tool_id": "2ec2f38616f5b6f2",
+      "tool_id": "d8cb2d1f89648b3c",
       "name": "search_users",
-      "description": "Use this to access or manage user information. List search for an api (Call get_issue_comment__your_domain_atlassian_net first to obtain id) (Call create_issue_comment first to obtain id) (Call get_project__your_domain_atlassian_net first to obtain id) (Call get_issue_comment first to obtain id) (Call create_issue first to obtain id) (Call search_jql first to obtain id) (Call get_project first to obtain id) (Call get_issue_transitions first to obtain id) (Call get_issue first to obtain id)",
-      "endpoint_id": "4d4f60d70e02de0c",
-      "signature_id": "2ec2f38616f5b6f2",
+      "description": "Use this to access or manage user information. List all search",
+      "endpoint_id": "6a6e2f6a5631cb22",
+      "signature_id": "d8cb2d1f89648b3c",
       "method": "GET",
-      "path": "/rest/api/{id}/users/search",
+      "path": "/users/search",
       "host": "your-domain.atlassian.net",
       "input_schema": {
         "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ]
+        "properties": {}
       },
       "risk_tier": "safe",
       "confirmation_required": "never",
@@ -1990,37 +1825,23 @@
       "scopes": [
         "first_party_only"
       ],
-      "depends_on": [
-        "get_issue_comment__your_domain_atlassian_net",
-        "create_issue_comment",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
-        "create_issue",
-        "search_jql",
-        "get_project",
-        "get_issue_transitions",
-        "get_issue"
-      ],
       "enables": [
         "create_issue_comment"
       ]
     },
     {
       "id": "create_issue",
-      "tool_id": "68f343b2c97a0842",
+      "tool_id": "6fcf1c3157da3bdf",
       "name": "create_issue",
-      "description": "Create a new issue. Returns: id, key, self, transition, watchers (Call get_issue_comment__your_domain_atlassian_net first to obtain id) (Call create_issue_comment first to obtain id) (Call get_project__your_domain_atlassian_net first to obtain properties) (Call get_issue_comment first to obtain id) (Call search_jql first to obtain id) (Call get_project first to obtain properties) (Call get_issue_transitions first to obtain fields) (Call get_issue first to obtain id)",
-      "endpoint_id": "75396bb31a9f62ec",
-      "signature_id": "68f343b2c97a0842",
+      "description": "Create a new issue. Returns: id, key, self, transition, watchers (Call get_project first to obtain properties) (Call get_issue_transitions first to obtain fields) (Call create_issue_comment first to obtain properties) (Call get_issue first to obtain fields) (Call get_project__your_domain_atlassian_net first to obtain properties) (Call get_issue_comment__your_domain_atlassian_net first to obtain properties) (Call get_issue_comment first to obtain properties) (Call search_jql first to obtain fields)",
+      "endpoint_id": "c422a2558f66d71e",
+      "signature_id": "6fcf1c3157da3bdf",
       "method": "POST",
-      "path": "/rest/api/{id}/issue",
+      "path": "/issue",
       "host": "your-domain.atlassian.net",
       "input_schema": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
           "fields": {
             "type": "object",
             "properties": {}
@@ -2057,7 +1878,6 @@
         "required": [
           "fields",
           "historyMetadata",
-          "id",
           "properties",
           "transition",
           "update"
@@ -2101,45 +1921,34 @@
         "first_party_only"
       ],
       "depends_on": [
-        "get_issue_comment__your_domain_atlassian_net",
-        "create_issue_comment",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
-        "search_jql",
         "get_project",
         "get_issue_transitions",
-        "get_issue"
+        "create_issue_comment",
+        "get_issue",
+        "get_project__your_domain_atlassian_net",
+        "get_issue_comment__your_domain_atlassian_net",
+        "get_issue_comment",
+        "search_jql"
       ],
       "enables": [
-        "get_issue_comment__your_domain_atlassian_net",
         "create_issue_comment",
-        "search_users",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
-        "search_jql",
-        "get_project",
         "create_issue_transition",
-        "get_issue_transitions",
-        "get_user",
-        "get_issue"
+        "get_issue_comment__your_domain_atlassian_net"
       ]
     },
     {
       "id": "create_issue_comment",
-      "tool_id": "22279a101e6504a9",
+      "tool_id": "52a800e06efdb207",
       "name": "create_issue_comment",
-      "description": "Use this to access or manage content. Create a new comment. Returns: author, body, created, id, jsdAuthorCanSeeRequest (Call get_issue_comment__your_domain_atlassian_net first to obtain created) (Call search_users first to obtain self) (Call get_project__your_domain_atlassian_net first to obtain properties) (Call get_issue_comment first to obtain created) (Call create_issue first to obtain self) (Call search_jql first to obtain id) (Call get_project first to obtain properties) (Call get_issue_transitions first to obtain id) (Call get_user first to obtain self) (Call get_issue first to obtain id)",
-      "endpoint_id": "7893c6fccd3e6342",
-      "signature_id": "22279a101e6504a9",
+      "description": "Use this to access or manage content. Create a new comment. Returns: author, body, created, id, jsdAuthorCanSeeRequest (Call get_project first to obtain properties) (Call get_issue_transitions first to obtain id) (Call get_issue first to obtain self) (Call get_project__your_domain_atlassian_net first to obtain properties) (Call get_user first to obtain self) (Call create_issue first to obtain self) (Call get_issue_comment__your_domain_atlassian_net first to obtain jsdPublic) (Call search_users first to obtain self) (Call get_issue_comment first to obtain self) (Call search_jql first to obtain self)",
+      "endpoint_id": "1d0a55d37b3b39a6",
+      "signature_id": "52a800e06efdb207",
       "method": "POST",
-      "path": "/rest/api/{id}/issue/{issueIdOrKey}/comment",
+      "path": "/issue/{issueIdOrKey}/comment",
       "host": "your-domain.atlassian.net",
       "input_schema": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
           "issueIdOrKey": {
             "type": "string"
           },
@@ -2150,6 +1959,9 @@
             "type": "string"
           },
           "created": {
+            "type": "string"
+          },
+          "id": {
             "type": "string"
           },
           "jsdAuthorCanSeeRequest": {
@@ -2289,47 +2101,36 @@
         "first_party_only"
       ],
       "depends_on": [
-        "get_issue_comment__your_domain_atlassian_net",
-        "search_users",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
-        "create_issue",
-        "search_jql",
         "get_project",
         "get_issue_transitions",
+        "get_issue",
+        "get_project__your_domain_atlassian_net",
         "get_user",
-        "get_issue"
+        "create_issue",
+        "get_issue_comment__your_domain_atlassian_net",
+        "search_users",
+        "get_issue_comment",
+        "search_jql"
       ],
       "enables": [
-        "get_issue_comment__your_domain_atlassian_net",
-        "search_users",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
         "create_issue",
-        "search_jql",
-        "get_project",
         "create_issue_transition",
-        "get_issue_transitions",
-        "get_user",
-        "get_issue"
+        "get_issue_comment__your_domain_atlassian_net"
       ]
     },
     {
       "id": "create_issue_transition",
-      "tool_id": "981c65ea0f9bdd0e",
+      "tool_id": "71c1ba05d017a51f",
       "name": "create_issue_transition",
-      "description": "Create a new transition (Call get_issue_comment__your_domain_atlassian_net first to obtain id) (Call create_issue_comment first to obtain id) (Call get_project__your_domain_atlassian_net first to obtain properties) (Call get_issue_comment first to obtain id) (Call create_issue first to obtain id) (Call search_jql first to obtain id) (Call get_project first to obtain properties) (Call get_issue_transitions first to obtain fields) (Call get_issue first to obtain id)",
-      "endpoint_id": "bf43394e02e928a5",
-      "signature_id": "981c65ea0f9bdd0e",
+      "description": "Create a new transition (Call get_project first to obtain properties) (Call get_issue_transitions first to obtain fields) (Call create_issue_comment first to obtain properties) (Call get_issue first to obtain fields) (Call get_project__your_domain_atlassian_net first to obtain properties) (Call create_issue first to obtain transition) (Call get_issue_comment__your_domain_atlassian_net first to obtain properties) (Call get_issue_comment first to obtain properties) (Call search_jql first to obtain fields)",
+      "endpoint_id": "bd1e0d8d70ad1f3e",
+      "signature_id": "71c1ba05d017a51f",
       "method": "POST",
-      "path": "/rest/api/{id}/issue/{issueIdOrKey}/transitions",
+      "path": "/issue/{issueIdOrKey}/transitions",
       "host": "your-domain.atlassian.net",
       "input_schema": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string"
-          },
           "issueIdOrKey": {
             "type": "string"
           },
@@ -2369,7 +2170,6 @@
         "required": [
           "fields",
           "historyMetadata",
-          "id",
           "issueIdOrKey",
           "properties",
           "transition",
@@ -2387,20 +2187,20 @@
         "first_party_only"
       ],
       "depends_on": [
-        "get_issue_comment__your_domain_atlassian_net",
-        "create_issue_comment",
-        "get_project__your_domain_atlassian_net",
-        "get_issue_comment",
-        "create_issue",
-        "search_jql",
         "get_project",
         "get_issue_transitions",
-        "get_issue"
+        "create_issue_comment",
+        "get_issue",
+        "get_project__your_domain_atlassian_net",
+        "create_issue",
+        "get_issue_comment__your_domain_atlassian_net",
+        "get_issue_comment",
+        "search_jql"
       ]
     }
   ],
-  "description": "Generated from capture cap_20260222_80414220",
-  "capture_id": "cap_20260222_80414220",
+  "description": "Generated from capture cap_20260222_87d01ace",
+  "capture_id": "cap_20260222_87d01ace",
   "scope": "first_party_only",
   "default_confirmation": "on_risk"
 }

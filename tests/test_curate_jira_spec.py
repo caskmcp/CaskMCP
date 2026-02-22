@@ -224,14 +224,33 @@ class TestPathMethodFiltering:
     """Test that curate() filters both paths AND methods correctly."""
 
     def test_curate_removes_non_allowlisted_paths(self):
-        """Paths like /rest/api/3/dashboard should be removed."""
+        """Paths like /dashboard should be removed (prefix stripped)."""
         mod = _load_jira_curate_spec()
 
         spec = json.loads(json.dumps(MOCK_JIRA_SPEC))
         result = mod.curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
 
+        # After curation, paths have /rest/api/3 prefix stripped
+        assert "/dashboard" not in result["paths"]
+        assert "/field" not in result["paths"]
+        # Full paths should also not appear (prefix absorbed into server URL)
         assert "/rest/api/3/dashboard" not in result["paths"]
-        assert "/rest/api/3/field" not in result["paths"]
+
+    def test_curate_strips_api_prefix_from_paths(self):
+        """Curated paths should have /rest/api/3 stripped (absorbed into server URL)."""
+        mod = _load_jira_curate_spec()
+
+        spec = json.loads(json.dumps(MOCK_JIRA_SPEC))
+        result = mod.curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
+
+        # All curated paths should NOT start with /rest/api/3
+        for path in result["paths"]:
+            assert not path.startswith("/rest/api/3"), f"Path still has prefix: {path}"
+
+        # Server URL should contain the prefix
+        assert any(
+            "/rest/api/3" in s.get("url", "") for s in result.get("servers", [])
+        ), "Server URL should contain /rest/api/3"
 
     def test_curate_filters_methods_on_multi_method_paths(self):
         """Only allowed methods should remain on each path."""
@@ -240,15 +259,14 @@ class TestPathMethodFiltering:
         spec = json.loads(json.dumps(MOCK_JIRA_SPEC))
         result = mod.curate(spec, raw_bytes=MOCK_RAW_BYTES, http_status=200, etag=None)
 
-        # /rest/api/3/issue/{issueIdOrKey} has GET, PUT, DELETE in mock
-        # but we only want GET
-        issue_path = result["paths"].get("/rest/api/3/issue/{issueIdOrKey}", {})
+        # Paths are now short (prefix stripped)
+        # /issue/{issueIdOrKey} has GET, PUT, DELETE in mock but we only want GET
+        issue_path = result["paths"].get("/issue/{issueIdOrKey}", {})
         assert "get" in issue_path, "GET should be allowed"
         assert "delete" not in issue_path, "DELETE should be filtered out"
 
-        # /rest/api/3/user has GET, POST, DELETE in mock
-        # but we only want GET
-        user_path = result["paths"].get("/rest/api/3/user", {})
+        # /user has GET, POST, DELETE in mock but we only want GET
+        user_path = result["paths"].get("/user", {})
         assert "get" in user_path, "GET should be allowed"
         assert "post" not in user_path, "POST /user (createUser) should be filtered out"
 

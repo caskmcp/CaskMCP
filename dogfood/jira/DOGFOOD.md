@@ -7,7 +7,7 @@ CaskMCP self-dogfood using a curated subset of the Jira Cloud Platform REST API.
 | File | Purpose |
 |------|---------|
 | `curate_spec.py` | Downloads + curates the Jira OpenAPI spec |
-| `jira-api-scoped.yaml` | Curated spec (~10 paths, ~14 operations) |
+| `jira-api-scoped.yaml` | Curated spec (10 paths, 12 operations) |
 | `toolpack.yaml` | Toolpack manifest |
 | `artifact/` | tools.json, policy.yaml, toolsets.yaml, baseline.json |
 | `lockfile/` | Pending and approved lockfiles |
@@ -24,27 +24,31 @@ CaskMCP self-dogfood using a curated subset of the Jira Cloud Platform REST API.
 
 ## Curated endpoints
 
+The `/rest/api/3` prefix is absorbed into the server URL so the compiler does
+not treat the bare `3` as a dynamic path parameter. Full URLs resolve to e.g.
+`https://your-domain.atlassian.net/rest/api/3/issue/{issueIdOrKey}`.
+
 ### Read-only (GET)
 
-| Path | Methods |
-|------|---------|
-| `/rest/api/3/issue/{issueIdOrKey}` | GET |
-| `/rest/api/3/search/jql` | GET |
-| `/rest/api/3/issue/{issueIdOrKey}/comment` | GET |
-| `/rest/api/3/issue/{issueIdOrKey}/comment/{id}` | GET |
-| `/rest/api/3/issue/{issueIdOrKey}/transitions` | GET |
-| `/rest/api/3/project` | GET |
-| `/rest/api/3/project/{projectIdOrKey}` | GET |
-| `/rest/api/3/users/search` | GET |
-| `/rest/api/3/user` | GET |
+| Tool path | Methods |
+|-----------|---------|
+| `/issue/{issueIdOrKey}` | GET |
+| `/search/jql` | GET |
+| `/issue/{issueIdOrKey}/comment` | GET |
+| `/issue/{issueIdOrKey}/comment/{id}` | GET |
+| `/issue/{issueIdOrKey}/transitions` | GET |
+| `/project` | GET |
+| `/project/{projectIdOrKey}` | GET |
+| `/users/search` | GET |
+| `/user` | GET |
 
 ### Write (behind confirmation)
 
-| Path | Methods |
-|------|---------|
-| `/rest/api/3/issue` | POST |
-| `/rest/api/3/issue/{issueIdOrKey}/comment` | POST |
-| `/rest/api/3/issue/{issueIdOrKey}/transitions` | POST |
+| Tool path | Methods |
+|-----------|---------|
+| `/issue` | POST |
+| `/issue/{issueIdOrKey}/comment` | POST |
+| `/issue/{issueIdOrKey}/transitions` | POST |
 
 ## Confirmation flow
 

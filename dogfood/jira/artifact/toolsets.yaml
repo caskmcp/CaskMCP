@@ -1,8 +1,8 @@
 version: 1.0.0
 schema_version: '1.0'
-generated_at: '2026-02-22T03:26:12.379202+00:00'
+generated_at: '2026-02-22T04:03:55.728143+00:00'
 source_manifest: The Jira Cloud platform REST API
-capture_id: cap_20260222_80414220
+capture_id: cap_20260222_87d01ace
 scope: first_party_only
 default_toolset: readonly
 toolsets:

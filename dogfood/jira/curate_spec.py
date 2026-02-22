@@ -27,8 +27,12 @@ import yaml
 # Jira Cloud Platform REST API spec URL (rolling, no pinned version)
 SPEC_URL = "https://developer.atlassian.com/cloud/jira/platform/swagger-v3.v3.json"
 
-# Allowed paths + methods. Dict maps path -> set of allowed HTTP methods.
-# Only these method+path combos survive curation.
+# API version prefix. Absorbed into server URL during curation so the compiler
+# does not treat the bare "3" as a dynamic path parameter.
+API_PREFIX = "/rest/api/3"
+
+# Allowed paths + methods. Dict maps FULL path (with prefix) -> set of allowed
+# HTTP methods. Only these method+path combos survive curation.
 ALLOWED_PATHS: dict[str, set[str]] = {
     # Read-only
     "/rest/api/3/issue/{issueIdOrKey}": {"get"},
@@ -104,7 +108,28 @@ def curate(
         if curated_item:
             curated_paths[path_key] = curated_item
 
-    spec["paths"] = curated_paths
+    # Rewrite paths: strip the /rest/api/3 prefix so the compiler does not
+    # treat the bare "3" as a dynamic {id} parameter.  The prefix is absorbed
+    # into the server URL instead.
+    short_paths: dict = {}
+    for full_path, path_item in curated_paths.items():
+        if full_path.startswith(API_PREFIX):
+            short = full_path[len(API_PREFIX):]
+            if not short:
+                short = "/"
+        else:
+            short = full_path
+        short_paths[short] = path_item
+
+    spec["paths"] = short_paths
+
+    # Update server URL to include the API prefix so the full URL is preserved
+    spec["servers"] = [
+        {
+            "url": "https://your-domain.atlassian.net" + API_PREFIX,
+            "description": "Jira Cloud REST API v3",
+        }
+    ]
 
     # Content-hash of raw bytes BEFORE JSON parsing
     content_sha256 = hashlib.sha256(raw_bytes).hexdigest()
@@ -120,7 +145,7 @@ def curate(
         "http_status": http_status,
         "etag": etag,
         "original_path_count": original_path_count,
-        "curated_path_count": len(curated_paths),
+        "curated_path_count": len(short_paths),
         "allowed_paths": sorted(ALLOWED_PATHS.keys()),
     }
 

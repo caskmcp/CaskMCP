@@ -1,24 +1,18 @@
 {
   "version": "1.0.0",
   "schema_version": "1.0",
-  "generated_at": "2026-02-22T03:26:12.379202+00:00",
+  "generated_at": "2026-02-22T04:03:55.728143+00:00",
   "endpoint_count": 12,
   "endpoints": [
     {
-      "stable_id": "c13dab101bd7bc98",
-      "signature_id": "f63a39bf663dd8dd",
+      "stable_id": "3d655fa0793f5a67",
+      "signature_id": "5af7d1833c77d88e",
       "tool_id": "get_issue",
       "tool_version": 1,
       "method": "GET",
-      "path": "/rest/api/{id}/issue/{issueIdOrKey}",
+      "path": "/issue/{issueIdOrKey}",
       "host": "your-domain.atlassian.net",
       "parameters": [
-        {
-          "name": "id",
-          "location": "path",
-          "type": "string",
-          "required": true
-        },
         {
           "name": "issueIdOrKey",
           "location": "path",
@@ -182,20 +176,14 @@
       "observation_count": 1
     },
     {
-      "stable_id": "9b9b4a233b933918",
-      "signature_id": "422df923b0e6089b",
+      "stable_id": "cd13d7d71988fe91",
+      "signature_id": "de4c133d5a01ae1c",
       "tool_id": "get_issue_comment",
       "tool_version": 1,
       "method": "GET",
-      "path": "/rest/api/{id}/issue/{issueIdOrKey}/comment",
+      "path": "/issue/{issueIdOrKey}/comment",
       "host": "your-domain.atlassian.net",
       "parameters": [
-        {
-          "name": "id",
-          "location": "path",
-          "type": "string",
-          "required": true
-        },
         {
           "name": "issueIdOrKey",
           "location": "path",
@@ -311,12 +299,12 @@
       "observation_count": 1
     },
     {
-      "stable_id": "3cbf4172dad28182",
-      "signature_id": "2003885e28279575",
+      "stable_id": "be713b35e2b84e1c",
+      "signature_id": "c445a7c4a19a2ef6",
       "tool_id": "get_issue_comment",
       "tool_version": 1,
       "method": "GET",
-      "path": "/rest/api/{id}/issue/{issueIdOrKey}/comment/{id}",
+      "path": "/issue/{issueIdOrKey}/comment/{id}",
       "host": "your-domain.atlassian.net",
       "parameters": [
         {
@@ -417,20 +405,14 @@
       "observation_count": 1
     },
     {
-      "stable_id": "460558f440a83490",
-      "signature_id": "99b97c9b62ad3fbe",
+      "stable_id": "1c822b4c562a17c6",
+      "signature_id": "1fd041cf89305574",
       "tool_id": "get_issue_transitions",
       "tool_version": 1,
       "method": "GET",
-      "path": "/rest/api/{id}/issue/{issueIdOrKey}/transitions",
+      "path": "/issue/{issueIdOrKey}/transitions",
       "host": "your-domain.atlassian.net",
       "parameters": [
-        {
-          "name": "id",
-          "location": "path",
-          "type": "string",
-          "required": true
-        },
         {
           "name": "issueIdOrKey",
           "location": "path",
@@ -520,21 +502,14 @@
       "observation_count": 1
     },
     {
-      "stable_id": "d5091b013de9895d",
-      "signature_id": "8e9680e022c5e208",
+      "stable_id": "28995d6de52c5b43",
+      "signature_id": "0cadd0d0b1a99c4b",
       "tool_id": "get_project",
       "tool_version": 1,
       "method": "GET",
-      "path": "/rest/api/{id}/project",
+      "path": "/project",
       "host": "your-domain.atlassian.net",
-      "parameters": [
-        {
-          "name": "id",
-          "location": "path",
-          "type": "string",
-          "required": true
-        }
-      ],
+      "parameters": [],
       "request_content_type": null,
       "request_schema": null,
       "response_status_codes": [
@@ -958,20 +933,14 @@
       "observation_count": 1
     },
     {
-      "stable_id": "eddf76d9b5961a4a",
-      "signature_id": "3134eb021d5d78d7",
+      "stable_id": "5cb8c51d67f15e9f",
+      "signature_id": "622a54704cb65f6c",
       "tool_id": "get_project",
       "tool_version": 1,
       "method": "GET",
-      "path": "/rest/api/{id}/project/{projectIdOrKey}",
+      "path": "/project/{projectIdOrKey}",
       "host": "your-domain.atlassian.net",
       "parameters": [
-        {
-          "name": "id",
-          "location": "path",
-          "type": "string",
-          "required": true
-        },
         {
           "name": "projectIdOrKey",
           "location": "path",
@@ -1399,21 +1368,14 @@
       "observation_count": 1
     },
     {
-      "stable_id": "33a5a64bc343df3b",
-      "signature_id": "6cb954eaff76738e",
+      "stable_id": "0a0bd24c79b8fa31",
+      "signature_id": "e10f8a0ca51e5205",
       "tool_id": "search_jql",
       "tool_version": 1,
       "method": "GET",
-      "path": "/rest/api/{id}/search/jql",
+      "path": "/search/jql",
       "host": "your-domain.atlassian.net",
-      "parameters": [
-        {
-          "name": "id",
-          "location": "path",
-          "type": "string",
-          "required": true
-        }
-      ],
+      "parameters": [],
       "request_content_type": null,
       "request_schema": null,
       "response_status_codes": [
@@ -1599,21 +1561,14 @@
       "observation_count": 1
     },
     {
-      "stable_id": "0414ca4fa2b6f9ad",
-      "signature_id": "d400a679c00790e2",
+      "stable_id": "725bd70fb52e00b7",
+      "signature_id": "68f758c8a929ced5",
       "tool_id": "get_user",
       "tool_version": 1,
       "method": "GET",
-      "path": "/rest/api/{id}/user",
+      "path": "/user",
       "host": "your-domain.atlassian.net",
-      "parameters": [
-        {
-          "name": "id",
-          "location": "path",
-          "type": "string",
-          "required": true
-        }
-      ],
+      "parameters": [],
       "request_content_type": null,
       "request_schema": null,
       "response_status_codes": [
@@ -1700,21 +1655,14 @@
       "observation_count": 1
     },
     {
-      "stable_id": "4d4f60d70e02de0c",
-      "signature_id": "2ec2f38616f5b6f2",
+      "stable_id": "6a6e2f6a5631cb22",
+      "signature_id": "d8cb2d1f89648b3c",
       "tool_id": "search_users",
       "tool_version": 1,
       "method": "GET",
-      "path": "/rest/api/{id}/users/search",
+      "path": "/users/search",
       "host": "your-domain.atlassian.net",
-      "parameters": [
-        {
-          "name": "id",
-          "location": "path",
-          "type": "string",
-          "required": true
-        }
-      ],
+      "parameters": [],
       "request_content_type": null,
       "request_schema": null,
       "response_status_codes": [
@@ -1804,21 +1752,14 @@
       "observation_count": 1
     },
     {
-      "stable_id": "75396bb31a9f62ec",
-      "signature_id": "68f343b2c97a0842",
+      "stable_id": "c422a2558f66d71e",
+      "signature_id": "6fcf1c3157da3bdf",
       "tool_id": "create_issue",
       "tool_version": 1,
       "method": "POST",
-      "path": "/rest/api/{id}/issue",
+      "path": "/issue",
       "host": "your-domain.atlassian.net",
-      "parameters": [
-        {
-          "name": "id",
-          "location": "path",
-          "type": "string",
-          "required": true
-        }
-      ],
+      "parameters": [],
       "request_content_type": null,
       "request_schema": {
         "type": "object",
@@ -1904,20 +1845,14 @@
       "observation_count": 1
     },
     {
-      "stable_id": "7893c6fccd3e6342",
-      "signature_id": "22279a101e6504a9",
+      "stable_id": "1d0a55d37b3b39a6",
+      "signature_id": "52a800e06efdb207",
       "tool_id": "create_issue_comment",
       "tool_version": 1,
       "method": "POST",
-      "path": "/rest/api/{id}/issue/{issueIdOrKey}/comment",
+      "path": "/issue/{issueIdOrKey}/comment",
       "host": "your-domain.atlassian.net",
       "parameters": [
-        {
-          "name": "id",
-          "location": "path",
-          "type": "string",
-          "required": true
-        },
         {
           "name": "issueIdOrKey",
           "location": "path",
@@ -2079,20 +2014,14 @@
       "observation_count": 1
     },
     {
-      "stable_id": "bf43394e02e928a5",
-      "signature_id": "981c65ea0f9bdd0e",
+      "stable_id": "bd1e0d8d70ad1f3e",
+      "signature_id": "71c1ba05d017a51f",
       "tool_id": "create_issue_transition",
       "tool_version": 1,
       "method": "POST",
-      "path": "/rest/api/{id}/issue/{issueIdOrKey}/transitions",
+      "path": "/issue/{issueIdOrKey}/transitions",
       "host": "your-domain.atlassian.net",
       "parameters": [
-        {
-          "name": "id",
-          "location": "path",
-          "type": "string",
-          "required": true
-        },
         {
           "name": "issueIdOrKey",
           "location": "path",
@@ -2159,7 +2088,7 @@
       "observation_count": 1
     }
   ],
-  "capture_id": "cap_20260222_80414220",
+  "capture_id": "cap_20260222_87d01ace",
   "scope": "first_party_only",
   "summary": {
     "host_count": 1,

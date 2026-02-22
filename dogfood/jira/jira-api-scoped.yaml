@@ -23507,11 +23507,11 @@ info:
   x-caskmcp-dogfood:
     content_sha256: be72eee9e1611d6a94321f3af4b41206a9872f0c37b51d55c0660a7ba9348af6
     download_url: https://developer.atlassian.com/cloud/jira/platform/swagger-v3.v3.json
-    downloaded_at: '2026-02-22T03:25:57.335689+00:00'
+    downloaded_at: '2026-02-22T04:03:24.057419+00:00'
     content_length: 2460229
     content_type: application/json
     http_status: 200
-    etag: '"d36cb2511b5ba3436573b54ae1fc910b"'
+    etag: null
     original_path_count: 418
     curated_path_count: 10
     allowed_paths:
@@ -23527,7 +23527,7 @@ info:
     - /rest/api/3/users/search
 openapi: 3.0.1
 paths:
-  /rest/api/3/issue:
+  /issue:
     post:
       deprecated: false
       description: "Creates an issue or, where the option to create subtasks is enabled\
@@ -23705,7 +23705,7 @@ paths:
         - read:issue:jira
         state: Beta
       x-atlassian-connect-scope: WRITE
-  /rest/api/3/issue/{issueIdOrKey}:
+  /issue/{issueIdOrKey}:
     get:
       deprecated: false
       description: "Returns the details for an issue.\n\nThe issue is identified by\
@@ -23857,7 +23857,7 @@ paths:
         - read:field-configuration:jira
         state: Beta
       x-atlassian-connect-scope: READ
-  /rest/api/3/issue/{issueIdOrKey}/comment:
+  /issue/{issueIdOrKey}/comment:
     get:
       deprecated: false
       description: "Returns all comments for an issue.\n\nThis operation can be accessed\
@@ -24049,7 +24049,7 @@ paths:
         - read:avatar:jira
         state: Beta
       x-atlassian-connect-scope: WRITE
-  /rest/api/3/issue/{issueIdOrKey}/comment/{id}:
+  /issue/{issueIdOrKey}/comment/{id}:
     get:
       deprecated: false
       description: "Returns a comment.\n\nThis operation can be accessed anonymously.\n\
@@ -24125,7 +24125,7 @@ paths:
         - read:avatar:jira
         state: Beta
       x-atlassian-connect-scope: READ
-  /rest/api/3/issue/{issueIdOrKey}/transitions:
+  /issue/{issueIdOrKey}/transitions:
     get:
       deprecated: false
       description: "Returns either all transitions or a transition that can be performed\
@@ -24343,7 +24343,7 @@ paths:
         - write:issue.property:jira
         state: Beta
       x-atlassian-connect-scope: WRITE
-  /rest/api/3/project:
+  /project:
     get:
       deprecated: true
       description: 'Returns all projects visible to the user. Deprecated, use [ Get
@@ -24436,7 +24436,7 @@ paths:
         effective: '2019-04-19'
         type: removed
       x-atlassian-connect-scope: READ
-  /rest/api/3/project/{projectIdOrKey}:
+  /project/{projectIdOrKey}:
     get:
       deprecated: false
       description: 'Returns the [project details](https://confluence.atlassian.com/x/ahLpNw)
@@ -24531,7 +24531,7 @@ paths:
         - read:project.component:jira
         state: Beta
       x-atlassian-connect-scope: READ
-  /rest/api/3/search/jql:
+  /search/jql:
     get:
       deprecated: false
       description: "Searches for issues using [JQL](https://confluence.atlassian.com/x/egORLQ).\
@@ -24707,7 +24707,7 @@ paths:
         - read:issue-meta:jira
         state: Beta
       x-atlassian-connect-scope: READ
-  /rest/api/3/user:
+  /user:
     get:
       deprecated: false
       description: 'Returns a user.
@@ -24794,7 +24794,7 @@ paths:
         - read:avatar:jira
         state: Beta
       x-atlassian-connect-scope: READ
-  /rest/api/3/users/search:
+  /users/search:
     get:
       deprecated: false
       description: 'Returns a list of all users, including active users, inactive
@@ -24868,7 +24868,8 @@ paths:
         state: Beta
       x-atlassian-connect-scope: INACCESSIBLE
 servers:
-- url: https://your-domain.atlassian.net
+- url: https://your-domain.atlassian.net/rest/api/3
+  description: Jira Cloud REST API v3
 tags:
 - description: This resource represents an announcement banner. Use it to retrieve
     and update banner configuration.
