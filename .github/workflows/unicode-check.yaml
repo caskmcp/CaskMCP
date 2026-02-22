@@ -1,0 +1,117 @@
+name: Unicode / Trojan Source Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  bidi-scan:
+    name: Bidi character scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for bidi/trojan-source characters
+        shell: python3 {0}
+        run: |
+          """Scan text files for bidi control characters and Unicode confusables.
+
+          Detects:
+            - Bidi control chars used in trojan-source attacks
+            - Zero-width and invisible formatting chars
+            - Invisible whitespace variants (NBSP, line/paragraph separators)
+            - Confusable characters (soft hyphen, combining grapheme joiner)
+
+          Output: file path, codepoint(s) found, byte offset.
+          Exit code: 0 = clean, 1 = findings.
+          """
+          import os
+          import sys
+          from pathlib import Path
+
+          # Characters to detect
+          DANGEROUS_CODEPOINTS: dict[int, str] = {
+              # Bidi control characters (trojan-source attack vectors)
+              0x061C: "ARABIC LETTER MARK",
+              0x200B: "ZERO WIDTH SPACE",
+              0x200C: "ZERO WIDTH NON-JOINER",
+              0x200D: "ZERO WIDTH JOINER",
+              0x200E: "LEFT-TO-RIGHT MARK",
+              0x200F: "RIGHT-TO-LEFT MARK",
+              0x202A: "LEFT-TO-RIGHT EMBEDDING",
+              0x202B: "RIGHT-TO-LEFT EMBEDDING",
+              0x202C: "POP DIRECTIONAL FORMATTING",
+              0x202D: "LEFT-TO-RIGHT OVERRIDE",
+              0x202E: "RIGHT-TO-LEFT OVERRIDE",
+              0x2066: "LEFT-TO-RIGHT ISOLATE",
+              0x2067: "RIGHT-TO-LEFT ISOLATE",
+              0x2068: "FIRST STRONG ISOLATE",
+              0x2069: "POP DIRECTIONAL ISOLATE",
+              0xFEFF: "ZERO WIDTH NO-BREAK SPACE (BOM)",
+              # Invisible whitespace variants (GitHub also flags these)
+              0x00A0: "NO-BREAK SPACE",
+              0x2028: "LINE SEPARATOR",
+              0x2029: "PARAGRAPH SEPARATOR",
+              0x202F: "NARROW NO-BREAK SPACE",
+              # Confusable characters
+              0x00AD: "SOFT HYPHEN",
+              0x034F: "COMBINING GRAPHEME JOINER",
+          }
+
+          EXTENSIONS = {".py", ".yaml", ".yml", ".md", ".json", ".toml", ".txt", ".cfg", ".ini", ".sh"}
+
+          findings: list[str] = []
+
+
+          def scan_file(path: Path) -> None:
+              try:
+                  raw = path.read_bytes()
+              except (OSError, PermissionError):
+                  return
+
+              for byte_offset, byte_val in enumerate(raw):
+                  # Quick skip: most ASCII bytes are fine
+                  if byte_val < 0x80:
+                      continue
+
+                  # We need to decode the UTF-8 sequence at this position to check
+                  # the codepoint. Try decoding 1-4 bytes starting here.
+                  for length in (2, 3, 4):
+                      chunk = raw[byte_offset : byte_offset + length]
+                      try:
+                          char = chunk.decode("utf-8")
+                      except (UnicodeDecodeError, IndexError):
+                          continue
+                      if len(char) == 1:
+                          cp = ord(char)
+                          if cp in DANGEROUS_CODEPOINTS:
+                              findings.append(
+                                  f"{path}  U+{cp:04X} ({DANGEROUS_CODEPOINTS[cp]})  byte_offset={byte_offset}"
+                              )
+                          break
+
+
+          # Walk the repo
+          repo_root = Path(".")
+          for dirpath, dirnames, filenames in os.walk(repo_root):
+              # Skip hidden dirs and common non-source dirs
+              dirnames[:] = [
+                  d
+                  for d in dirnames
+                  if not d.startswith(".")
+                  and d not in ("node_modules", "__pycache__", ".git", "venv", ".venv", "dist", "build")
+              ]
+              for fname in filenames:
+                  fpath = Path(dirpath) / fname
+                  if fpath.suffix in EXTENSIONS:
+                      scan_file(fpath)
+
+          if findings:
+              print(f"::error::{len(findings)} dangerous Unicode character(s) found:")
+              for f in findings:
+                  print(f"  {f}")
+              sys.exit(1)
+          else:
+              print("No dangerous Unicode characters found.")
+              sys.exit(0)

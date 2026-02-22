@@ -1,0 +1,90 @@
+name: Spec Watch
+
+on:
+  schedule:
+    # Weekly Monday 08:00 UTC
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  check-github-spec:
+    name: Check GitHub API spec for upstream changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Run spec drift check
+        id: check
+        run: |
+          set +e
+          python3 dogfood/github/curate_spec.py --check --refresh 2>&1
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload drift artifacts
+        if: steps.check.outputs.exit_code == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: spec-drift-github
+          path: |
+            dogfood/github/spec-drift.diff
+            dogfood/github/spec-drift-summary.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Create or update issue on drift
+        if: steps.check.outputs.exit_code == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          ISSUE_TITLE="Spec watch: GitHub API"
+
+          # Search for existing open issue
+          EXISTING=$(gh issue list --search "$ISSUE_TITLE" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
+            # Add comment to existing issue
+            gh issue comment "$EXISTING" --body "$(cat <<EOF
+          Upstream spec drift detected again.
+
+          **Workflow run:** $RUN_URL
+
+          Download the \`spec-drift-github\` artifact from the run for the full diff and summary.
+          EOF
+          )"
+            echo "Updated existing issue #$EXISTING"
+          else
+            # Create new issue
+            gh issue create \
+              --title "$ISSUE_TITLE" \
+              --body "$(cat <<EOF
+          The weekly spec watch detected changes in the upstream GitHub REST API OpenAPI spec.
+
+          **Workflow run:** $RUN_URL
+
+          ## What to do
+
+          1. Download the \`spec-drift-github\` artifact from the workflow run
+          2. Review \`spec-drift.diff\` and \`spec-drift-summary.json\`
+          3. If the changes affect curated endpoints, re-run \`python3 dogfood/github/curate_spec.py --refresh\`
+          4. Update the pinned SHA in \`curate_spec.py\` if adopting the new spec version
+          5. Re-run the full governance pipeline: compile, gate sync, approve, snapshot
+
+          _This issue was created automatically by the spec-watch workflow._
+          EOF
+          )"
+            echo "Created new issue"
+          fi

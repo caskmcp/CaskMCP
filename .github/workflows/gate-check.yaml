@@ -8,6 +8,7 @@ on:
       - 'caskmcp/mcp/**'
       - 'caskmcp/cli/**'
       - 'dogfood/github/**'
+      - 'dogfood/jira/**'
   workflow_dispatch:
 
 permissions:
@@ -21,8 +22,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run CaskMCP gate
+      - name: Run CaskMCP gate (GitHub)
         uses: ./.github/actions/caskmcp-gate
         with:
           toolpack: dogfood/github/toolpack.yaml
           lockfile: dogfood/github/lockfile/caskmcp.lock.yaml
+
+  gate-jira:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run CaskMCP gate (Jira)
+        uses: ./.github/actions/caskmcp-gate
+        with:
+          toolpack: dogfood/jira/toolpack.yaml
+          lockfile: dogfood/jira/lockfile/caskmcp.lock.yaml
